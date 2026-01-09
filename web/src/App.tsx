@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { type ChangeEvent, useMemo, useState } from 'react';
 import './App.css';
 
 const sampleColumn = `78055
@@ -48,8 +48,22 @@ const detectDecimalSeparator = (input: string): '.' | ',' | null => {
   return sepChar;
 };
 
-const parseColumn = (text: string): ParsedRow[] =>
-  text.split(/\r?\n/).map((line) => {
+const sanitizeInputText = (text: string) => {
+  const lines = text.split(/\r?\n/);
+  let lastIndex = lines.length - 1;
+  while (lastIndex >= 0 && lines[lastIndex].trim() === '') {
+    lastIndex -= 1;
+  }
+  return lines.slice(0, lastIndex + 1).join('\n');
+};
+
+const parseColumn = (text: string): ParsedRow[] => {
+  const sanitized = sanitizeInputText(text);
+  if (!sanitized) {
+    return [];
+  }
+
+  return sanitized.split(/\r?\n/).map((line) => {
     const trimmed = line.trim();
     if (!trimmed) {
       return {
@@ -118,6 +132,7 @@ const parseColumn = (text: string): ParsedRow[] =>
       suffix,
     };
   });
+};
 
 const sumValues = (values: number[]) => values.reduce((acc, value) => acc + value, 0);
 
@@ -227,6 +242,16 @@ function App() {
     }
   };
 
+  const handleInputChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    const { value } = event.target;
+    const inputType = (event.nativeEvent as InputEvent | undefined)?.inputType;
+    if (inputType === 'insertFromPaste') {
+      setRawInput(sanitizeInputText(value));
+      return;
+    }
+    setRawInput(value);
+  };
+
   const desiredLabel = isTargetMode ? 'Добавка' : 'Конечная сумма';
   const desiredInputValue = isTargetMode ? additionValue : targetSum;
   const onDesiredChange = (next: number) => {
@@ -321,7 +346,7 @@ function App() {
             className="paste-area"
             value={rawInput}
             placeholder="Вставьте числа..."
-            onChange={(event) => setRawInput(event.target.value)}
+            onChange={handleInputChange}
             spellCheck={false}
           />
         </section>
