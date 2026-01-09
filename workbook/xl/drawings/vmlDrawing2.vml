@@ -1,0 +1,82 @@
+<xml xmlns:v="urn:schemas-microsoft-com:vml"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel">
+ <o:shapelayout v:ext="edit">
+  <o:idmap v:ext="edit" data="2"/>
+ </o:shapelayout><v:shapetype id="_x0000_t202" coordsize="21600,21600" o:spt="202"
+  path="m,l,21600r21600,l21600,xe">
+  <v:stroke joinstyle="miter"/>
+  <v:path gradientshapeok="t" o:connecttype="rect"/>
+ </v:shapetype><v:shape id="_x0000_s2052" type="#_x0000_t202" style='position:absolute;
+  margin-left:530.25pt;margin-top:39pt;width:128.25pt;height:33pt;z-index:1;
+  visibility:hidden' fillcolor="infoBackground [80]" strokecolor="none [81]">
+  <v:fill color2="infoBackground [80]"/>
+  <v:shadow on="t" color="none [81]" obscured="t"/>
+  <v:path o:connecttype="none"/>
+  <v:textbox>
+   <div style='text-align:left'></div>
+  </v:textbox>
+  <x:ClientData ObjectType="Note">
+   <x:MoveWithCells/>
+   <x:SizeWithCells/>
+   <x:Anchor>
+    15, 15, 2, 10, 19, 15, 4, 4</x:Anchor>
+   <x:AutoFill>False</x:AutoFill>
+   <x:Row>1</x:Row>
+   <x:Column>14</x:Column>
+  </x:ClientData>
+ </v:shape><v:shape id="_x0000_s2051" type="#_x0000_t202" style='position:absolute;
+  margin-left:607.5pt;margin-top:39pt;width:187.5pt;height:33pt;z-index:2;
+  visibility:hidden' fillcolor="infoBackground [80]" strokecolor="none [81]">
+  <v:fill color2="infoBackground [80]"/>
+  <v:shadow on="t" color="none [81]" obscured="t"/>
+  <v:path o:connecttype="none"/>
+  <v:textbox>
+   <div style='text-align:left'></div>
+  </v:textbox>
+  <x:ClientData ObjectType="Note">
+   <x:MoveWithCells/>
+   <x:SizeWithCells/>
+   <x:Anchor>
+    17, 15, 2, 10, 21, 15, 4, 4</x:Anchor>
+   <x:AutoFill>False</x:AutoFill>
+   <x:Row>1</x:Row>
+   <x:Column>16</x:Column>
+  </x:ClientData>
+ </v:shape><v:shape id="_x0000_s2050" type="#_x0000_t202" style='position:absolute;
+  margin-left:530.25pt;margin-top:57.75pt;width:128.25pt;height:33pt;z-index:3;
+  visibility:hidden' fillcolor="infoBackground [80]" strokecolor="none [81]">
+  <v:fill color2="infoBackground [80]"/>
+  <v:shadow on="t" color="none [81]" obscured="t"/>
+  <v:path o:connecttype="none"/>
+  <v:textbox>
+   <div style='text-align:left'></div>
+  </v:textbox>
+  <x:ClientData ObjectType="Note">
+   <x:MoveWithCells/>
+   <x:SizeWithCells/>
+   <x:Anchor>
+    15, 15, 3, 10, 19, 15, 5, 4</x:Anchor>
+   <x:AutoFill>False</x:AutoFill>
+   <x:Row>2</x:Row>
+   <x:Column>14</x:Column>
+  </x:ClientData>
+ </v:shape><v:shape id="_x0000_s2049" type="#_x0000_t202" style='position:absolute;
+  margin-left:607.5pt;margin-top:57.75pt;width:187.5pt;height:33pt;z-index:4;
+  visibility:hidden' fillcolor="infoBackground [80]" strokecolor="none [81]">
+  <v:fill color2="infoBackground [80]"/>
+  <v:shadow on="t" color="none [81]" obscured="t"/>
+  <v:path o:connecttype="none"/>
+  <v:textbox>
+   <div style='text-align:left'></div>
+  </v:textbox>
+  <x:ClientData ObjectType="Note">
+   <x:MoveWithCells/>
+   <x:SizeWithCells/>
+   <x:Anchor>
+    17, 15, 3, 10, 21, 15, 5, 4</x:Anchor>
+   <x:AutoFill>False</x:AutoFill>
+   <x:Row>2</x:Row>
+   <x:Column>16</x:Column>
+  </x:ClientData>
+ </v:shape></xml>
