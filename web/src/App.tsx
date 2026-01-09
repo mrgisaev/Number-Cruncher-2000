@@ -271,7 +271,7 @@ function App() {
         <section className="card">
           <header className="card-header">
             <div className="card-header-top">
-              <h2>Вставь столбец</h2>
+              <h2>Ввод данных</h2>
               <button
                 type="button"
                 onClick={() => setRawInput('')}
@@ -300,7 +300,7 @@ function App() {
             <div className="card-header-top">
               <h2>Результат</h2>
               <button type="button" onClick={handleCopy} disabled={!numericValues.length}>
-                {copyState === 'copied' ? 'Скопировано!' : 'Скопировать столбец'}
+                {copyState === 'copied' ? 'Скопировано!' : 'Скопировать'}
               </button>
             </div>
             <p>Все числа пропорционально подогнаны под новую сумму.</p>
