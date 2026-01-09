@@ -155,7 +155,7 @@ const enforceRounding = (values: number[], desiredSum: number, decimals: number)
 };
 
 const formatRowValue = (value: number, decimals: number) => {
-  const digits = Math.max(decimals, 2);
+  const digits = decimals === 0 ? 0 : Math.max(decimals, 2);
   const sign = value < 0 ? '-' : '';
   const fixed = Math.abs(value).toFixed(digits);
   const [integerPartRaw, fractionPart] = fixed.split('.');
@@ -239,21 +239,14 @@ function App() {
 
   return (
     <div className="page">
-      <header className="hero">
-        <div>
-          <h1>Подбиватель цифр 2000</h1>
-          <p className="hero-tagline">Одна колонка для вставки, одна — для красивого результата.</p>
-          <p className="hero-copy">
-            Вставь числа из Excel, скажи, что нужно получить на выходе, и забери готовый столбец c
-            подправленными значениями. Никаких формул и лишних кликов.
-          </p>
-        </div>
-      </header>
 
       <section className="controls-wrapper">
         <div className="controls">
           <div className="controls-heading">
-            <h2 className="controls-heading-title">Окно настройки</h2>
+            <h1 className="controls-heading-title">Подбиватель цифр 2026</h1>
+            <p className="controls-subtitle">
+              Одна колонка для ваших данных, вторая для красивого результата.
+            </p>
             <p>Задайте режим и параметры распределения перед тем, как копировать результат.</p>
           </div>
           <div className="split-control">
