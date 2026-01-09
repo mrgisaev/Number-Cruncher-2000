@@ -19,6 +19,8 @@ interface ParsedRow {
   value: number | null;
   decimalSeparator: '.' | ',' | null;
   groupSeparator: string | null;
+  prefix: string;
+  suffix: string;
 }
 
 const detectDecimalSeparator = (input: string): '.' | ',' | null => {
@@ -50,20 +52,50 @@ const parseColumn = (text: string): ParsedRow[] =>
   text.split(/\r?\n/).map((line) => {
     const trimmed = line.trim();
     if (!trimmed) {
-      return { raw: line, value: null, decimalSeparator: null, groupSeparator: null };
+      return {
+        raw: '',
+        value: null,
+        decimalSeparator: null,
+        groupSeparator: null,
+        prefix: '',
+        suffix: '',
+      };
     }
 
-    const signMatch = trimmed.match(/^[-+]/);
-    const sign = signMatch ? signMatch[0] : '';
-    const unsigned = sign ? trimmed.slice(1) : trimmed;
-    const decimalSeparator = detectDecimalSeparator(unsigned);
+    const numericMatch = trimmed.match(/[+-]?\d[\d\s.,]*/);
+    if (!numericMatch) {
+      return {
+        raw: trimmed,
+        value: null,
+        decimalSeparator: null,
+        groupSeparator: null,
+        prefix: '',
+        suffix: '',
+      };
+    }
 
-    let integerPartRaw = unsigned;
+    const matchStart = numericMatch.index ?? 0;
+    const matchValue = numericMatch[0];
+    const prefix = trimmed.slice(0, matchStart);
+    const suffix = trimmed.slice(matchStart + matchValue.length);
+
+    const sign = matchValue.trim().startsWith('-')
+      ? '-'
+      : matchValue.trim().startsWith('+')
+        ? '+'
+        : '';
+    const unsignedNumeric = sign
+      ? matchValue.trim().slice(1)
+      : matchValue.trim();
+
+    const decimalSeparator = detectDecimalSeparator(unsignedNumeric);
+
+    let integerPartRaw = unsignedNumeric;
     let fractionalPartRaw = '';
     if (decimalSeparator) {
-      const idx = unsigned.lastIndexOf(decimalSeparator);
-      integerPartRaw = unsigned.slice(0, idx);
-      fractionalPartRaw = unsigned.slice(idx + 1);
+      const idx = unsignedNumeric.lastIndexOf(decimalSeparator);
+      integerPartRaw = unsignedNumeric.slice(0, idx);
+      fractionalPartRaw = unsignedNumeric.slice(idx + 1);
     }
 
     const groupMatches = integerPartRaw.match(/[^0-9]/g);
@@ -78,10 +110,12 @@ const parseColumn = (text: string): ParsedRow[] =>
 
     const numeric = Number.parseFloat(normalized);
     return {
-      raw: line,
+      raw: trimmed,
       value: Number.isFinite(numeric) ? numeric : null,
       decimalSeparator,
       groupSeparator,
+      prefix,
+      suffix,
     };
   });
 
@@ -167,11 +201,15 @@ function App() {
     let pointer = 0;
     return parsedRows.map((row) => {
       if (row.value === null) {
-        return '';
+        return row.raw || '';
       }
       const next = adjustedValues[pointer];
       pointer += 1;
-      return typeof next === 'number' ? formatRowValue(next, decimals) : '';
+      if (typeof next !== 'number') {
+        return row.raw || '';
+      }
+      const formatted = formatRowValue(next, decimals);
+      return `${row.prefix || ''}${formatted}${row.suffix || ''}`;
     });
   })();
   const resultText = formattedValues.join('\n');
