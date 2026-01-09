@@ -98,38 +98,26 @@
 }
 
 .split-control {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  width: 100%;
+}
+
+.stacked-field-column {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.split-control .number-field {
-  min-width: 140px;
-}
-
-.control-stats {
-  margin-left: auto;
-  display: flex;
-  gap: 18px;
-}
-
-.control-stats div {
+.stacked-field {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  text-align: right;
+  gap: 8px;
 }
 
-.control-stats .label {
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #c7a3b0;
-}
-
-.control-stats strong {
-  font-size: 1.2rem;
-  color: #4b4253;
+.split-control .number-field {
+  min-width: 140px;
 }
 
 .summary-inline {

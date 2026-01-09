@@ -151,7 +151,7 @@ function App() {
   const baseSum = useMemo(() => sumValues(numericValues), [numericValues]);
 
   const decimals = useFractions ? Math.min(Math.max(fractionDigits, 0), 6) : 0;
-  const desiredSumRaw = isTargetMode ? targetSum : baseSum + additionValue;
+  const desiredSumRaw = isTargetMode ? baseSum + additionValue : targetSum;
   const desiredSum = decimals === 0 ? Math.round(desiredSumRaw) : desiredSumRaw;
 
   const scaledValues = useMemo(
@@ -189,13 +189,13 @@ function App() {
     }
   };
 
-  const desiredLabel = isTargetMode ? 'Конечная сумма' : 'Добавка';
-  const desiredInputValue = isTargetMode ? targetSum : additionValue;
+  const desiredLabel = isTargetMode ? 'Добавка' : 'Конечная сумма';
+  const desiredInputValue = isTargetMode ? additionValue : targetSum;
   const onDesiredChange = (next: number) => {
     if (isTargetMode) {
-      setTargetSum(next);
-    } else {
       setAdditionValue(next);
+    } else {
+      setTargetSum(next);
     }
   };
 
@@ -218,56 +218,52 @@ function App() {
             <h2 className="controls-heading-title">Окно настройки</h2>
             <p>Задайте режим и параметры распределения перед тем, как копировать результат.</p>
           </div>
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={isTargetMode}
-              onChange={(event) => setIsTargetMode(event.target.checked)}
-            />
-            Прибавлять?
-          </label>
-
-          <label className="number-field">
-            <span>{desiredLabel}</span>
-            <input
-              type="number"
-              value={Number.isFinite(desiredInputValue) ? desiredInputValue : ''}
-              onChange={(event) => onDesiredChange(Number(event.target.value) || 0)}
-            />
-          </label>
-
           <div className="split-control">
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={useFractions}
-                onChange={(event) => setUseFractions(event.target.checked)}
-              />
-              Выводить дробные значения
-            </label>
-            <label className="number-field">
-              <span>Знаков после запятой</span>
-              <input
-                type="number"
-                min={0}
-                max={6}
-                value={fractionDigits}
-                disabled={!useFractions}
-                onChange={(event) => setFractionDigits(Math.max(0, Number(event.target.value) || 0))}
-              />
-            </label>
+            <div className="stacked-field-column">
+              <div className="stacked-field">
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={isTargetMode}
+                    onChange={(event) => setIsTargetMode(event.target.checked)}
+                  />
+                  Прибавлять?
+                </label>
+                <label className="number-field">
+                  <span>{desiredLabel}</span>
+                  <input
+                    type="number"
+                    value={Number.isFinite(desiredInputValue) ? desiredInputValue : ''}
+                    onChange={(event) => onDesiredChange(Number(event.target.value) || 0)}
+                  />
+                </label>
+              </div>
+            </div>
+            <div className="stacked-field-column">
+              <div className="stacked-field">
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={useFractions}
+                    onChange={(event) => setUseFractions(event.target.checked)}
+                  />
+                  Выводить дробные значения
+                </label>
+                <label className="number-field">
+                  <span>Знаков после запятой</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={6}
+                    value={fractionDigits}
+                    disabled={!useFractions}
+                    onChange={(event) => setFractionDigits(Math.max(0, Number(event.target.value) || 0))}
+                  />
+                </label>
+              </div>
+            </div>
           </div>
 
-          <div className="control-stats">
-            <div>
-              <span className="label">Цель</span>
-              <strong>{numberFormatter.format(desiredSum)}</strong>
-            </div>
-            <div>
-              <span className="label">Сумма результата</span>
-              <strong>{numberFormatter.format(adjustedSum)}</strong>
-            </div>
-          </div>
         </div>
       </section>
 
