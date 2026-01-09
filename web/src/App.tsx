@@ -270,10 +270,17 @@ function App() {
       <main className="grid">
         <section className="card">
           <header className="card-header">
-            <div>
+            <div className="card-header-top">
               <h2>Вставь столбец</h2>
-              <p>Скопируй значения в Excel и вставь сюда через Ctrl+V — мы всё распознаем.</p>
+              <button
+                type="button"
+                onClick={() => setRawInput('')}
+                disabled={rawInput.trim().length === 0}
+              >
+                Очистить поле
+              </button>
             </div>
+            <p>Скопируй значения в Excel и вставь сюда через Ctrl+V.</p>
           </header>
           <div className="result-summary summary-inline">
             <span>Сумма исходных значений</span>
@@ -286,27 +293,17 @@ function App() {
             onChange={(event) => setRawInput(event.target.value)}
             spellCheck={false}
           />
-          <footer className="card-footer">
-            <span>
-              Строк: {parsedRows.length} / чисел: {numericValues.length}
-            </span>
-            {numericValues.length > 0 && (
-              <span>
-                Сумма: <strong>{numberFormatter.format(baseSum)}</strong>
-              </span>
-            )}
-          </footer>
         </section>
 
         <section className="card results-card">
           <header className="card-header">
-            <div>
+            <div className="card-header-top">
               <h2>Результат</h2>
-              <p>Все числа пропорционально подогнаны под новую сумму.</p>
+              <button type="button" onClick={handleCopy} disabled={!numericValues.length}>
+                {copyState === 'copied' ? 'Скопировано!' : 'Скопировать столбец'}
+              </button>
             </div>
-            <button type="button" onClick={handleCopy} disabled={!numericValues.length}>
-              {copyState === 'copied' ? 'Скопировано!' : 'Скопировать столбец'}
-            </button>
+            <p>Все числа пропорционально подогнаны под новую сумму.</p>
           </header>
 
           <div className="result-summary">
