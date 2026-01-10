@@ -278,159 +278,179 @@ function App() {
 
   return (
     <div className="page">
-
-      <section className="controls-wrapper">
-        <div className="controls">
-          <div className="controls-heading">
-            <h1 className="controls-heading-title">Number Cruncher 2026</h1>
-            <p className="controls-subtitle">
-              One column for your data, the other for a polished result. Pick the distribution mode and settings before copying the result.
-            </p>
-          </div>
-          <div className="split-control">
-            <div className="stacked-field-column">
-              <div className="stacked-field">
-                <div className="number-field number-field-mode">
-                  <label className="number-field-label" htmlFor={additionInputId}>
-                    {desiredLabel}
-                  </label>
-                  <div className="number-field-input-wrapper input-with-toggle addition-toggle">
-                    <div className="mode-toggle mode-toggle-inline" role="group" aria-label="Sum mode toggle">
-                      <button
-                        type="button"
-                        className={`mode-toggle-button${isTargetMode ? ' active' : ''}`}
-                        aria-pressed={isTargetMode}
-                        onClick={() => handleModeToggle(true)}
-                        title="Distribute to a working value"
-                      >
-                        +
-                      </button>
-                      <button
-                        type="button"
-                        className={`mode-toggle-button${!isTargetMode ? ' active' : ''}`}
-                        aria-pressed={!isTargetMode}
-                        onClick={() => handleModeToggle(false)}
-                        title="Aim for a target sum"
-                      >
-                        =
-                      </button>
+      <div className="page-body">
+        <aside className="card menu-card layout-menu">
+          <header className="card-header">
+            <div className="card-header-top">
+              <h2>Tools</h2>
+            </div>
+            <p>Quick links to the other calculators from the suite.</p>
+          </header>
+          <nav>
+            <ul className="tool-links">
+              <li>
+                <a href="https://number-cruncher.org" target="_blank" rel="noreferrer">
+                  Number Cruncher 2026
+                </a>
+                <span>Current tool</span>
+              </li>
+            </ul>
+          </nav>
+        </aside>
+        <div className="page-content">
+          <section className="controls-wrapper">
+            <div className="controls">
+              <div className="controls-heading">
+                <h1 className="controls-heading-title">Number Cruncher 2026</h1>
+                <p className="controls-subtitle">
+                  One column for your data, the other for a polished result. Pick the distribution mode and settings before copying the result.
+                </p>
+              </div>
+              <div className="split-control">
+                <div className="stacked-field-column">
+                  <div className="stacked-field">
+                    <div className="number-field number-field-mode">
+                      <label className="number-field-label" htmlFor={additionInputId}>
+                        {desiredLabel}
+                      </label>
+                      <div className="number-field-input-wrapper input-with-toggle addition-toggle">
+                        <div className="mode-toggle mode-toggle-inline" role="group" aria-label="Sum mode toggle">
+                          <button
+                            type="button"
+                            className={`mode-toggle-button${isTargetMode ? ' active' : ''}`}
+                            aria-pressed={isTargetMode}
+                            onClick={() => handleModeToggle(true)}
+                            title="Distribute to a working value"
+                          >
+                            +
+                          </button>
+                          <button
+                            type="button"
+                            className={`mode-toggle-button${!isTargetMode ? ' active' : ''}`}
+                            aria-pressed={!isTargetMode}
+                            onClick={() => handleModeToggle(false)}
+                            title="Aim for a target sum"
+                          >
+                            =
+                          </button>
+                        </div>
+                        <input
+                          id={additionInputId}
+                          type="number"
+                          value={Number.isFinite(desiredInputValue) ? desiredInputValue : ''}
+                          onChange={(event) => onDesiredChange(Number(event.target.value) || 0)}
+                        />
+                      </div>
                     </div>
-                    <input
-                      id={additionInputId}
-                      type="number"
-                      value={Number.isFinite(desiredInputValue) ? desiredInputValue : ''}
-                      onChange={(event) => onDesiredChange(Number(event.target.value) || 0)}
-                    />
+                  </div>
+                </div>
+                <div className="stacked-field-column">
+                  <div className="stacked-field">
+                    <div className="number-field number-field-mode">
+                      <label className="number-field-label" htmlFor={digitsInputId}>
+                        Decimal places
+                      </label>
+                      <div className="number-field-input-wrapper input-with-toggle digits-toggle">
+                        <div className="mode-toggle mode-toggle-inline" role="group" aria-label="Decimal control">
+                          <button
+                            type="button"
+                            className="mode-toggle-button"
+                            onClick={() => changeFractionDigits(-1)}
+                            disabled={fractionDigits <= 0}
+                            title="Decrease decimal places"
+                          >
+                            -0.0
+                          </button>
+                          <button
+                            type="button"
+                            className="mode-toggle-button"
+                            onClick={() => changeFractionDigits(1)}
+                            disabled={fractionDigits >= 6}
+                            title="Increase decimal places"
+                          >
+                            +0.00
+                          </button>
+                        </div>
+                        <input
+                          id={digitsInputId}
+                          type="number"
+                          min={0}
+                          max={6}
+                          value={fractionDigits}
+                          onChange={(event) =>
+                            setFractionDigits(Math.min(6, Math.max(0, Number(event.target.value) || 0)))
+                          }
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-            <div className="stacked-field-column">
-              <div className="stacked-field">
-                <div className="number-field number-field-mode">
-                  <label className="number-field-label" htmlFor={digitsInputId}>
-                    Decimal places
-                  </label>
-                  <div className="number-field-input-wrapper input-with-toggle digits-toggle">
-                    <div className="mode-toggle mode-toggle-inline" role="group" aria-label="Decimal control">
-                      <button
-                        type="button"
-                        className="mode-toggle-button"
-                        onClick={() => changeFractionDigits(-1)}
-                        disabled={fractionDigits <= 0}
-                        title="Decrease decimal places"
-                      >
-                        -0.0
-                      </button>
-                      <button
-                        type="button"
-                        className="mode-toggle-button"
-                        onClick={() => changeFractionDigits(1)}
-                        disabled={fractionDigits >= 6}
-                        title="Increase decimal places"
-                      >
-                        +0.00
-                      </button>
-                    </div>
-                    <input
-                      id={digitsInputId}
-                      type="number"
-                      min={0}
-                      max={6}
-                      value={fractionDigits}
-                      onChange={(event) =>
-                        setFractionDigits(Math.min(6, Math.max(0, Number(event.target.value) || 0)))
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
 
+            </div>
+          </section>
+          <main className="grid">
+            <section className="card">
+              <header className="card-header">
+                <div className="card-header-top">
+                  <h2>Input data</h2>
+                  <button
+                    type="button"
+                    onClick={() => setRawInput('')}
+                    disabled={rawInput.trim().length === 0}
+                  >
+                    Clear field
+                  </button>
+                </div>
+                <p>Copy values in Excel and paste them here with Ctrl+V.</p>
+              </header>
+              <div className="result-summary summary-inline">
+                <span>Sum of input values</span>
+                <strong>{numberFormatter.format(baseSum)}</strong>
+              </div>
+              <textarea
+                className="paste-area"
+                value={rawInput}
+                placeholder="Paste numbers..."
+                onChange={handleInputChange}
+                spellCheck={false}
+              />
+            </section>
+
+            <section className="card results-card">
+              <header className="card-header">
+                <div className="card-header-top">
+                  <h2>Result</h2>
+                  <button type="button" onClick={handleCopy} disabled={!numericValues.length}>
+                    {copyState === 'copied' ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+                <p>All numbers are proportionally adjusted to the new sum.</p>
+              </header>
+
+              <div className="result-summary">
+                <span>Sum of result column</span>
+                <strong>{numberFormatter.format(adjustedSum)}</strong>
+              </div>
+
+              <div className="result-list">
+                {numericValues.length === 0 ? (
+                  <p className="muted">Add at least one number on the left.</p>
+                ) : (
+                  formattedValues.map((value, index) => (
+                    <div key={`${value}-${index}`} className="result-item">
+                      <span className="result-index">{index + 1}</span>
+                      <span className={`result-value${value === '' ? ' result-empty' : ''}`}>
+                        {value === '' ? '—' : value}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+          </main>
         </div>
-      </section>
-
-      <main className="grid">
-        <section className="card">
-          <header className="card-header">
-            <div className="card-header-top">
-              <h2>Input data</h2>
-              <button
-                type="button"
-                onClick={() => setRawInput('')}
-                disabled={rawInput.trim().length === 0}
-              >
-                Clear field
-              </button>
-            </div>
-            <p>Copy values in Excel and paste them here with Ctrl+V.</p>
-          </header>
-          <div className="result-summary summary-inline">
-            <span>Sum of input values</span>
-            <strong>{numberFormatter.format(baseSum)}</strong>
-          </div>
-          <textarea
-            className="paste-area"
-            value={rawInput}
-            placeholder="Paste numbers..."
-            onChange={handleInputChange}
-            spellCheck={false}
-          />
-        </section>
-
-        <section className="card results-card">
-          <header className="card-header">
-            <div className="card-header-top">
-              <h2>Result</h2>
-              <button type="button" onClick={handleCopy} disabled={!numericValues.length}>
-                {copyState === 'copied' ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
-            <p>All numbers are proportionally adjusted to the new sum.</p>
-          </header>
-
-          <div className="result-summary">
-            <span>Sum of result column</span>
-            <strong>{numberFormatter.format(adjustedSum)}</strong>
-          </div>
-
-          <div className="result-list">
-            {numericValues.length === 0 ? (
-              <p className="muted">Add at least one number on the left.</p>
-            ) : (
-              formattedValues.map((value, index) => (
-                <div key={`${value}-${index}`} className="result-item">
-                  <span className="result-index">{index + 1}</span>
-                  <span className={`result-value${value === '' ? ' result-empty' : ''}`}>
-                    {value === '' ? '—' : value}
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-      </main>
+      </div>
       <footer className="site-footer">
         <p>
           Made by{' '}
