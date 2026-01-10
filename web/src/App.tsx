@@ -283,15 +283,13 @@ function App() {
           <div className="card-header-top">
             <h2>Tools</h2>
           </div>
-          <p>Quick links to the other calculators from the suite.</p>
         </header>
         <nav>
           <ul className="tool-links">
             <li>
-              <a href="https://number-cruncher.org" target="_blank" rel="noreferrer">
-                Number Cruncher 2026
+              <a className="tool-link-button" href="https://number-cruncher.org" target="_blank" rel="noreferrer">
+                Number Cruncher
               </a>
-              <span>Current tool</span>
             </li>
           </ul>
         </nav>
