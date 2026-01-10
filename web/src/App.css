@@ -2,7 +2,7 @@ body {
   margin: 0;
   min-height: 100vh;
   font-family: 'Roboto', 'Segoe UI', Tahoma, sans-serif;
-  background: radial-gradient(circle at 30% 15%, #2b1737, #1d0f28 45%, #0b0712 100%);
+  background: radial-gradient(circle at 12% 12%, #2a0f45, #0b0620 42%, #02010a 100%);
   color: #45334c;
   position: relative;
   overflow-x: hidden;
@@ -14,6 +14,7 @@ body {
   pointer-events: none;
   z-index: 12;
   mix-blend-mode: screen;
+  filter: saturate(140%) contrast(110%);
 }
 
 .dust-particle {
@@ -23,27 +24,31 @@ body {
   width: var(--size);
   height: var(--size);
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0) 70%);
-  filter: blur(0.1px);
+  background: var(--particle-color, rgba(255, 255, 255, 0.95));
+  filter: blur(var(--particle-blur, 0.05px));
   opacity: 0;
+  box-shadow:
+    0 0 calc(var(--particle-glow, 20px) * 0.35) var(--particle-color, rgba(255, 255, 255, 0.6)),
+    0 0 var(--particle-glow, 20px) rgba(255, 255, 255, 0.35);
   animation: freeDust var(--duration) linear infinite;
   animation-delay: var(--delay);
+  mix-blend-mode: screen;
 }
 
 body::before {
   content: '';
   position: fixed;
-  inset: -18%;
+  inset: -20%;
   background:
-    radial-gradient(circle at 20% 15%, rgba(255, 180, 220, 0.4), transparent 55%),
-    radial-gradient(circle at 75% 10%, rgba(142, 182, 255, 0.35), transparent 55%),
-    radial-gradient(circle at 60% 75%, rgba(255, 205, 205, 0.3), transparent 55%),
-    radial-gradient(circle at 25% 85%, rgba(187, 210, 255, 0.35), transparent 60%);
-  filter: blur(120px);
+    radial-gradient(circle at 22% 18%, rgba(113, 163, 255, 0.35), transparent 60%),
+    radial-gradient(circle at 80% 8%, rgba(164, 117, 255, 0.32), transparent 58%),
+    radial-gradient(circle at 54% 76%, rgba(255, 126, 213, 0.28), transparent 60%),
+    radial-gradient(circle at 30% 85%, rgba(89, 220, 255, 0.3), transparent 55%);
+  filter: blur(130px);
   opacity: 0.65;
   pointer-events: none;
   z-index: -4;
-  animation: dustDrift 48s ease-in-out infinite alternate;
+  animation: dustDrift 50s ease-in-out infinite alternate;
 }
 
 body::after {
@@ -56,25 +61,25 @@ body::after {
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.35);
   box-shadow:
-    40vw 5vh 18px 8px rgba(255, 217, 255, 0.35),
-    8vw 18vh 20px 10px rgba(200, 220, 255, 0.3),
-    65vw 12vh 16px 8px rgba(255, 190, 225, 0.32),
-    20vw 32vh 22px 12px rgba(190, 210, 255, 0.28),
-    50vw 38vh 18px 9px rgba(255, 220, 240, 0.33),
-    72vw 26vh 20px 11px rgba(205, 225, 255, 0.28),
-    88vw 18vh 16px 8px rgba(255, 200, 230, 0.3),
-    15vw 58vh 18px 9px rgba(215, 228, 255, 0.32),
-    38vw 62vh 24px 12px rgba(255, 205, 230, 0.34),
-    61vw 58vh 20px 11px rgba(210, 226, 255, 0.3),
-    80vw 55vh 18px 8px rgba(255, 195, 235, 0.3),
-    5vw 75vh 19px 10px rgba(215, 236, 255, 0.27),
-    28vw 78vh 21px 11px rgba(255, 205, 235, 0.34),
-    52vw 80vh 23px 12px rgba(198, 218, 255, 0.3),
-    74vw 78vh 19px 9px rgba(255, 208, 240, 0.33),
-    90vw 72vh 18px 9px rgba(220, 236, 255, 0.3);
-  filter: blur(18px);
+    40vw 5vh 18px 8px rgba(98, 167, 255, 0.35),
+    8vw 18vh 20px 10px rgba(233, 122, 255, 0.28),
+    65vw 12vh 16px 8px rgba(85, 218, 255, 0.3),
+    20vw 32vh 22px 12px rgba(255, 211, 242, 0.28),
+    50vw 38vh 18px 9px rgba(128, 182, 255, 0.32),
+    72vw 26vh 20px 11px rgba(255, 154, 232, 0.28),
+    88vw 18vh 16px 8px rgba(97, 225, 255, 0.3),
+    15vw 58vh 18px 9px rgba(237, 228, 255, 0.28),
+    38vw 62vh 24px 12px rgba(255, 165, 230, 0.3),
+    61vw 58vh 20px 11px rgba(96, 210, 255, 0.3),
+    80vw 55vh 18px 8px rgba(255, 189, 235, 0.3),
+    5vw 75vh 19px 10px rgba(134, 224, 255, 0.28),
+    28vw 78vh 21px 11px rgba(255, 140, 217, 0.32),
+    52vw 80vh 23px 12px rgba(104, 210, 255, 0.28),
+    74vw 78vh 19px 9px rgba(255, 201, 243, 0.3),
+    90vw 72vh 18px 9px rgba(138, 204, 255, 0.3);
+  filter: blur(16px);
   opacity: 0.55;
-  animation: dustFloat 34s linear infinite;
+  animation: dustFloat 36s linear infinite;
   pointer-events: none;
   z-index: -3;
 }
@@ -575,21 +580,23 @@ body::after {
 
 @keyframes freeDust {
   0% {
-    transform: translate3d(0, 0, 0) scale(0.7);
+    transform: translate3d(0, 0, 0) scale(0.65) rotate(0deg);
     opacity: 0;
   }
-  15% {
-    opacity: 0.45;
+  20% {
+    transform: translate3d(calc(var(--dx) * 0.25), calc(var(--dy) * 0.15), 0) scale(0.9) rotate(12deg);
+    opacity: 0.12;
   }
-  40% {
-    transform: translate3d(var(--dx), var(--dy), 0) scale(1);
-    opacity: 0.8;
+  45% {
+    transform: translate3d(calc(var(--dx) * 0.6), calc(var(--dy) * 0.45), 0) scale(1.1) rotate(-6deg);
+    opacity: 0.24;
   }
   70% {
-    opacity: 0.4;
+    transform: translate3d(calc(var(--return-x) * -0.35), calc(var(--return-y) * -0.25), 0) scale(0.95) rotate(-18deg);
+    opacity: 0.06;
   }
   100% {
-    transform: translate3d(var(--return-x), var(--return-y), 0) scale(0.6);
+    transform: translate3d(var(--return-x), var(--return-y), 0) scale(0.6) rotate(8deg);
     opacity: 0;
   }
 }
@@ -597,19 +604,19 @@ body::after {
 @keyframes dustFloat {
   0% {
     transform: translate3d(0, 0, 0) rotate(0deg);
-    opacity: 0.5;
+    opacity: 0.05;
   }
   30% {
-    transform: translate3d(-3vw, 2vh, 0) rotate(0.2deg);
-    opacity: 0.65;
+    transform: translate3d(-3vw, 2vh, 0) rotate(6deg);
+    opacity: 0.08;
   }
   60% {
-    transform: translate3d(4vw, -3vh, 0) rotate(-0.3deg);
-    opacity: 0.55;
+    transform: translate3d(4vw, -3vh, 0) rotate(-8deg);
+    opacity: 0.07;
   }
   100% {
-    transform: translate3d(-2vw, 2vh, 0) rotate(0.15deg);
-    opacity: 0.6;
+    transform: translate3d(-2vw, 2vh, 0) rotate(12deg);
+    opacity: 0.06;
   }
 }
 
@@ -618,10 +625,10 @@ body::after {
     transform: translate3d(0, 0, 0) scale(1);
   }
   50% {
-    transform: translate3d(-2vw, 1vh, 0) scale(1.04);
+    transform: translate3d(-2vw, 1vh, 0) scale(1.06);
   }
   100% {
-    transform: translate3d(2vw, -1vh, 0) scale(0.95);
+    transform: translate3d(2vw, -1vh, 0) scale(0.94);
   }
 }
 

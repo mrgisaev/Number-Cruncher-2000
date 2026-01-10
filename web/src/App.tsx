@@ -183,34 +183,80 @@ const addGrouping = (digits: string) => {
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 };
 
-const baseDustParticles = [
-  { x: 6, y: 8, size: 80, duration: 42, delay: 0, dx: 8, dy: 12 },
-  { x: 24, y: 12, size: 70, duration: 48, delay: 6, dx: -10, dy: 15 },
-  { x: 42, y: 6, size: 90, duration: 52, delay: 2, dx: 12, dy: -10 },
-  { x: 63, y: 14, size: 65, duration: 46, delay: 10, dx: -8, dy: 11 },
-  { x: 78, y: 9, size: 88, duration: 50, delay: 4, dx: 10, dy: -12 },
-  { x: 85, y: 32, size: 72, duration: 44, delay: 8, dx: -9, dy: 14 },
-  { x: 12, y: 36, size: 84, duration: 55, delay: 3, dx: 11, dy: -9 },
-  { x: 34, y: 42, size: 76, duration: 47, delay: 12, dx: -7, dy: 10 },
-  { x: 58, y: 38, size: 82, duration: 53, delay: 5, dx: 9, dy: -11 },
-  { x: 72, y: 44, size: 68, duration: 49, delay: 14, dx: -11, dy: 13 },
-  { x: 28, y: 58, size: 78, duration: 51, delay: 9, dx: 13, dy: -8 },
-  { x: 54, y: 62, size: 74, duration: 45, delay: 7, dx: -6, dy: 9 },
-  { x: 77, y: 70, size: 86, duration: 58, delay: 11, dx: 10, dy: -13 },
-  { x: 15, y: 72, size: 66, duration: 43, delay: 13, dx: -12, dy: 10 },
-  { x: 46, y: 78, size: 88, duration: 57, delay: 1, dx: 12, dy: -12 },
+const particlePalette = [
+  { color: 'rgba(140, 199, 218, 0.85)', blur: 2, glow: 90 },
+  { color: 'rgba(164, 191, 216, 0.88)', blur: 1, glow: 90 },
+  { color: 'rgba(218, 235, 255, 0.97)', blur: 1, glow: 90 },
+  { color: 'rgba(142, 216, 250, 0.53)', blur: 0.5, glow: 90 },
 ];
 
+const baseDustParticles = [
+  { x: 6, y: 8, size: 50, duration: 42, delay: 0, dx: 8, dy: 12 },
+  { x: 24, y: 12, size: 40, duration: 48, delay: 6, dx: -10, dy: 15 },
+  { x: 42, y: 6, size: 60, duration: 52, delay: 2, dx: 12, dy: -10 },
+  { x: 63, y: 14, size: 35, duration: 46, delay: 10, dx: -8, dy: 11 },
+  { x: 78, y: 9, size: 58, duration: 50, delay: 4, dx: 10, dy: -12 },
+  { x: 85, y: 32, size: 42, duration: 44, delay: 8, dx: -9, dy: 14 },
+  { x: 12, y: 36, size: 54, duration: 55, delay: 3, dx: 11, dy: -9 },
+  { x: 34, y: 42, size: 46, duration: 47, delay: 12, dx: -7, dy: 10 },
+  { x: 58, y: 38, size: 52, duration: 53, delay: 5, dx: 9, dy: -11 },
+  { x: 72, y: 44, size: 38, duration: 49, delay: 14, dx: -11, dy: 13 },
+  { x: 28, y: 58, size: 48, duration: 51, delay: 9, dx: 13, dy: -8 },
+  { x: 54, y: 62, size: 44, duration: 45, delay: 7, dx: -6, dy: 9 },
+  { x: 77, y: 70, size: 56, duration: 58, delay: 11, dx: 10, dy: -13 },
+  { x: 15, y: 72, size: 66, duration: 43, delay: 13, dx: -12, dy: 10 },
+  { x: 46, y: 78, size: 58, duration: 57, delay: 1, dx: 12, dy: -12 },
+  { x: 46, y: 78, size: 58, duration: 57, delay: 1, dx: 12, dy: -12 },
+  { x: 46, y: 78, size: 58, duration: 57, delay: 1, dx: 12, dy: -12 },
+].map((particle, index) => {
+  const palette = particlePalette[index % particlePalette.length];
+  return { ...particle, color: palette.color, blur: palette.blur, glow: palette.glow };
+});
+
 const dustParticles = baseDustParticles.flatMap((particle, index) => {
+  const paletteA = particlePalette[(index + 1) % particlePalette.length];
+  const paletteB = particlePalette[(index + 2) % particlePalette.length];
+  const paletteC = particlePalette[(index + 3) % particlePalette.length];
+
   const mirrored = {
     ...particle,
     x: (particle.x + 10 + index * 4) % 100,
     y: (particle.y + 15 + index * 3) % 90,
     delay: particle.delay + 6,
-    dx: -particle.dx * 0.85,
-    dy: particle.dy * 0.9,
+    dx: -particle.dx * 0.8,
+    dy: particle.dy * 0.85,
+    color: paletteA.color,
+    blur: paletteA.blur,
+    glow: paletteA.glow,
   };
-  return [particle, mirrored];
+
+  const drifted = {
+    ...particle,
+    x: (particle.x + 32 + index * 5) % 100,
+    y: (particle.y + 28 + index * 4) % 90,
+    delay: particle.delay + 10,
+    duration: particle.duration + 8,
+    dx: particle.dx * 0.65,
+    dy: -particle.dy * 0.7,
+    color: paletteB.color,
+    blur: paletteB.blur * 1.1,
+    glow: paletteB.glow + 6,
+  };
+
+  const swirl = {
+    ...particle,
+    x: (particle.x + 52 + index * 3) % 100,
+    y: (particle.y + 48 + index * 5) % 90,
+    delay: particle.delay + 16,
+    duration: particle.duration + 12,
+    dx: -particle.dx * 0.6,
+    dy: -particle.dy * 0.65,
+    color: paletteC.color,
+    blur: paletteC.blur * 0.9,
+    glow: paletteC.glow + 8,
+  };
+
+  return [particle, mirrored, drifted, swirl];
 });
 
 function App() {
@@ -317,13 +363,16 @@ function App() {
               {
                 '--start-x': `${particle.x}%`,
                 '--start-y': `${particle.y}%`,
-                '--size': `${particle.size * 0.4}px`,
+                '--size': `${particle.size * 0.3}px`,
                 '--duration': `${particle.duration}s`,
                 '--delay': `${particle.delay}s`,
                 '--dx': `${particle.dx}vw`,
                 '--dy': `${particle.dy}vh`,
                 '--return-x': `${-particle.dx}vw`,
                 '--return-y': `${-particle.dy}vh`,
+                '--particle-color': particle.color,
+                '--particle-blur': `${particle.blur}px`,
+                '--particle-glow': `${particle.glow}px`,
               } as CSSProperties
             }
           />
