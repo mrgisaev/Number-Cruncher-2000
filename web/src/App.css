@@ -97,6 +97,8 @@
 
 .number-field-input-wrapper.input-with-toggle input {
   padding-left: var(--toggle-padding);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .number-field-input-wrapper.addition-toggle {
@@ -182,13 +184,14 @@
 }
 
 .split-control {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
+  display: flex;
+  gap: 70px;
   width: 100%;
+  flex: 1 0 100%;
 }
 
 .stacked-field-column {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -198,10 +201,11 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
 }
 
 .split-control .number-field {
-  min-width: 140px;
+  width: 100%;
 }
 
 .summary-inline {
@@ -262,24 +266,26 @@
 
 .card-header button {
   border-radius: 12px;
-  border: 1px solid rgba(255, 183, 197, 0.45);
+  border: 1px solid rgba(249, 167, 191, 0.6);
   padding: 10px 20px;
   font-weight: 600;
-  background: linear-gradient(135deg, #ff79c6, #8a63f7);
-  color: #fff4ff;
+  background: linear-gradient(135deg, #f7d4e4, #e2a7c2);
+  color: rgba(82, 52, 72, 0.9);
   cursor: pointer;
   box-shadow:
-    0 6px 15px rgba(138, 99, 247, 0.25),
-    inset 0 0 0 rgba(255, 255, 255, 0.2);
+    inset 0 1px 4px rgba(255, 255, 255, 0.4),
+    0 4px 10px rgba(226, 167, 194, 0.35);
   white-space: nowrap;
   transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
 }
 
 .card-header button:hover:not(:disabled) {
   transform: translateY(1px);
+  background: linear-gradient(135deg, #f8b7c9, #f495a8);
   box-shadow:
-    0 4px 8px rgba(138, 99, 247, 0.4),
-    inset 0 3px 6px rgba(0, 0, 0, 0.15);
+    inset 0 2px 5px rgba(255, 255, 255, 0.45),
+    0 4px 10px rgba(244, 149, 168, 0.45);
+  color: rgba(60, 35, 50, 0.95);
 }
 
 .card-header button:disabled {
@@ -329,6 +335,7 @@
   box-shadow:
     0 6px 15px rgba(5, 150, 105, 0.25),
     inset 0 0 0 rgba(255, 255, 255, 0.2);
+  color: #f0fff6;
 }
 
 .card-header-top button {
@@ -337,9 +344,11 @@
 }
 
 .results-card .card-header button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2fbb87, #04855c);
   box-shadow:
     0 4px 8px rgba(5, 150, 105, 0.35),
     inset 0 3px 6px rgba(0, 0, 0, 0.15);
+  color: #e7fff2;
 }
 
 .results-card .card-header h2 {

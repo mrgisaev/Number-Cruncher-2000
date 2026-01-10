@@ -284,9 +284,8 @@ function App() {
           <div className="controls-heading">
             <h1 className="controls-heading-title">Number Cruncher 2026</h1>
             <p className="controls-subtitle">
-              One column for your data, the other for a polished result.
+              One column for your data, the other for a polished result. Pick the distribution mode and settings before copying the result.
             </p>
-            <p>Pick the distribution mode and settings before copying the result.</p>
           </div>
           <div className="split-control">
             <div className="stacked-field-column">
