@@ -170,7 +170,7 @@ const enforceRounding = (values: number[], desiredSum: number, decimals: number)
 };
 
 const formatRowValue = (value: number, decimals: number) => {
-  const digits = decimals === 0 ? 0 : Math.max(decimals, 2);
+  const digits = Math.max(0, decimals);
   const sign = value < 0 ? '-' : '';
   const fixed = Math.abs(value).toFixed(digits);
   const [integerPartRaw, fractionPart] = fixed.split('.');
@@ -251,6 +251,9 @@ function App() {
     }
     setRawInput(value);
   };
+  const changeFractionDigits = (delta: number) => {
+    setFractionDigits((prev) => Math.max(0, Math.min(6, prev + delta)));
+  };
 
   const desiredLabel = isTargetMode ? 'Добавка' : 'Конечная сумма';
   const desiredInputValue = isTargetMode ? additionValue : targetSum;
@@ -285,13 +288,35 @@ function App() {
                   />
                   Прибавлять?
                 </label>
-                <label className="number-field">
+                <label className="number-field number-field-mode">
                   <span>{desiredLabel}</span>
-                  <input
-                    type="number"
-                    value={Number.isFinite(desiredInputValue) ? desiredInputValue : ''}
-                    onChange={(event) => onDesiredChange(Number(event.target.value) || 0)}
-                  />
+                  <div className="number-field-input-wrapper input-with-toggle addition-toggle">
+                    <div className="mode-toggle mode-toggle-inline" role="group" aria-label="Переключение режима суммы">
+                      <button
+                        type="button"
+                        className={`mode-toggle-button${isTargetMode ? ' active' : ''}`}
+                        aria-pressed={isTargetMode}
+                        onClick={() => setIsTargetMode(true)}
+                        title="Прибавлять"
+                      >
+                        +
+                      </button>
+                      <button
+                        type="button"
+                        className={`mode-toggle-button${!isTargetMode ? ' active' : ''}`}
+                        aria-pressed={!isTargetMode}
+                        onClick={() => setIsTargetMode(false)}
+                        title="Конечная сумма"
+                      >
+                        =
+                      </button>
+                    </div>
+                    <input
+                      type="number"
+                      value={Number.isFinite(desiredInputValue) ? desiredInputValue : ''}
+                      onChange={(event) => onDesiredChange(Number(event.target.value) || 0)}
+                    />
+                  </div>
                 </label>
               </div>
             </div>
@@ -305,16 +330,40 @@ function App() {
                   />
                   Выводить дробные значения
                 </label>
-                <label className="number-field">
+                <label className="number-field number-field-mode">
                   <span>Знаков после запятой</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={6}
-                    value={fractionDigits}
-                    disabled={!useFractions}
-                    onChange={(event) => setFractionDigits(Math.max(0, Number(event.target.value) || 0))}
-                  />
+                  <div className="number-field-input-wrapper input-with-toggle digits-toggle">
+                    <div className="mode-toggle mode-toggle-inline" role="group" aria-label="Переключение дробей">
+                      <button
+                        type="button"
+                        className="mode-toggle-button"
+                        onClick={() => changeFractionDigits(-1)}
+                        disabled={fractionDigits <= 0}
+                        title="Убавить количество знаков"
+                      >
+                        -0.0
+                      </button>
+                      <button
+                        type="button"
+                        className="mode-toggle-button"
+                        onClick={() => changeFractionDigits(1)}
+                        disabled={fractionDigits >= 6}
+                        title="Прибавить количество знаков"
+                      >
+                        +0.00
+                      </button>
+                    </div>
+                    <input
+                      type="number"
+                      min={0}
+                      max={6}
+                      value={fractionDigits}
+                      disabled={!useFractions}
+                      onChange={(event) =>
+                        setFractionDigits(Math.max(0, Number(event.target.value) || 0))
+                      }
+                    />
+                  </div>
                 </label>
               </div>
             </div>

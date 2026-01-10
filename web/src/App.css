@@ -66,6 +66,16 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
+.number-field input::-webkit-outer-spin-button,
+.number-field input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.number-field input[type='number'] {
+  -moz-appearance: textfield;
+}
+
 .number-field input:focus-visible,
 .number-field input:focus {
   outline: none;
@@ -73,6 +83,108 @@
   box-shadow: 0 0 10px rgba(255, 183, 197, 0.4);
   background: #ffffff;
 }
+
+
+.number-field-mode {
+  gap: 8px;
+}
+
+.number-field-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.number-field-input-wrapper.input-with-toggle {
+  --toggle-padding: 96px;
+}
+
+.number-field-input-wrapper.input-with-toggle input {
+  padding-left: var(--toggle-padding);
+}
+
+.number-field-input-wrapper.addition-toggle {
+  --toggle-padding: 102px;
+}
+
+.number-field-input-wrapper.digits-toggle {
+  --toggle-padding: 150px;
+}
+
+.mode-toggle {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.mode-toggle-inline {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  padding: 2px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 209, 228, 0.9));
+  box-shadow:
+    0 8px 20px rgba(255, 183, 197, 0.35),
+    inset 0 0 0 rgba(255, 255, 255, 0.2);
+}
+
+.mode-toggle-button {
+  border: none;
+  border-radius: 10px;
+  padding: 0 10px;
+  min-width: 34px;
+  height: 28px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(135deg, #ffe4f0, #d6e5ff);
+  color: #4b4253;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 4px 10px rgba(255, 183, 197, 0.35),
+    inset 0 0 0 rgba(255, 255, 255, 0.2);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.mode-toggle-button.active {
+  box-shadow:
+    0 2px 4px rgba(255, 183, 197, 0.5),
+    inset 0 3px 6px rgba(255, 255, 255, 0.6);
+  transform: translateY(1px);
+  opacity: 1;
+}
+
+.mode-toggle-button:not(.active) {
+  opacity: 0.45;
+}
+
+.mode-toggle-button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow:
+    0 6px 14px rgba(255, 183, 197, 0.45),
+    inset 0 0 0 rgba(255, 255, 255, 0.2);
+}
+
+.mode-toggle-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow:
+    0 2px 6px rgba(255, 183, 197, 0.25),
+    inset 0 0 0 rgba(255, 255, 255, 0.1);
+}
+
+.mode-toggle-button:disabled:hover {
+  opacity: 0.35;
+  transform: none;
+  box-shadow:
+    0 2px 6px rgba(255, 183, 197, 0.25),
+    inset 0 0 0 rgba(255, 255, 255, 0.1);
+}
+
 .split-control {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
