@@ -1,6 +1,6 @@
 .app-shell {
   position: relative;
-  padding: 0 20px 24px;
+  padding: 24px 20px 24px;
 }
 
 .floating-menu {
@@ -15,7 +15,7 @@
 .page {
   max-width: 900px;
   margin: 0 auto;
-  padding: 48px 0 24px;
+  padding: 24px 0 24px;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -490,7 +490,7 @@
 
 @media (max-width: 1375px) {
   .app-shell {
-    padding-top: 76px;
+    padding-top: 24px;
   }
 
   .floating-menu {
@@ -502,7 +502,7 @@
     max-width: 900px;
     box-sizing: border-box;
     padding: 12px 20px;
-    margin: 0 auto 16px;
+  margin: 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -522,6 +522,17 @@
     gap: 16px;
     width: auto;
     padding: 0;
+    flex: 0 0 auto;
+    display: inline-flex;
+    margin-right: 20px;
+  }
+
+  .floating-menu .card-header-top {
+    width: auto;
+    margin-top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
   }
 
   .floating-menu .card-header h2 {
@@ -530,16 +541,20 @@
   }
 
   .floating-menu nav {
-    flex: 1;
+    flex: 1 1 auto;
     display: flex;
-    align-items: center;
-    justify-content: flex-end;
-  }
-
-  .tool-links {
     flex-direction: row;
     align-items: center;
     justify-content: flex-end;
+    min-width: 0;
+  }
+
+  .floating-menu .tool-links {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    width: auto;
+    gap: 16px;
   }
 }
 
