@@ -1,3 +1,16 @@
+.app-shell {
+  position: relative;
+  padding: 0 20px 80px;
+}
+
+.floating-menu {
+  position: absolute;
+  width: 220px;
+  top: 48px;
+  left: max(16px, calc(50% - 620px));
+  z-index: 5;
+}
+
 .page {
   max-width: 1000px;
   margin: 0 auto;
@@ -5,24 +18,6 @@
   display: flex;
   flex-direction: column;
   gap: 32px;
-}
-
-.page-body {
-  display: flex;
-  gap: 32px;
-  align-items: flex-start;
-}
-
-.page-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-}
-
-.layout-menu {
-  flex: 0 0 220px;
-  align-self: flex-start;
 }
 
 .controls-wrapper {
@@ -489,18 +484,18 @@
   text-decoration: underline;
 }
 
+@media (max-width: 1200px) {
+  .floating-menu {
+    position: static;
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto 24px;
+  }
+}
+
 @media (max-width: 720px) {
   .page {
     padding: 32px 14px 48px;
-  }
-
-  .page-body {
-    flex-direction: column;
-    gap: 24px;
-  }
-
-  .layout-menu {
-    width: 100%;
   }
 
   .controls {

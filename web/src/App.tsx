@@ -277,28 +277,27 @@ function App() {
   };
 
   return (
-    <div className="page">
-      <div className="page-body">
-        <aside className="card menu-card layout-menu">
-          <header className="card-header">
-            <div className="card-header-top">
-              <h2>Tools</h2>
-            </div>
-            <p>Quick links to the other calculators from the suite.</p>
-          </header>
-          <nav>
-            <ul className="tool-links">
-              <li>
-                <a href="https://number-cruncher.org" target="_blank" rel="noreferrer">
-                  Number Cruncher 2026
-                </a>
-                <span>Current tool</span>
-              </li>
-            </ul>
-          </nav>
-        </aside>
-        <div className="page-content">
-          <section className="controls-wrapper">
+    <div className="app-shell">
+      <aside className="card menu-card floating-menu">
+        <header className="card-header">
+          <div className="card-header-top">
+            <h2>Tools</h2>
+          </div>
+          <p>Quick links to the other calculators from the suite.</p>
+        </header>
+        <nav>
+          <ul className="tool-links">
+            <li>
+              <a href="https://number-cruncher.org" target="_blank" rel="noreferrer">
+                Number Cruncher 2026
+              </a>
+              <span>Current tool</span>
+            </li>
+          </ul>
+        </nav>
+      </aside>
+      <div className="page">
+        <section className="controls-wrapper">
             <div className="controls">
               <div className="controls-heading">
                 <h1 className="controls-heading-title">Number Cruncher 2026</h1>
@@ -389,8 +388,8 @@ function App() {
 
             </div>
           </section>
-          <main className="grid">
-            <section className="card">
+        <main className="grid">
+          <section className="card">
               <header className="card-header">
                 <div className="card-header-top">
                   <h2>Input data</h2>
@@ -448,18 +447,17 @@ function App() {
                 )}
               </div>
             </section>
-          </main>
-        </div>
+        </main>
+        <footer className="site-footer">
+          <p>
+            Made by{' '}
+            <a href="https://www.linkedin.com/in/mrgisaev/" target="_blank" rel="noreferrer">
+              Grigorii Isaev
+            </a>
+            . &copy; {footerYear} Number Cruncher 2026.
+          </p>
+        </footer>
       </div>
-      <footer className="site-footer">
-        <p>
-          Made by{' '}
-          <a href="https://www.linkedin.com/in/mrgisaev/" target="_blank" rel="noreferrer">
-            Grigorii Isaev
-          </a>
-          . &copy; {footerYear} Number Cruncher 2026.
-        </p>
-      </footer>
     </div>
   );
 }
