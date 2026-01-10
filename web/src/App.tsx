@@ -190,6 +190,7 @@ function App() {
   const [additionValue, setAdditionValue] = useState(10000);
   const [fractionDigits, setFractionDigits] = useState(2);
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
+  const footerYear = new Date().getFullYear();
   const additionInputId = useId();
   const digitsInputId = useId();
 
@@ -256,7 +257,7 @@ function App() {
     setFractionDigits((prev) => Math.max(0, Math.min(6, prev + delta)));
   };
 
-  const desiredLabel = isTargetMode ? 'Добавка' : 'Конечная сумма';
+  const desiredLabel = isTargetMode ? 'Working value' : 'Target sum';
   const desiredInputValue = isTargetMode ? additionValue : targetSum;
   const onDesiredChange = (next: number) => {
     if (isTargetMode) {
@@ -265,6 +266,15 @@ function App() {
       setTargetSum(next);
     }
   };
+  const handleModeToggle = (nextMode: boolean) => {
+    const currentValue = Number.isFinite(desiredInputValue) ? desiredInputValue : 0;
+    if (nextMode) {
+      setAdditionValue(currentValue);
+    } else {
+      setTargetSum(currentValue);
+    }
+    setIsTargetMode(nextMode);
+  };
 
   return (
     <div className="page">
@@ -272,11 +282,11 @@ function App() {
       <section className="controls-wrapper">
         <div className="controls">
           <div className="controls-heading">
-            <h1 className="controls-heading-title">Подбиватель цифр 2026</h1>
+            <h1 className="controls-heading-title">Number Cruncher 2026</h1>
             <p className="controls-subtitle">
-              Одна колонка для ваших данных, вторая для красивого результата.
+              One column for your data, the other for a polished result.
             </p>
-            <p>Задайте режим и параметры распределения перед тем, как копировать результат.</p>
+            <p>Pick the distribution mode and settings before copying the result.</p>
           </div>
           <div className="split-control">
             <div className="stacked-field-column">
@@ -286,13 +296,13 @@ function App() {
                     {desiredLabel}
                   </label>
                   <div className="number-field-input-wrapper input-with-toggle addition-toggle">
-                    <div className="mode-toggle mode-toggle-inline" role="group" aria-label="Переключение режима суммы">
+                    <div className="mode-toggle mode-toggle-inline" role="group" aria-label="Sum mode toggle">
                       <button
                         type="button"
                         className={`mode-toggle-button${isTargetMode ? ' active' : ''}`}
                         aria-pressed={isTargetMode}
-                        onClick={() => setIsTargetMode(true)}
-                        title="Прибавлять"
+                        onClick={() => handleModeToggle(true)}
+                        title="Distribute to a working value"
                       >
                         +
                       </button>
@@ -300,8 +310,8 @@ function App() {
                         type="button"
                         className={`mode-toggle-button${!isTargetMode ? ' active' : ''}`}
                         aria-pressed={!isTargetMode}
-                        onClick={() => setIsTargetMode(false)}
-                        title="Конечная сумма"
+                        onClick={() => handleModeToggle(false)}
+                        title="Aim for a target sum"
                       >
                         =
                       </button>
@@ -320,16 +330,16 @@ function App() {
               <div className="stacked-field">
                 <div className="number-field number-field-mode">
                   <label className="number-field-label" htmlFor={digitsInputId}>
-                    Знаков после запятой
+                    Decimal places
                   </label>
                   <div className="number-field-input-wrapper input-with-toggle digits-toggle">
-                    <div className="mode-toggle mode-toggle-inline" role="group" aria-label="Переключение дробей">
+                    <div className="mode-toggle mode-toggle-inline" role="group" aria-label="Decimal control">
                       <button
                         type="button"
                         className="mode-toggle-button"
                         onClick={() => changeFractionDigits(-1)}
                         disabled={fractionDigits <= 0}
-                        title="Убавить количество знаков"
+                        title="Decrease decimal places"
                       >
                         -0.0
                       </button>
@@ -338,7 +348,7 @@ function App() {
                         className="mode-toggle-button"
                         onClick={() => changeFractionDigits(1)}
                         disabled={fractionDigits >= 6}
-                        title="Прибавить количество знаков"
+                        title="Increase decimal places"
                       >
                         +0.00
                       </button>
@@ -366,25 +376,25 @@ function App() {
         <section className="card">
           <header className="card-header">
             <div className="card-header-top">
-              <h2>Ввод данных</h2>
+              <h2>Input data</h2>
               <button
                 type="button"
                 onClick={() => setRawInput('')}
                 disabled={rawInput.trim().length === 0}
               >
-                Очистить поле
+                Clear field
               </button>
             </div>
-            <p>Скопируй значения в Excel и вставь сюда через Ctrl+V.</p>
+            <p>Copy values in Excel and paste them here with Ctrl+V.</p>
           </header>
           <div className="result-summary summary-inline">
-            <span>Сумма исходных значений</span>
+            <span>Sum of input values</span>
             <strong>{numberFormatter.format(baseSum)}</strong>
           </div>
           <textarea
             className="paste-area"
             value={rawInput}
-            placeholder="Вставьте числа..."
+            placeholder="Paste numbers..."
             onChange={handleInputChange}
             spellCheck={false}
           />
@@ -393,22 +403,22 @@ function App() {
         <section className="card results-card">
           <header className="card-header">
             <div className="card-header-top">
-              <h2>Результат</h2>
+              <h2>Result</h2>
               <button type="button" onClick={handleCopy} disabled={!numericValues.length}>
-                {copyState === 'copied' ? 'Скопировано!' : 'Скопировать'}
+                {copyState === 'copied' ? 'Copied!' : 'Copy'}
               </button>
             </div>
-            <p>Все числа пропорционально подогнаны под новую сумму.</p>
+            <p>All numbers are proportionally adjusted to the new sum.</p>
           </header>
 
           <div className="result-summary">
-            <span>Сумма итогового столбца</span>
+            <span>Sum of result column</span>
             <strong>{numberFormatter.format(adjustedSum)}</strong>
           </div>
 
           <div className="result-list">
             {numericValues.length === 0 ? (
-              <p className="muted">Добавьте хотя бы одно число слева.</p>
+              <p className="muted">Add at least one number on the left.</p>
             ) : (
               formattedValues.map((value, index) => (
                 <div key={`${value}-${index}`} className="result-item">
@@ -422,6 +432,15 @@ function App() {
           </div>
         </section>
       </main>
+      <footer className="site-footer">
+        <p>
+          Made by{' '}
+          <a href="https://www.linkedin.com/in/mrgisaev/" target="_blank" rel="noreferrer">
+            Grigorii Isaev
+          </a>
+          . &copy; {footerYear} Number Cruncher 2026.
+        </p>
+      </footer>
     </div>
   );
 }
