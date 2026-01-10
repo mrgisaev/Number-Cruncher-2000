@@ -1,4 +1,4 @@
-import { type ChangeEvent, useMemo, useState } from 'react';
+import { type ChangeEvent, useId, useMemo, useState } from 'react';
 import './App.css';
 
 const sampleColumn = `78055
@@ -188,9 +188,10 @@ function App() {
   const [isTargetMode, setIsTargetMode] = useState(true);
   const [targetSum, setTargetSum] = useState(463915);
   const [additionValue, setAdditionValue] = useState(10000);
-  const [useFractions, setUseFractions] = useState(true);
   const [fractionDigits, setFractionDigits] = useState(2);
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
+  const additionInputId = useId();
+  const digitsInputId = useId();
 
   const parsedRows = useMemo(() => parseColumn(rawInput), [rawInput]);
   const numericValues = useMemo(
@@ -199,7 +200,7 @@ function App() {
   );
   const baseSum = useMemo(() => sumValues(numericValues), [numericValues]);
 
-  const decimals = useFractions ? Math.min(Math.max(fractionDigits, 0), 6) : 0;
+  const decimals = Math.min(Math.max(fractionDigits, 0), 6);
   const desiredSumRaw = isTargetMode ? baseSum + additionValue : targetSum;
   const desiredSum = decimals === 0 ? Math.round(desiredSumRaw) : desiredSumRaw;
 
@@ -280,16 +281,10 @@ function App() {
           <div className="split-control">
             <div className="stacked-field-column">
               <div className="stacked-field">
-                <label className="checkbox">
-                  <input
-                    type="checkbox"
-                    checked={isTargetMode}
-                    onChange={(event) => setIsTargetMode(event.target.checked)}
-                  />
-                  Прибавлять?
-                </label>
-                <label className="number-field number-field-mode">
-                  <span>{desiredLabel}</span>
+                <div className="number-field number-field-mode">
+                  <label className="number-field-label" htmlFor={additionInputId}>
+                    {desiredLabel}
+                  </label>
                   <div className="number-field-input-wrapper input-with-toggle addition-toggle">
                     <div className="mode-toggle mode-toggle-inline" role="group" aria-label="Переключение режима суммы">
                       <button
@@ -312,26 +307,21 @@ function App() {
                       </button>
                     </div>
                     <input
+                      id={additionInputId}
                       type="number"
                       value={Number.isFinite(desiredInputValue) ? desiredInputValue : ''}
                       onChange={(event) => onDesiredChange(Number(event.target.value) || 0)}
                     />
                   </div>
-                </label>
+                </div>
               </div>
             </div>
             <div className="stacked-field-column">
               <div className="stacked-field">
-                <label className="checkbox">
-                  <input
-                    type="checkbox"
-                    checked={useFractions}
-                    onChange={(event) => setUseFractions(event.target.checked)}
-                  />
-                  Выводить дробные значения
-                </label>
-                <label className="number-field number-field-mode">
-                  <span>Знаков после запятой</span>
+                <div className="number-field number-field-mode">
+                  <label className="number-field-label" htmlFor={digitsInputId}>
+                    Знаков после запятой
+                  </label>
                   <div className="number-field-input-wrapper input-with-toggle digits-toggle">
                     <div className="mode-toggle mode-toggle-inline" role="group" aria-label="Переключение дробей">
                       <button
@@ -354,17 +344,17 @@ function App() {
                       </button>
                     </div>
                     <input
+                      id={digitsInputId}
                       type="number"
                       min={0}
                       max={6}
                       value={fractionDigits}
-                      disabled={!useFractions}
                       onChange={(event) =>
-                        setFractionDigits(Math.max(0, Number(event.target.value) || 0))
+                        setFractionDigits(Math.min(6, Math.max(0, Number(event.target.value) || 0)))
                       }
                     />
                   </div>
-                </label>
+                </div>
               </div>
             </div>
           </div>

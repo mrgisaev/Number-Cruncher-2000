@@ -40,21 +40,18 @@
   color: #5e5169;
 }
 
-.checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  color: #4b4253;
-}
-
 .number-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-width: 180px;
+}
+
+.number-field-label {
   font-size: 0.9rem;
   color: #6b6373;
+  font-weight: 600;
+  display: block;
 }
 
 .number-field input {
@@ -126,6 +123,7 @@
   box-shadow:
     0 8px 20px rgba(255, 183, 197, 0.35),
     inset 0 0 0 rgba(255, 255, 255, 0.2);
+  pointer-events: none;
 }
 
 .mode-toggle-button {
@@ -137,6 +135,7 @@
   font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
+  pointer-events: auto;
   background: linear-gradient(135deg, #ffe4f0, #d6e5ff);
   color: #4b4253;
   display: inline-flex;
