@@ -1,4 +1,4 @@
-import { type ChangeEvent, useId, useMemo, useState } from 'react';
+import { type ChangeEvent, type CSSProperties, useId, useMemo, useState } from 'react';
 import './App.css';
 
 const sampleColumn = `78055
@@ -183,6 +183,36 @@ const addGrouping = (digits: string) => {
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 };
 
+const baseDustParticles = [
+  { x: 6, y: 8, size: 80, duration: 42, delay: 0, dx: 8, dy: 12 },
+  { x: 24, y: 12, size: 70, duration: 48, delay: 6, dx: -10, dy: 15 },
+  { x: 42, y: 6, size: 90, duration: 52, delay: 2, dx: 12, dy: -10 },
+  { x: 63, y: 14, size: 65, duration: 46, delay: 10, dx: -8, dy: 11 },
+  { x: 78, y: 9, size: 88, duration: 50, delay: 4, dx: 10, dy: -12 },
+  { x: 85, y: 32, size: 72, duration: 44, delay: 8, dx: -9, dy: 14 },
+  { x: 12, y: 36, size: 84, duration: 55, delay: 3, dx: 11, dy: -9 },
+  { x: 34, y: 42, size: 76, duration: 47, delay: 12, dx: -7, dy: 10 },
+  { x: 58, y: 38, size: 82, duration: 53, delay: 5, dx: 9, dy: -11 },
+  { x: 72, y: 44, size: 68, duration: 49, delay: 14, dx: -11, dy: 13 },
+  { x: 28, y: 58, size: 78, duration: 51, delay: 9, dx: 13, dy: -8 },
+  { x: 54, y: 62, size: 74, duration: 45, delay: 7, dx: -6, dy: 9 },
+  { x: 77, y: 70, size: 86, duration: 58, delay: 11, dx: 10, dy: -13 },
+  { x: 15, y: 72, size: 66, duration: 43, delay: 13, dx: -12, dy: 10 },
+  { x: 46, y: 78, size: 88, duration: 57, delay: 1, dx: 12, dy: -12 },
+];
+
+const dustParticles = baseDustParticles.flatMap((particle, index) => {
+  const mirrored = {
+    ...particle,
+    x: (particle.x + 10 + index * 4) % 100,
+    y: (particle.y + 15 + index * 3) % 90,
+    delay: particle.delay + 6,
+    dx: -particle.dx * 0.85,
+    dy: particle.dy * 0.9,
+  };
+  return [particle, mirrored];
+});
+
 function App() {
   const [rawInput, setRawInput] = useState(sampleColumn);
   const [isTargetMode, setIsTargetMode] = useState(true);
@@ -277,6 +307,28 @@ function App() {
   };
 
   return (
+    <>
+      <div className="dust-overlay" aria-hidden="true">
+        {dustParticles.map((particle, index) => (
+          <span
+            key={`dust-${index}`}
+            className="dust-particle"
+            style={
+              {
+                '--start-x': `${particle.x}%`,
+                '--start-y': `${particle.y}%`,
+                '--size': `${particle.size * 0.4}px`,
+                '--duration': `${particle.duration}s`,
+                '--delay': `${particle.delay}s`,
+                '--dx': `${particle.dx}vw`,
+                '--dy': `${particle.dy}vh`,
+                '--return-x': `${-particle.dx}vw`,
+                '--return-y': `${-particle.dy}vh`,
+              } as CSSProperties
+            }
+          />
+        ))}
+      </div>
     <div className="app-shell">
       <aside className="card menu-card floating-menu">
         <header className="card-header">
@@ -457,6 +509,7 @@ function App() {
         </footer>
       </div>
     </div>
+    </>
   );
 }
 
