@@ -400,7 +400,7 @@ body::after {
   flex: 1;
   border-radius: 18px;
   border: none;
-  padding: 24px;
+  padding: 10px 24px 24px 10px;
   resize: none;
   min-height: 220px;
   font-size: 1rem;
