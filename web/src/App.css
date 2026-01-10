@@ -5,7 +5,8 @@
 
 .floating-menu {
   position: absolute;
-  width: 178px;
+  width: 196px;
+  max-width: 900px;
   top: 48px;
   left: 20px;
   z-index: 5;
@@ -14,7 +15,7 @@
 .page {
   max-width: 900px;
   margin: 0 auto;
-  padding: 48px 20px 24px;
+  padding: 48px 0 24px;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -487,12 +488,58 @@
   text-decoration: underline;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1375px) {
+  .app-shell {
+    padding-top: 76px;
+  }
+
   .floating-menu {
-    position: static;
+    position: sticky;
+    top: 16px;
+    left: 0;
+    right: 0;
     width: 100%;
-    max-width: 600px;
-    margin: 0 auto 24px;
+    max-width: 900px;
+    box-sizing: border-box;
+    padding: 12px 20px;
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 64px;
+    border-radius: 20px;
+  }
+
+  .floating-menu.menu-card {
+    min-height: initial;
+  }
+
+  .floating-menu .card-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    margin-bottom: 0;
+    gap: 16px;
+    width: auto;
+    padding: 0;
+  }
+
+  .floating-menu .card-header h2 {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+
+  .floating-menu nav {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .tool-links {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
   }
 }
 
@@ -513,5 +560,16 @@
 
   .card-header {
     flex-direction: column;
+  }
+
+  .floating-menu {
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .tool-links {
+    width: 100%;
+    justify-content: center;
   }
 }
