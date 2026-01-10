@@ -382,7 +382,7 @@ function App() {
         <nav>
           <ul className="tool-links">
             <li>
-              <a className="tool-link-button" href="https://number-cruncher.org" target="_blank" rel="noreferrer">
+              <a className="tool-link-button" href="https://number-cruncher.org">
                 Number Cruncher
               </a>
             </li>
