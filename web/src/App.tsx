@@ -1,13 +1,7 @@
 import { type ChangeEvent, type CSSProperties, useId, useMemo, useState } from 'react';
 import './App.css';
 
-const sampleColumn = `78055
-46465
-34887
-22789
-22397
-11626
-11088`;
+const sampleColumn = '';
 
 const numberFormatter = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
