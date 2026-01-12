@@ -36,7 +36,7 @@ const detectDecimalSeparator = (input: string): '.' | ',' | null => {
     return null;
   }
   const occurrences = (input.match(new RegExp(`\\${sepChar}`, 'g')) || []).length;
-  if (occurrences === 1 && fractionalLength === 3) {
+  if (sepChar === ',' && occurrences === 1 && fractionalLength === 3) {
     return null;
   }
   return sepChar;
