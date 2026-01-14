@@ -630,6 +630,48 @@ body::after {
   text-decoration: underline;
 }
 
+.scroll-cue {
+  position: fixed;
+  right: 0;
+  top: 0;
+  transform: none;
+  width: 74px;
+  height: 100vh;
+  border-radius: 0;
+  border: none;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(210, 245, 255, 0.08));
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, transform 0.2s ease;
+  z-index: 6;
+}
+
+.scroll-cue-arrow {
+  width: 14px;
+  height: 14px;
+  border-left: 2px solid rgba(240, 250, 255, 0.5);
+  border-top: 2px solid rgba(240, 250, 255, 0.5);
+  transform: rotate(45deg);
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.scroll-cue:hover {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(212, 246, 255, 0.18));
+  transform: none;
+}
+
+.scroll-cue:hover .scroll-cue-arrow {
+  border-color: rgba(255, 255, 255, 0.95);
+}
+
+@media (max-width: 1200px) {
+  .scroll-cue {
+    display: none;
+  }
+}
+
 @keyframes freeDust {
   0% {
     transform: translate3d(0, 0, 0) scale(0.65) rotate(0deg);

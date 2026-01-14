@@ -444,6 +444,10 @@ function App() {
     });
   };
 
+  const handleScrollTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <>
       <div className="dust-overlay" aria-hidden="true">
@@ -735,6 +739,9 @@ function App() {
           </p>
         </footer>
       </div>
+      <button className="scroll-cue" type="button" onClick={handleScrollTop} aria-label="Scroll to top">
+        <span className="scroll-cue-arrow" aria-hidden="true" />
+      </button>
     </div>
     </>
   );
