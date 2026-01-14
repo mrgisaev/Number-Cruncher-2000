@@ -117,7 +117,7 @@ body::after {
 
 .controls {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 16px 24px;
   align-items: flex-end;
 }
@@ -289,16 +289,20 @@ body::after {
 
 .split-control {
   display: flex;
-  gap: 70px;
+  gap: 18px;
   width: 100%;
   flex: 1 0 100%;
+  flex-wrap: nowrap;
+  align-items: flex-end;
 }
 
 .stacked-field-column {
-  flex: 1;
+  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 180px;
+  max-width: 320px;
 }
 
 .stacked-field {
@@ -321,6 +325,12 @@ body::after {
   gap: 24px;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   flex: 1;
+}
+
+.single-grid {
+  grid-template-columns: minmax(280px, 1fr);
+  max-width: 720px;
+  margin: 0 auto;
 }
 
 .card {
@@ -555,6 +565,15 @@ body::after {
     inset 0 2px 6px rgba(255, 255, 255, 0.55),
     0 4px 10px rgba(173, 222, 244, 0.5);
   color: rgba(35, 55, 60, 0.95);
+}
+
+.whats-new-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: #4b4253;
 }
 
 .muted {
