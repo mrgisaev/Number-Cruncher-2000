@@ -270,16 +270,16 @@ const parsePercentInput = (input: string) => {
 function App() {
   const [rawInput, setRawInput] = useState(sampleColumn);
   const [sumMode, setSumMode] = useState<'add' | 'target' | 'multiply'>('add');
-  const [targetInput, setTargetInput] = useState('463915');
-  const [additionInput, setAdditionInput] = useState('10000');
-  const [multiplierInput, setMultiplierInput] = useState('1');
-  const [fractionDigits, setFractionDigits] = useState(2);
-  const [randomPercent, setRandomPercent] = useState(0);
+  const [targetInput, setTargetInput] = useState('');
+  const [additionInput, setAdditionInput] = useState('');
+  const [multiplierInput, setMultiplierInput] = useState('');
+  const [fractionDigitsInput, setFractionDigitsInput] = useState('');
+  const [randomPercentInput, setRandomPercentInput] = useState('');
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
   const footerYear = new Date().getFullYear();
   const isWhatsNew = typeof window !== 'undefined' && window.location.pathname.includes('whats-new');
-  const releaseDate = 'Jan 10, 2026';
-  const firstReleaseDate = 'Jan 6, 2026';
+  const releaseDate = 'Jan 14, 2026';
+  const firstReleaseDate = 'Jan 12, 2026';
   const additionInputId = useId();
   const digitsInputId = useId();
   const randomInputId = useId();
@@ -291,7 +291,16 @@ function App() {
   );
   const baseSum = useMemo(() => sumValues(numericValues), [numericValues]);
 
-  const decimals = Math.min(Math.max(fractionDigits, 0), 6);
+  const parsedFractionDigits = Number.parseInt(fractionDigitsInput, 10);
+  const fractionDigitsValue = Number.isFinite(parsedFractionDigits)
+    ? Math.min(Math.max(parsedFractionDigits, 0), 6)
+    : 0;
+  const parsedRandomPercent = Number.parseFloat(randomPercentInput.replace(',', '.'));
+  const randomPercentValue = Number.isFinite(parsedRandomPercent)
+    ? Math.min(Math.max(parsedRandomPercent, 0), 100)
+    : 0;
+
+  const decimals = fractionDigitsValue;
   const additionValue = (() => {
     const parsed = parsePercentInput(additionInput);
     if (parsed.value === null) {
@@ -330,10 +339,10 @@ function App() {
   );
 
   const randomizedValues = useMemo(() => {
-    if (!scaledValues.length || randomPercent <= 0) {
+    if (!scaledValues.length || randomPercentValue <= 0) {
       return scaledValues;
     }
-    const factor = randomPercent / 100;
+    const factor = randomPercentValue / 100;
     const jittered = scaledValues.map((value) => {
       const offset = (Math.random() * 2 - 1) * factor;
       return value * (1 + offset);
@@ -343,7 +352,7 @@ function App() {
       return scaledValues;
     }
     return jittered.map((value) => value * (desiredSum / jitterSum));
-  }, [scaledValues, randomPercent, desiredSum]);
+  }, [scaledValues, randomPercentValue, desiredSum]);
 
   const adjustedValues = useMemo(
     () => enforceRounding(randomizedValues, desiredSum, decimals),
@@ -390,7 +399,12 @@ function App() {
     setRawInput(value);
   };
   const changeFractionDigits = (delta: number) => {
-    setFractionDigits((prev) => Math.max(0, Math.min(6, prev + delta)));
+    setFractionDigitsInput((prev) => {
+      const parsed = Number.parseInt(prev, 10);
+      const current = Number.isFinite(parsed) ? parsed : 0;
+      const next = Math.max(0, Math.min(6, current + delta));
+      return String(next);
+    });
   };
 
   const desiredLabel =
@@ -419,7 +433,12 @@ function App() {
   };
 
   const changeRandomPercent = (delta: number) => {
-    setRandomPercent((prev) => Math.max(0, Math.min(100, Math.round(prev + delta))));
+    setRandomPercentInput((prev) => {
+      const parsed = Number.parseFloat(prev.replace(',', '.'));
+      const current = Number.isFinite(parsed) ? parsed : 0;
+      const next = Math.max(0, Math.min(100, current + delta));
+      return String(Math.round(next));
+    });
   };
 
   return (
@@ -489,6 +508,8 @@ function App() {
                     <li>Added randomizer with adjustable percent and sum preservation.</li>
                     <li>Improved number parsing for mixed separators and trailing blanks.</li>
                     <li>Updated copy/clear controls and pastel UI polish.</li>
+                    <li>Added multiply mode and percent input support for sum controls.</li>
+                    <li>Added a dedicated What&apos;s new page with dated release notes.</li>
                   </ul>
                 </div>
                 <div className="release-entry">
@@ -528,21 +549,21 @@ function App() {
                               </button>
                               <button
                                 type="button"
-                                className={`mode-toggle-button${sumMode === 'target' ? ' active' : ''}`}
-                                aria-pressed={sumMode === 'target'}
-                                onClick={() => handleModeToggle('target')}
-                                title="Aim for a target sum"
-                              >
-                                =
-                              </button>
-                              <button
-                                type="button"
                                 className={`mode-toggle-button${sumMode === 'multiply' ? ' active' : ''}`}
                                 aria-pressed={sumMode === 'multiply'}
                                 onClick={() => handleModeToggle('multiply')}
                                 title="Multiply the base sum"
                               >
                                 ×
+                              </button>
+                              <button
+                                type="button"
+                                className={`mode-toggle-button${sumMode === 'target' ? ' active' : ''}`}
+                                aria-pressed={sumMode === 'target'}
+                                onClick={() => handleModeToggle('target')}
+                                title="Aim for a target sum"
+                              >
+                                =
                               </button>
                             </div>
                             <input
@@ -564,35 +585,32 @@ function App() {
                           </label>
                           <div className="number-field-input-wrapper input-with-toggle digits-toggle">
                             <div className="mode-toggle mode-toggle-inline" role="group" aria-label="Decimal control">
-                              <button
-                                type="button"
-                                className="mode-toggle-button"
-                                onClick={() => changeFractionDigits(-1)}
-                                disabled={fractionDigits <= 0}
-                                title="Decrease decimal places"
-                              >
-                                -0.0
-                              </button>
-                              <button
-                                type="button"
-                                className="mode-toggle-button"
-                                onClick={() => changeFractionDigits(1)}
-                                disabled={fractionDigits >= 6}
-                                title="Increase decimal places"
-                              >
-                                +0.00
-                              </button>
-                            </div>
-                            <input
-                              id={digitsInputId}
-                              type="number"
-                              min={0}
-                              max={6}
-                              value={fractionDigits}
-                              onChange={(event) =>
-                                setFractionDigits(Math.min(6, Math.max(0, Number(event.target.value) || 0)))
-                              }
-                            />
+                          <button
+                            type="button"
+                            className="mode-toggle-button"
+                            onClick={() => changeFractionDigits(-1)}
+                            disabled={fractionDigitsValue <= 0}
+                            title="Decrease decimal places"
+                          >
+                            -0.0
+                          </button>
+                          <button
+                            type="button"
+                            className="mode-toggle-button"
+                            onClick={() => changeFractionDigits(1)}
+                            disabled={fractionDigitsValue >= 6}
+                            title="Increase decimal places"
+                          >
+                            +0.00
+                          </button>
+                        </div>
+                        <input
+                          id={digitsInputId}
+                          type="text"
+                          inputMode="numeric"
+                          value={fractionDigitsInput}
+                          onChange={(event) => setFractionDigitsInput(event.target.value)}
+                        />
                           </div>
                         </div>
                       </div>
@@ -605,35 +623,32 @@ function App() {
                           </label>
                           <div className="number-field-input-wrapper input-with-toggle random-toggle">
                             <div className="mode-toggle mode-toggle-inline" role="group" aria-label="Randomizer control">
-                              <button
-                                type="button"
-                                className="mode-toggle-button"
-                                onClick={() => changeRandomPercent(-1)}
-                                disabled={randomPercent <= 0}
-                                title="Decrease randomness"
-                              >
-                                -
-                              </button>
-                              <button
-                                type="button"
-                                className="mode-toggle-button"
-                                onClick={() => changeRandomPercent(1)}
-                                disabled={randomPercent >= 100}
-                                title="Increase randomness"
-                              >
-                                +
-                              </button>
-                            </div>
-                            <input
-                              id={randomInputId}
-                              type="number"
-                              min={0}
-                              max={100}
-                              value={randomPercent}
-                              onChange={(event) =>
-                                setRandomPercent(Math.max(0, Math.min(100, Number(event.target.value) || 0)))
-                              }
-                            />
+                          <button
+                            type="button"
+                            className="mode-toggle-button"
+                            onClick={() => changeRandomPercent(-1)}
+                            disabled={randomPercentValue <= 0}
+                            title="Decrease randomness"
+                          >
+                            -
+                          </button>
+                          <button
+                            type="button"
+                            className="mode-toggle-button"
+                            onClick={() => changeRandomPercent(1)}
+                            disabled={randomPercentValue >= 100}
+                            title="Increase randomness"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <input
+                          id={randomInputId}
+                          type="text"
+                          inputMode="numeric"
+                          value={randomPercentInput}
+                          onChange={(event) => setRandomPercentInput(event.target.value)}
+                        />
                           </div>
                         </div>
                       </div>
