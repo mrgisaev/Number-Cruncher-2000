@@ -253,12 +253,26 @@ const dustParticles = baseDustParticles.flatMap((particle, index) => {
   return [particle, mirrored, drifted, swirl];
 });
 
+const parsePercentInput = (input: string) => {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return { value: null, isPercent: false };
+  }
+  const isPercent = trimmed.includes('%');
+  const cleaned = trimmed.replace(/[%\s]/g, '').replace(',', '.');
+  const numeric = Number.parseFloat(cleaned);
+  if (!Number.isFinite(numeric)) {
+    return { value: null, isPercent: false };
+  }
+  return { value: numeric, isPercent };
+};
+
 function App() {
   const [rawInput, setRawInput] = useState(sampleColumn);
   const [sumMode, setSumMode] = useState<'add' | 'target' | 'multiply'>('add');
-  const [targetSum, setTargetSum] = useState(463915);
-  const [additionValue, setAdditionValue] = useState(10000);
-  const [multiplier, setMultiplier] = useState(1);
+  const [targetInput, setTargetInput] = useState('463915');
+  const [additionInput, setAdditionInput] = useState('10000');
+  const [multiplierInput, setMultiplierInput] = useState('1');
   const [fractionDigits, setFractionDigits] = useState(2);
   const [randomPercent, setRandomPercent] = useState(0);
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
@@ -278,6 +292,30 @@ function App() {
   const baseSum = useMemo(() => sumValues(numericValues), [numericValues]);
 
   const decimals = Math.min(Math.max(fractionDigits, 0), 6);
+  const additionValue = (() => {
+    const parsed = parsePercentInput(additionInput);
+    if (parsed.value === null) {
+      return 0;
+    }
+    return parsed.isPercent ? baseSum * (parsed.value / 100) : parsed.value;
+  })();
+
+  const targetSum = (() => {
+    const parsed = parsePercentInput(targetInput);
+    if (parsed.value === null) {
+      return 0;
+    }
+    return parsed.isPercent ? baseSum * (parsed.value / 100) : parsed.value;
+  })();
+
+  const multiplier = (() => {
+    const parsed = parsePercentInput(multiplierInput);
+    if (parsed.value === null) {
+      return 1;
+    }
+    return parsed.isPercent ? parsed.value / 100 : parsed.value;
+  })();
+
   const desiredSumRaw =
     sumMode === 'add'
       ? baseSum + additionValue
@@ -358,24 +396,24 @@ function App() {
   const desiredLabel =
     sumMode === 'add' ? 'Working value' : sumMode === 'target' ? 'Target sum' : 'Multiplier';
   const desiredInputValue =
-    sumMode === 'add' ? additionValue : sumMode === 'target' ? targetSum : multiplier;
-  const onDesiredChange = (next: number) => {
+    sumMode === 'add' ? additionInput : sumMode === 'target' ? targetInput : multiplierInput;
+  const onDesiredChange = (next: string) => {
     if (sumMode === 'add') {
-      setAdditionValue(next);
+      setAdditionInput(next);
     } else if (sumMode === 'target') {
-      setTargetSum(next);
+      setTargetInput(next);
     } else {
-      setMultiplier(next);
+      setMultiplierInput(next);
     }
   };
   const handleModeToggle = (nextMode: 'add' | 'target' | 'multiply') => {
-    const currentValue = Number.isFinite(desiredInputValue) ? desiredInputValue : 0;
+    const currentValue = desiredInputValue;
     if (nextMode === 'add') {
-      setAdditionValue(currentValue);
+      setAdditionInput(currentValue);
     } else if (nextMode === 'target') {
-      setTargetSum(currentValue);
+      setTargetInput(currentValue);
     } else {
-      setMultiplier(currentValue);
+      setMultiplierInput(currentValue);
     }
     setSumMode(nextMode);
   };
@@ -509,9 +547,10 @@ function App() {
                             </div>
                             <input
                               id={additionInputId}
-                              type="number"
-                              value={Number.isFinite(desiredInputValue) ? desiredInputValue : ''}
-                              onChange={(event) => onDesiredChange(Number(event.target.value) || 0)}
+                              type="text"
+                              inputMode="decimal"
+                              value={desiredInputValue}
+                              onChange={(event) => onDesiredChange(event.target.value)}
                             />
                           </div>
                         </div>
