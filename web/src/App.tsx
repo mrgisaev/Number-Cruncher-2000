@@ -262,12 +262,12 @@ const parsePercentInput = (input: string) => {
     return { value: null, isPercent: false };
   }
   const isPercent = trimmed.includes('%');
-  const cleaned = trimmed.replace(/[%\s]/g, '').replace(',', '.');
-  const numeric = Number.parseFloat(cleaned);
-  if (!Number.isFinite(numeric)) {
+  const cleaned = trimmed.replace(/[%\s]/g, '');
+  const parsed = parseColumn(cleaned)[0];
+  if (!parsed || parsed.value === null) {
     return { value: null, isPercent: false };
   }
-  return { value: numeric, isPercent };
+  return { value: parsed.value, isPercent };
 };
 
 function App() {
