@@ -255,9 +255,10 @@ const dustParticles = baseDustParticles.flatMap((particle, index) => {
 
 function App() {
   const [rawInput, setRawInput] = useState(sampleColumn);
-  const [isTargetMode, setIsTargetMode] = useState(true);
+  const [sumMode, setSumMode] = useState<'add' | 'target' | 'multiply'>('add');
   const [targetSum, setTargetSum] = useState(463915);
   const [additionValue, setAdditionValue] = useState(10000);
+  const [multiplier, setMultiplier] = useState(1);
   const [fractionDigits, setFractionDigits] = useState(2);
   const [randomPercent, setRandomPercent] = useState(0);
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
@@ -277,7 +278,12 @@ function App() {
   const baseSum = useMemo(() => sumValues(numericValues), [numericValues]);
 
   const decimals = Math.min(Math.max(fractionDigits, 0), 6);
-  const desiredSumRaw = isTargetMode ? baseSum + additionValue : targetSum;
+  const desiredSumRaw =
+    sumMode === 'add'
+      ? baseSum + additionValue
+      : sumMode === 'target'
+        ? targetSum
+        : baseSum * multiplier;
   const desiredSum = decimals === 0 ? Math.round(desiredSumRaw) : desiredSumRaw;
 
   const scaledValues = useMemo(
@@ -349,23 +355,29 @@ function App() {
     setFractionDigits((prev) => Math.max(0, Math.min(6, prev + delta)));
   };
 
-  const desiredLabel = isTargetMode ? 'Working value' : 'Target sum';
-  const desiredInputValue = isTargetMode ? additionValue : targetSum;
+  const desiredLabel =
+    sumMode === 'add' ? 'Working value' : sumMode === 'target' ? 'Target sum' : 'Multiplier';
+  const desiredInputValue =
+    sumMode === 'add' ? additionValue : sumMode === 'target' ? targetSum : multiplier;
   const onDesiredChange = (next: number) => {
-    if (isTargetMode) {
+    if (sumMode === 'add') {
       setAdditionValue(next);
-    } else {
+    } else if (sumMode === 'target') {
       setTargetSum(next);
+    } else {
+      setMultiplier(next);
     }
   };
-  const handleModeToggle = (nextMode: boolean) => {
+  const handleModeToggle = (nextMode: 'add' | 'target' | 'multiply') => {
     const currentValue = Number.isFinite(desiredInputValue) ? desiredInputValue : 0;
-    if (nextMode) {
+    if (nextMode === 'add') {
       setAdditionValue(currentValue);
-    } else {
+    } else if (nextMode === 'target') {
       setTargetSum(currentValue);
+    } else {
+      setMultiplier(currentValue);
     }
-    setIsTargetMode(nextMode);
+    setSumMode(nextMode);
   };
 
   const changeRandomPercent = (delta: number) => {
@@ -469,21 +481,30 @@ function App() {
                             <div className="mode-toggle mode-toggle-inline" role="group" aria-label="Sum mode toggle">
                               <button
                                 type="button"
-                                className={`mode-toggle-button${isTargetMode ? ' active' : ''}`}
-                                aria-pressed={isTargetMode}
-                                onClick={() => handleModeToggle(true)}
-                                title="Distribute to a working value"
+                                className={`mode-toggle-button${sumMode === 'add' ? ' active' : ''}`}
+                                aria-pressed={sumMode === 'add'}
+                                onClick={() => handleModeToggle('add')}
+                                title="Add to the base sum"
                               >
                                 +
                               </button>
                               <button
                                 type="button"
-                                className={`mode-toggle-button${!isTargetMode ? ' active' : ''}`}
-                                aria-pressed={!isTargetMode}
-                                onClick={() => handleModeToggle(false)}
+                                className={`mode-toggle-button${sumMode === 'target' ? ' active' : ''}`}
+                                aria-pressed={sumMode === 'target'}
+                                onClick={() => handleModeToggle('target')}
                                 title="Aim for a target sum"
                               >
                                 =
+                              </button>
+                              <button
+                                type="button"
+                                className={`mode-toggle-button${sumMode === 'multiply' ? ' active' : ''}`}
+                                aria-pressed={sumMode === 'multiply'}
+                                onClick={() => handleModeToggle('multiply')}
+                                title="Multiply the base sum"
+                              >
+                                ×
                               </button>
                             </div>
                             <input
@@ -617,7 +638,7 @@ function App() {
                         {copyState === 'copied' ? 'Copied!' : 'Copy'}
                       </button>
                     </div>
-                    <p>All numbers are proportionally adjusted to the new sum.</p>
+                    <p>Numbers adjusted to the new sum.</p>
                   </header>
 
                   <div className="result-summary">

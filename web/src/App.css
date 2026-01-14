@@ -202,7 +202,7 @@ body::after {
 }
 
 .number-field-input-wrapper.addition-toggle {
-  --toggle-padding: 102px;
+  --toggle-padding: 150px;
 }
 
 .number-field-input-wrapper.digits-toggle {
