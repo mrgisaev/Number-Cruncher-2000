@@ -31,11 +31,14 @@ const detectDecimalSeparator = (input: string): '.' | ',' | null => {
 
   const sepIndex = lastComma !== -1 ? lastComma : lastDot;
   const sepChar = lastComma !== -1 ? ',' : '.';
+  const occurrences = (input.match(new RegExp(`\\${sepChar}`, 'g')) || []).length;
+  if (occurrences > 1) {
+    return null;
+  }
   const fractionalLength = input.length - sepIndex - 1;
   if (fractionalLength === 0) {
     return null;
   }
-  const occurrences = (input.match(new RegExp(`\\${sepChar}`, 'g')) || []).length;
   if (sepChar === ',' && occurrences === 1 && fractionalLength === 3) {
     return null;
   }
