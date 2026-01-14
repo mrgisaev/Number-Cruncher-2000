@@ -102,7 +102,7 @@ body::after {
 .page {
   max-width: 900px;
   margin: 0 auto;
-  padding: 24px 0 24px;
+  padding: 24px 0;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -324,9 +324,9 @@ body::after {
 }
 
 .single-grid {
-  grid-template-columns: minmax(280px, 1fr);
-  max-width: 720px;
-  margin: 0 auto;
+  grid-template-columns: 1fr;
+  max-width: none;
+  width: 100%;
 }
 
 .card {
@@ -369,7 +369,7 @@ body::after {
 .card-header p {
   margin: 0;
   color: #6b6373;
-  min-height: 62px;
+  min-height: 30px;
   display: flex;
   align-items: center;
 }
@@ -412,7 +412,8 @@ body::after {
   border: none;
   padding: 10px 24px 24px 10px;
   resize: none;
-  min-height: 220px;
+  min-height: 420px;
+  height: 420px;
   font-size: 1rem;
   line-height: 1.5;
   font-family: inherit;
@@ -530,7 +531,7 @@ body::after {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  align-items: center;
+  align-items: stretch;
 }
 
 .tool-link-button {
@@ -550,7 +551,7 @@ body::after {
     0 3px 8px rgba(196, 246, 248, 0.45);
   text-decoration: none;
   white-space: nowrap;
-  min-width: 0;
+  width: 100%;
   transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, background 0.2s ease;
 }
 
@@ -569,6 +570,29 @@ body::after {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  color: #4b4253;
+}
+
+.release-date {
+  margin: 0 0 10px;
+  color: #5e5169;
+  font-size: 0.9rem;
+}
+
+.release-header {
+  gap: 0;
+}
+
+.release-intro {
+  min-height: 30px;
+}
+
+.release-entry + .release-entry {
+  margin-top: 16px;
+}
+
+.release-note {
+  margin: 0;
   color: #4b4253;
 }
 

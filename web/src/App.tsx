@@ -263,6 +263,8 @@ function App() {
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
   const footerYear = new Date().getFullYear();
   const isWhatsNew = typeof window !== 'undefined' && window.location.pathname.includes('whats-new');
+  const releaseDate = 'Jan 10, 2026';
+  const firstReleaseDate = 'Jan 6, 2026';
   const additionInputId = useId();
   const digitsInputId = useId();
   const randomInputId = useId();
@@ -396,13 +398,8 @@ function App() {
           />
         ))}
       </div>
-    <div className="app-shell">
+      <div className="app-shell">
       <aside className="card menu-card floating-menu">
-        <header className="card-header">
-          <div className="card-header-top">
-            <h2>Tools</h2>
-          </div>
-        </header>
         <nav>
           <ul className="tool-links">
             <li>
@@ -431,18 +428,23 @@ function App() {
             </section>
             <main className="grid single-grid">
               <section className="card">
-                <header className="card-header">
+                <header className="card-header release-header">
                   <div className="card-header-top">
                     <h2>Release notes</h2>
                   </div>
-                  <p>Latest changes to the tool.</p>
                 </header>
-                <ul className="whats-new-list">
-                  <li>Added randomizer with adjustable percent and sum preservation.</li>
-                  <li>Improved number parsing for mixed separators and trailing blanks.</li>
-                  <li>Updated copy/clear controls and pastel UI polish.</li>
-                  <li>Added GA4 tracking and extra tool links in the floating menu.</li>
-                </ul>
+                <div className="release-entry">
+                  <p className="release-date">{releaseDate}</p>
+                  <ul className="whats-new-list">
+                    <li>Added randomizer with adjustable percent and sum preservation.</li>
+                    <li>Improved number parsing for mixed separators and trailing blanks.</li>
+                    <li>Updated copy/clear controls and pastel UI polish.</li>
+                  </ul>
+                </div>
+                <div className="release-entry">
+                  <p className="release-date">{firstReleaseDate}</p>
+                  <p className="release-note">First version published on Monday.</p>
+                </div>
               </section>
             </main>
           </>
