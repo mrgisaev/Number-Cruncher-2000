@@ -259,10 +259,12 @@ function App() {
   const [targetSum, setTargetSum] = useState(463915);
   const [additionValue, setAdditionValue] = useState(10000);
   const [fractionDigits, setFractionDigits] = useState(2);
+  const [randomPercent, setRandomPercent] = useState(0);
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
   const footerYear = new Date().getFullYear();
   const additionInputId = useId();
   const digitsInputId = useId();
+  const randomInputId = useId();
 
   const parsedRows = useMemo(() => parseColumn(rawInput), [rawInput]);
   const numericValues = useMemo(
@@ -279,9 +281,26 @@ function App() {
     () => buildScaledValues(numericValues, desiredSum),
     [numericValues, desiredSum],
   );
+
+  const randomizedValues = useMemo(() => {
+    if (!scaledValues.length || randomPercent <= 0) {
+      return scaledValues;
+    }
+    const factor = randomPercent / 100;
+    const jittered = scaledValues.map((value) => {
+      const offset = (Math.random() * 2 - 1) * factor;
+      return value * (1 + offset);
+    });
+    const jitterSum = sumValues(jittered);
+    if (jitterSum === 0) {
+      return scaledValues;
+    }
+    return jittered.map((value) => value * (desiredSum / jitterSum));
+  }, [scaledValues, randomPercent, desiredSum]);
+
   const adjustedValues = useMemo(
-    () => enforceRounding(scaledValues, desiredSum, decimals),
-    [scaledValues, desiredSum, decimals],
+    () => enforceRounding(randomizedValues, desiredSum, decimals),
+    [randomizedValues, desiredSum, decimals],
   );
   const adjustedSum = useMemo(() => sumValues(adjustedValues), [adjustedValues]);
   const formattedValues = (() => {
@@ -346,6 +365,10 @@ function App() {
     setIsTargetMode(nextMode);
   };
 
+  const changeRandomPercent = (delta: number) => {
+    setRandomPercent((prev) => Math.max(0, Math.min(100, Math.round(prev + delta))));
+  };
+
   return (
     <>
       <div className="dust-overlay" aria-hidden="true">
@@ -384,6 +407,11 @@ function App() {
             <li>
               <a className="tool-link-button" href="https://number-cruncher.org">
                 Number Cruncher
+              </a>
+            </li>
+            <li>
+              <a className="tool-link-button" href="/test.html">
+                Тесть
               </a>
             </li>
           </ul>
@@ -479,6 +507,47 @@ function App() {
                 </div>
               </div>
 
+            </div>
+            <div className="stacked-field-column">
+              <div className="stacked-field">
+                <div className="number-field number-field-mode">
+                  <label className="number-field-label" htmlFor={randomInputId}>
+                    Randomizer (%)
+                  </label>
+                  <div className="number-field-input-wrapper input-with-toggle random-toggle">
+                    <div className="mode-toggle mode-toggle-inline" role="group" aria-label="Randomizer control">
+                      <button
+                        type="button"
+                        className="mode-toggle-button"
+                        onClick={() => changeRandomPercent(-1)}
+                        disabled={randomPercent <= 0}
+                        title="Decrease randomness"
+                      >
+                        -
+                      </button>
+                      <button
+                        type="button"
+                        className="mode-toggle-button"
+                        onClick={() => changeRandomPercent(1)}
+                        disabled={randomPercent >= 100}
+                        title="Increase randomness"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <input
+                      id={randomInputId}
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={randomPercent}
+                      onChange={(event) =>
+                        setRandomPercent(Math.max(0, Math.min(100, Number(event.target.value) || 0)))
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         <main className="grid">

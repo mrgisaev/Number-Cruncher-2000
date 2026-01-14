@@ -209,6 +209,10 @@ body::after {
   --toggle-padding: 150px;
 }
 
+.number-field-input-wrapper.random-toggle {
+  --toggle-padding: 92px;
+}
+
 .mode-toggle {
   display: inline-flex;
   gap: 6px;
