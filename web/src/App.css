@@ -644,8 +644,15 @@ body::after {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s ease, transform 0.2s ease;
+  opacity: 0;
+  pointer-events: none;
+  transition: background 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
   z-index: 6;
+}
+
+.scroll-cue.is-visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .scroll-cue-arrow {
@@ -666,7 +673,7 @@ body::after {
   border-color: rgba(255, 255, 255, 0.95);
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1099px) {
   .scroll-cue {
     display: none;
   }

@@ -1,4 +1,4 @@
-import { type ChangeEvent, type CSSProperties, useId, useMemo, useState } from 'react';
+import { type ChangeEvent, type CSSProperties, useEffect, useId, useMemo, useState } from 'react';
 import './App.css';
 
 const sampleColumn = '';
@@ -279,6 +279,7 @@ function App() {
   const [fractionDigitsInput, setFractionDigitsInput] = useState('');
   const [randomPercentInput, setRandomPercentInput] = useState('');
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
+  const [showScrollCue, setShowScrollCue] = useState(false);
   const footerYear = new Date().getFullYear();
   const isWhatsNew = typeof window !== 'undefined' && window.location.pathname.includes('whats-new');
   const releaseDate = 'Jan 14, 2026';
@@ -447,6 +448,21 @@ function App() {
   const handleScrollTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  useEffect(() => {
+    const updateScrollCue = () => {
+      const doc = document.documentElement;
+      const scrollable = doc.scrollHeight > window.innerHeight + 4;
+      setShowScrollCue(scrollable);
+    };
+    updateScrollCue();
+    window.addEventListener('resize', updateScrollCue);
+    window.addEventListener('scroll', updateScrollCue, { passive: true });
+    return () => {
+      window.removeEventListener('resize', updateScrollCue);
+      window.removeEventListener('scroll', updateScrollCue);
+    };
+  }, []);
 
   return (
     <>
@@ -739,7 +755,12 @@ function App() {
           </p>
         </footer>
       </div>
-      <button className="scroll-cue" type="button" onClick={handleScrollTop} aria-label="Scroll to top">
+      <button
+        className={`scroll-cue${showScrollCue ? ' is-visible' : ''}`}
+        type="button"
+        onClick={handleScrollTop}
+        aria-label="Scroll to top"
+      >
         <span className="scroll-cue-arrow" aria-hidden="true" />
       </button>
     </div>
