@@ -611,6 +611,15 @@ body::after {
     0 0 18px rgba(189, 211, 255, 0.4);
 }
 
+.site-disclaimer {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  color: rgba(235, 245, 255, 0.85);
+  text-shadow:
+    0 0 6px rgba(120, 200, 255, 0.4),
+    0 0 12px rgba(80, 140, 200, 0.35);
+}
+
 .site-footer a {
   color: #fbf2ff;
   font-weight: 700;

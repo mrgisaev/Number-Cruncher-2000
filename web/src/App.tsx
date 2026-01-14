@@ -722,6 +722,10 @@ function App() {
           </>
         )}
         <footer className="site-footer">
+          <p className="site-disclaimer">
+            Please verify the calculated results and separators before use. The author is not liable for errors or
+            omissions.
+          </p>
           <p>
             Made by{' '}
             <a href="https://www.linkedin.com/in/mrgisaev/" target="_blank" rel="noreferrer">
