@@ -411,11 +411,6 @@ function App() {
               </a>
             </li>
             <li>
-              <a className="tool-link-button" href="/test.html">
-                Тесть
-              </a>
-            </li>
-            <li>
               <a className="tool-link-button" href="/whats-new.html">
                 What's new
               </a>
