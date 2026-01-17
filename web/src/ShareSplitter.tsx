@@ -322,6 +322,7 @@ export const ShareSplitter = () => {
   const [totalInput, setTotalInput] = useState('');
   const [roundingInput, setRoundingInput] = useState('2');
   const [rows, setRows] = useState<SplitNode[]>(createInitialRows());
+  const [outputMode, setOutputMode] = useState<'pivot' | 'pivot-leaves' | 'pivot-values'>('pivot');
 
   const totalParsed = parseColumn(totalInput)[0];
   const totalValue = useMemo(() => {
@@ -351,6 +352,27 @@ export const ShareSplitter = () => {
     [computedRows],
   );
   const maxDepth = useMemo(() => getMaxDepth(rows, 0) + 1, [rows]);
+  const outputRows = useMemo(() => {
+    const collected: { row: ComputedNode; path: string[] }[] = [];
+    const walk = (nodes: ComputedNode[], path: string[]) => {
+      nodes.forEach((node) => {
+        const nextPath = [...path];
+        nextPath[node.depth] = node.name;
+        if (node.name.trim() !== '') {
+          collected.push({ row: node, path: nextPath });
+        }
+        if (node.children.length) {
+          walk(node.children, nextPath);
+        }
+      });
+    };
+    const initialPath = Array.from({ length: maxDepth }, () => '');
+    walk(computedTree, initialPath);
+    if (outputMode === 'pivot-leaves') {
+      return collected.filter(({ row }) => row.children.length === 0);
+    }
+    return collected;
+  }, [computedTree, maxDepth, outputMode]);
 
   const handleAddSibling = (id: string) => {
     setRows((prev) => addSiblingRow(prev, id, 'Group'));
@@ -424,19 +446,40 @@ export const ShareSplitter = () => {
   };
 
   const handleCopyResult = () => {
-    const lines = resultRows
-      .map((row) => `${'  '.repeat(row.depth)}${row.name}\t${formatAmount(row.amount, decimals)}`);
+    const lines =
+      outputMode === 'pivot-values'
+        ? outputRows.map(({ row }) => {
+            const cells = Array.from({ length: maxDepth }, (_, index) =>
+              index === row.depth ? formatAmount(row.amount, decimals) : '',
+            );
+            return cells.join('\t');
+          })
+        : outputRows.map(({ row, path }) =>
+            [...path, formatAmount(row.amount, decimals)].join('\t'),
+          );
     navigator.clipboard.writeText(lines.join('\n')).catch(() => null);
   };
 
   const handleExportCsv = () => {
-    const lines = ['Name,Amount'];
-    resultRows.forEach((row) => {
-      if (!row.name.trim()) {
+    const escapeCell = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const lines =
+      outputMode === 'pivot-values'
+        ? [Array.from({ length: maxDepth }, (_, index) => `Level ${index + 1}`).join(',')]
+        : [
+            [...Array.from({ length: maxDepth }, (_, index) => `Level ${index + 1}`), 'Amount'].join(
+              ',',
+            ),
+          ];
+    outputRows.forEach(({ row, path }) => {
+      if (outputMode === 'pivot-values') {
+        const rowValues = Array.from({ length: maxDepth }, (_, index) =>
+          index === row.depth ? formatAmount(row.amount, decimals) : '',
+        );
+        lines.push(rowValues.map(escapeCell).join(','));
         return;
       }
-      const path = `${'  '.repeat(row.depth)}${row.name}`;
-      lines.push(`"${path}","${formatAmount(row.amount, decimals)}"`);
+      const rowValues = [...path, formatAmount(row.amount, decimals)];
+      lines.push(rowValues.map(escapeCell).join(','));
     });
     const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -657,6 +700,18 @@ export const ShareSplitter = () => {
           <div className="card-header-top">
             <h2>Result</h2>
             <div className="split-result-actions">
+              <select
+                className="split-output-select"
+                value={outputMode}
+                onChange={(event) =>
+                  setOutputMode(event.target.value as 'pivot' | 'pivot-leaves' | 'pivot-values')
+                }
+                aria-label="Output format"
+              >
+                <option value="pivot">Pivot style</option>
+                <option value="pivot-leaves">Table leaves only</option>
+                <option value="pivot-values">Table without names</option>
+              </select>
               <button type="button" onClick={handleCopyResult}>
                 Copy result
               </button>
