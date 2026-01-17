@@ -595,6 +595,16 @@ body::after {
   background-repeat: no-repeat;
 }
 
+.creative-output-dropdown {
+  width: 100%;
+  display: flex;
+}
+
+.creative-output-dropdown .split-output-trigger,
+.creative-output-dropdown .split-output-menu {
+  width: 100%;
+}
+
 .creative-output-select:focus {
   outline: none;
   border-color: rgba(255, 255, 255, 0.8);
@@ -1180,7 +1190,7 @@ body::after {
   box-sizing: border-box;
   padding: 8px;
   border-radius: 14px;
-  background: rgba(230, 250, 255, 0.5);
+  background: #e6faff;
   box-shadow:
     0 12px 24px rgba(15, 60, 80, 0.18),
     inset 0 1px 8px rgba(255, 255, 255, 0.7);

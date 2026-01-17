@@ -1,4 +1,4 @@
-﻿import { type CSSProperties, type DragEvent, useMemo, useRef, useState } from 'react';
+﻿import { type CSSProperties, type DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 import JSZip from 'jszip';
 
 type CreativeNode = {
@@ -353,12 +353,25 @@ export const CreativeRenamer = () => {
   const [includeSize, setIncludeSize] = useState(true);
   const [includeFormat, setIncludeFormat] = useState(false);
   const [outputFormat, setOutputFormat] = useState<'keep' | 'jpg' | 'png' | 'mp4'>('keep');
+  const [isFormatMenuOpen, setIsFormatMenuOpen] = useState(false);
   const [assetKind, setAssetKind] = useState<'image' | 'video' | null>(null);
   const [uploadError, setUploadError] = useState('');
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
   const [isExporting, setIsExporting] = useState(false);
   const [preview, setPreview] = useState<{ file: CreativeFile; x: number; y: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const formatMenuRef = useRef<HTMLDivElement | null>(null);
+  const outputFormatOptions = useMemo(
+    () => [
+      { value: 'keep' as const, label: 'Keep original' },
+      { value: 'jpg' as const, label: 'JPG' },
+      { value: 'png' as const, label: 'PNG' },
+      { value: 'mp4' as const, label: 'MP4' },
+    ],
+    [],
+  );
+  const outputFormatLabel =
+    outputFormatOptions.find((option) => option.value === outputFormat)?.label ?? 'Keep original';
 
   const fileEntries = useMemo(() => flattenFiles(groups), [groups]);
   const filesArray = useMemo(() => Object.values(files), [files]);
@@ -440,6 +453,24 @@ export const CreativeRenamer = () => {
   }, [fileEntries, files, includeSize, includeFormat, outputFormat, separator]);
 
   const hasErrors = renamePreview.some((entry) => entry && entry.errors.length > 0) || !!formatMismatch;
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!formatMenuRef.current) {
+        return;
+      }
+      if (!formatMenuRef.current.contains(event.target as Node)) {
+        setIsFormatMenuOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, []);
+
+  const handleFormatSelect = (value: 'keep' | 'jpg' | 'png' | 'mp4') => {
+    setOutputFormat(value);
+    setIsFormatMenuOpen(false);
+  };
 
   const handleFileButton = () => {
     fileInputRef.current?.click();
@@ -918,18 +949,41 @@ export const CreativeRenamer = () => {
                 <div className="number-field number-field-mode">
                   <label className="number-field-label">Output format</label>
                   <div className="number-field-input-wrapper">
-                    <select
-                      className="creative-output-select"
-                      value={outputFormat}
-                      onChange={(event) =>
-                        setOutputFormat(event.target.value as 'keep' | 'jpg' | 'png' | 'mp4')
-                      }
-                    >
-                      <option value="keep">Keep original</option>
-                      <option value="jpg">JPG</option>
-                      <option value="png">PNG</option>
-                      <option value="mp4">MP4</option>
-                    </select>
+                    <div className="split-output-dropdown creative-output-dropdown" ref={formatMenuRef}>
+                      <button
+                        type="button"
+                        className="split-output-trigger"
+                        aria-haspopup="listbox"
+                        aria-expanded={isFormatMenuOpen}
+                        onClick={() => setIsFormatMenuOpen((prev) => !prev)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Escape') {
+                            setIsFormatMenuOpen(false);
+                          }
+                        }}
+                      >
+                        <span className="split-output-label">{outputFormatLabel}</span>
+                        <span className="split-output-caret" aria-hidden="true" />
+                      </button>
+                      {isFormatMenuOpen ? (
+                        <div className="split-output-menu" role="listbox" aria-label="Output format">
+                          {outputFormatOptions.map((option) => (
+                            <button
+                              key={option.value}
+                              type="button"
+                              className={`split-output-option${
+                                option.value === outputFormat ? ' is-active' : ''
+                              }`}
+                              role="option"
+                              aria-selected={option.value === outputFormat}
+                              onClick={() => handleFormatSelect(option.value)}
+                            >
+                              <span className="split-output-option-text">{option.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                   <label className="creative-toggle">
                     <span>Include size in name</span>
