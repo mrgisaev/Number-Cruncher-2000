@@ -24,6 +24,7 @@ type CreativeFile = {
 type FileEntry = {
   fileId: string;
   pathSegments: string[];
+  pathIds: string[];
 };
 
 const imageExtensions = new Set([
@@ -277,16 +278,17 @@ const moveFileToGroup = (nodes: CreativeNode[], fileId: string, groupId: string)
   return insertNodeToGroup(detachedResult.nodes, groupId, detachedResult.detached);
 };
 
-const flattenFiles = (nodes: CreativeNode[], path: string[] = []) => {
+const flattenFiles = (nodes: CreativeNode[], path: string[] = [], pathIds: string[] = []) => {
   const entries: FileEntry[] = [];
   nodes.forEach((node) => {
     if (node.type === 'group') {
       const segment = normalizeSegment(node.name);
       const nextPath = segment ? [...path, segment] : path;
-      entries.push(...flattenFiles(node.children, nextPath));
+      const nextIds = [...pathIds, node.id];
+      entries.push(...flattenFiles(node.children, nextPath, nextIds));
       return;
     }
-    entries.push({ fileId: node.id, pathSegments: path });
+    entries.push({ fileId: node.id, pathSegments: path, pathIds });
   });
   return entries;
 };
@@ -422,6 +424,7 @@ export const CreativeRenamer = () => {
         fullName,
         sizeValue,
         pathLabel: entry.pathSegments.join(' / '),
+        pathIds: entry.pathIds,
       };
     });
     const nameCounts = new Map<string, number>();
@@ -429,7 +432,9 @@ export const CreativeRenamer = () => {
       if (!entry || !entry.fullName) {
         return;
       }
-      nameCounts.set(entry.fullName, (nameCounts.get(entry.fullName) ?? 0) + 1);
+      const pathKey = entry.pathIds.join('>');
+      const key = `${entry.fullName}||${pathKey}`;
+      nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
     });
     return entries.map((entry) => {
       if (!entry) {
@@ -445,8 +450,12 @@ export const CreativeRenamer = () => {
       if (outputFormat === 'mp4' && entry.file.kind === 'video' && entry.file.extension !== 'mp4') {
         errors.push('Only MP4 input is supported for MP4 output.');
       }
-      if (entry.fullName && (nameCounts.get(entry.fullName) ?? 0) > 1) {
-        errors.push('Duplicate filename.');
+      if (entry.fullName) {
+        const pathKey = entry.pathIds.join('>');
+        const key = `${entry.fullName}||${pathKey}`;
+        if ((nameCounts.get(key) ?? 0) > 1) {
+          errors.push('Duplicate filename.');
+        }
       }
       return { ...entry, errors };
     });
