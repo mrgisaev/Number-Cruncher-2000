@@ -538,7 +538,7 @@ body::after {
   gap: 12px;
   justify-content: space-between;
   width: 100%;
-  padding: 0 12px;
+  padding: 0;
   box-sizing: border-box;
 }
 
@@ -546,6 +546,7 @@ body::after {
   border: 1px solid rgba(212, 255, 255, 0.7);
   border-radius: 12px;
   height: 43px;
+  width: 100%;
   padding: 0 16px;
   font-weight: 600;
   background: linear-gradient(135deg, #eefafd, #d1f1f6);
