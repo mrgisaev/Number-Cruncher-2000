@@ -600,9 +600,17 @@ body::after {
   display: flex;
 }
 
+.creative-output-dropdown .split-output-trigger {
+  height: 43px;
+}
+
 .creative-output-dropdown .split-output-trigger,
 .creative-output-dropdown .split-output-menu {
   width: 100%;
+}
+
+.creative-renamer .number-field-input-wrapper input {
+  height: 43px;
 }
 
 .creative-output-select:focus {
@@ -620,6 +628,7 @@ body::after {
   align-items: center;
   gap: 12px;
   width: 100%;
+  min-height: 43px;
   padding: 8px 12px;
   border-radius: 12px;
   border: 1px solid rgba(212, 255, 255, 0.7);
