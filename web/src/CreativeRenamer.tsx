@@ -96,6 +96,24 @@ const formatSize = (width: number | null, height: number | null) => {
   return `${width}x${height}`;
 };
 
+const buildCreativeFile = (
+  file: File,
+  fileName: string,
+  extension: string,
+  kind: 'image' | 'video',
+): CreativeFile => ({
+  id: createFileId(),
+  file,
+  originalName: fileName,
+  extension,
+  kind,
+  width: null,
+  height: null,
+  sizeInput: '',
+  identifier: '',
+  previewUrl: URL.createObjectURL(file),
+});
+
 const createGroupNode = (label: string): CreativeNode => ({
   id: createGroupId(),
   type: 'group',
@@ -429,16 +447,27 @@ export const CreativeRenamer = () => {
     if (!fileList) {
       return;
     }
-    const zipFiles = Array.from(fileList).filter((file) => file.name.toLowerCase().endsWith('.zip'));
-    if (!zipFiles.length) {
-      setUploadError('Please upload ZIP archives.');
-      return;
-    }
     setUploadError('');
+    const incoming = Array.from(fileList);
+    const zipFiles = incoming.filter((file) => file.name.toLowerCase().endsWith('.zip'));
+    const directFiles = incoming.filter((file) => !file.name.toLowerCase().endsWith('.zip'));
     const extracted: CreativeFile[] = [];
+    const directExtracted: CreativeFile[] = [];
+    const zipBatches: { label: string; files: CreativeFile[] }[] = [];
+    directFiles.forEach((file) => {
+      const extension = getExtension(file.name);
+      const kind = getKind(extension);
+      if (!kind) {
+        return;
+      }
+      const created = buildCreativeFile(file, file.name, extension, kind);
+      directExtracted.push(created);
+      extracted.push(created);
+    });
     for (const zipFile of zipFiles) {
       const zip = await JSZip.loadAsync(zipFile);
       const entries = Object.values(zip.files);
+      const batch: CreativeFile[] = [];
       for (const entry of entries) {
         if (entry.dir) {
           continue;
@@ -451,24 +480,19 @@ export const CreativeRenamer = () => {
         }
         const blob = await entry.async('blob');
         const file = new File([blob], fileName, { type: getMime(extension, kind) });
-        const id = createFileId();
-        const previewUrl = URL.createObjectURL(file);
-        extracted.push({
-          id,
-          file,
-          originalName: fileName,
-          extension,
-          kind,
-          width: null,
-          height: null,
-          sizeInput: '',
-          identifier: '',
-          previewUrl,
+        const created = buildCreativeFile(file, fileName, extension, kind);
+        batch.push(created);
+        extracted.push(created);
+      }
+      if (batch.length) {
+        zipBatches.push({
+          label: zipFile.name.replace(/\.zip$/i, ''),
+          files: batch,
         });
       }
     }
     if (!extracted.length) {
-      setUploadError('No supported creatives found in the archives.');
+      setUploadError('No supported creatives found. Upload ZIPs or supported files.');
       return;
     }
     const kinds = new Set(extracted.map((file) => file.kind));
@@ -492,8 +516,17 @@ export const CreativeRenamer = () => {
       return next;
     });
     setGroups((prev) => {
-      const next = prev.length ? prev : createInitialGroups();
-      return addFilesToGroup(next, next[0].id, extracted);
+      let next = prev.length ? prev : createInitialGroups();
+      if (directExtracted.length) {
+        next = addFilesToGroup(next, next[0].id, directExtracted);
+      }
+      zipBatches.forEach((batch) => {
+        const label = batch.label.trim() || 'Archive';
+        const newGroup = createGroupNode(label);
+        next = [...next, newGroup];
+        next = addFilesToGroup(next, newGroup.id, batch.files);
+      });
+      return next;
     });
     extracted.forEach((file) => {
       if (file.kind === 'image') {
@@ -608,6 +641,7 @@ export const CreativeRenamer = () => {
   const handleDragStart = (event: DragEvent<HTMLDivElement>, fileId: string) => {
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', fileId);
+    setPreview(null);
   };
 
   const handleDropOnGroup = (event: DragEvent<HTMLDivElement>, groupId: string) => {
@@ -616,6 +650,7 @@ export const CreativeRenamer = () => {
     if (!fileId) {
       return;
     }
+    setPreview(null);
     setGroups((prev) => moveFileToGroup(prev, fileId, groupId));
   };
 
@@ -836,18 +871,18 @@ export const CreativeRenamer = () => {
                   <label className="number-field-label">Select creatives</label>
                   <div className="number-field-input-wrapper creative-upload">
                     <button type="button" onClick={handleFileButton}>
-                      Upload ZIPs
+                      Upload ZIPs or files
                     </button>
                     <span>
                       {hasFiles
                         ? `${filesArray.length} files · ${assetKind === 'video' ? 'Video' : 'Image'}`
-                        : 'ZIP archives only'}
+                        : 'ZIPs or files'}
                     </span>
                   </div>
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".zip"
+                    accept=".zip,image/*,video/*"
                     multiple
                     onChange={(event) => {
                       void handleFilesAdded(event.target.files);
