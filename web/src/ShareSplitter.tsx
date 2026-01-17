@@ -1,4 +1,4 @@
-import { type CSSProperties, useMemo, useState } from 'react';
+import { type CSSProperties, useMemo, useRef, useState } from 'react';
 
 import { addGrouping, parseColumn } from './shareSplitterUtils';
 
@@ -21,6 +21,13 @@ type ComputedNode = {
   isIgnored: boolean;
   children: ComputedNode[];
   error?: string | null;
+};
+
+type CachedMode = {
+  mode: 'percent' | 'absolute';
+  remainder: number;
+  remainderPercent: number;
+  notSetValueInput: string;
 };
 
 const createId = () => Math.random().toString(36).slice(2, 10);
@@ -103,8 +110,12 @@ const buildComputed = (
   parentAmount: number,
   depth: number,
   decimals: number,
+  modeCache: Map<string, CachedMode>,
+  cacheKey: string,
 ): ComputedNode[] => {
   const { mode, error } = detectMode(rows);
+  const cached = modeCache.get(cacheKey);
+  const effectiveMode = mode === 'mixed' ? cached?.mode ?? 'absolute' : mode;
   const parsedAll = rows.map((row) => ({
     row,
     parsed: parseShareInput(row.valueInput),
@@ -120,35 +131,43 @@ const buildComputed = (
     { sum: 0 },
   );
 
-  const maxValue = mode === 'percent' ? 100 : parentAmount;
+  const maxValue = effectiveMode === 'percent' ? 100 : parentAmount;
   const overLimit = totals.sum > maxValue + 1e-9;
-  const remainder = Math.max(0, maxValue - totals.sum);
-  const showNotSet = !overLimit && remainder > 0.00001;
+  let remainder = Math.max(0, maxValue - totals.sum);
+  let showNotSet = !overLimit && remainder > 0.00001;
+  let remainderPercent =
+    effectiveMode === 'percent' ? remainder : parentAmount === 0 ? 0 : (remainder / parentAmount) * 100;
+  const notSetLabel = 'Not set';
+  let notSetValueInput =
+    effectiveMode === 'percent' ? toPercentString(remainder) : formatAmount(remainder, decimals);
   const notSetIndex = parsedAll.reduce(
     (acc, entry, index) => (entry.isActive ? acc : index),
     -1,
   );
+
+  if (mode === 'mixed' && cached) {
+    remainder = cached.remainder;
+    remainderPercent = cached.remainderPercent;
+    notSetValueInput = cached.notSetValueInput;
+    showNotSet = cached.remainder > 0.00001;
+  }
 
   const computedRows = parsedAll.map(({ row, parsed: parsedRow, isActive }, index) => {
     const isNotSet = showNotSet && index === notSetIndex;
     const normalizedValue = isActive ? parsedRow.value : 0;
     const valueForCalc = isNotSet ? remainder : normalizedValue;
     const percent =
-      mode === 'percent'
+      effectiveMode === 'percent'
         ? valueForCalc
         : parentAmount === 0
           ? 0
           : (valueForCalc / parentAmount) * 100;
-    const amount = mode === 'percent' ? parentAmount * (valueForCalc / 100) : valueForCalc;
+    const amount = effectiveMode === 'percent' ? parentAmount * (valueForCalc / 100) : valueForCalc;
     return {
       id: row.id,
       sourceId: row.id,
-      name: isNotSet ? 'Not set' : row.name,
-      valueInput: isNotSet
-        ? mode === 'percent'
-          ? toPercentString(remainder)
-          : formatAmount(remainder, decimals)
-        : row.valueInput,
+      name: isNotSet ? notSetLabel : row.name,
+      valueInput: isNotSet ? notSetValueInput : row.valueInput,
       amount,
       percent,
       depth,
@@ -157,19 +176,27 @@ const buildComputed = (
       children: [],
       error:
         isActive && overLimit
-          ? `Sum exceeds ${mode === 'percent' ? '100%' : 'parent total'}.`
+          ? `Sum exceeds ${effectiveMode === 'percent' ? '100%' : 'parent total'}.`
           : error,
     };
   });
 
+  if (mode !== 'mixed') {
+    modeCache.set(cacheKey, {
+      mode: effectiveMode,
+      remainder,
+      remainderPercent,
+      notSetValueInput,
+    });
+  }
+
   if (showNotSet && notSetIndex === -1) {
-    const remainderPercent = mode === 'percent' ? remainder : parentAmount === 0 ? 0 : (remainder / parentAmount) * 100;
     computedRows.push({
       id: `not-set-${depth}-${createId()}`,
       sourceId: null,
-      name: 'Not set',
-      valueInput: mode === 'percent' ? toPercentString(remainder) : formatAmount(remainder, decimals),
-      amount: mode === 'percent' ? parentAmount * (remainder / 100) : remainder,
+      name: notSetLabel,
+      valueInput: notSetValueInput,
+      amount: effectiveMode === 'percent' ? parentAmount * (remainder / 100) : remainder,
       percent: remainderPercent,
       depth,
       isNotSet: true,
@@ -187,8 +214,10 @@ const buildTree = (
   parentAmount: number,
   depth: number,
   decimals: number,
+  modeCache: Map<string, CachedMode>,
+  cacheKey: string,
 ): ComputedNode[] => {
-  const computed = buildComputed(nodes, parentAmount, depth, decimals);
+  const computed = buildComputed(nodes, parentAmount, depth, decimals, modeCache, cacheKey);
   return computed.map((row) => {
     if (!row.sourceId) {
       return row;
@@ -197,7 +226,7 @@ const buildTree = (
     if (!original || original.children.length === 0) {
       return row;
     }
-    const children = buildTree(original.children, row.amount, depth + 1, decimals);
+    const children = buildTree(original.children, row.amount, depth + 1, decimals, modeCache, original.id);
     return { ...row, children };
   });
 };
@@ -323,6 +352,7 @@ export const ShareSplitter = () => {
   const [roundingInput, setRoundingInput] = useState('2');
   const [rows, setRows] = useState<SplitNode[]>(createInitialRows());
   const [outputMode, setOutputMode] = useState<'pivot' | 'pivot-leaves' | 'pivot-values'>('pivot');
+  const modeCacheRef = useRef<Map<string, CachedMode>>(new Map());
 
   const totalParsed = parseColumn(totalInput)[0];
   const totalValue = useMemo(() => {
@@ -345,7 +375,10 @@ export const ShareSplitter = () => {
     ? Math.min(Math.max(Number.parseInt(roundingInput, 10), 0), 6)
     : 2;
 
-  const computedTree = useMemo(() => buildTree(rows, totalValue, 0, decimals), [rows, totalValue, decimals]);
+  const computedTree = useMemo(
+    () => buildTree(rows, totalValue, 0, decimals, modeCacheRef.current, 'root'),
+    [rows, totalValue, decimals],
+  );
   const computedRows = useMemo(() => flattenTree(computedTree), [computedTree]);
   const resultRows = useMemo(
     () => computedRows.filter((row) => row.name.trim() !== ''),
@@ -373,6 +406,24 @@ export const ShareSplitter = () => {
     }
     return collected;
   }, [computedTree, maxDepth, outputMode]);
+  const pivotValueRows = useMemo(() => {
+    const collected: { ids: Array<string | null>; amounts: Array<number | null> }[] = [];
+    const walk = (nodes: ComputedNode[], ids: Array<string | null>, amounts: Array<number | null>) => {
+      nodes.forEach((node) => {
+        const nextIds = [...ids];
+        const nextAmounts = [...amounts];
+        nextIds[node.depth] = node.id;
+        nextAmounts[node.depth] = node.amount;
+        if (node.children.length === 0) {
+          collected.push({ ids: nextIds, amounts: nextAmounts });
+          return;
+        }
+        walk(node.children, nextIds, nextAmounts);
+      });
+    };
+    walk(computedTree, Array.from({ length: maxDepth }, () => null), Array.from({ length: maxDepth }, () => null));
+    return collected;
+  }, [computedTree, maxDepth]);
 
   const handleAddSibling = (id: string) => {
     setRows((prev) => addSiblingRow(prev, id, 'Group'));
@@ -446,12 +497,20 @@ export const ShareSplitter = () => {
   };
 
   const handleCopyResult = () => {
+    let previousIds: Array<string | null> | null = null;
     const lines =
       outputMode === 'pivot-values'
-        ? outputRows.map(({ row }) => {
-            const cells = Array.from({ length: maxDepth }, (_, index) =>
-              index === row.depth ? formatAmount(row.amount, decimals) : '',
-            );
+        ? pivotValueRows.map(({ ids, amounts }) => {
+            const cells = amounts.map((amount, index) => {
+              if (amount === null) {
+                return '';
+              }
+              if (previousIds && ids[index] === previousIds[index]) {
+                return '';
+              }
+              return formatAmount(amount, decimals);
+            });
+            previousIds = ids;
             return cells.join('\t');
           })
         : outputRows.map(({ row, path }) =>
@@ -464,23 +523,33 @@ export const ShareSplitter = () => {
     const escapeCell = (value: string) => `"${value.replace(/"/g, '""')}"`;
     const lines =
       outputMode === 'pivot-values'
-        ? [Array.from({ length: maxDepth }, (_, index) => `Level ${index + 1}`).join(',')]
+        ? []
         : [
             [...Array.from({ length: maxDepth }, (_, index) => `Level ${index + 1}`), 'Amount'].join(
               ',',
             ),
           ];
-    outputRows.forEach(({ row, path }) => {
-      if (outputMode === 'pivot-values') {
-        const rowValues = Array.from({ length: maxDepth }, (_, index) =>
-          index === row.depth ? formatAmount(row.amount, decimals) : '',
-        );
+    if (outputMode === 'pivot-values') {
+      let previousIds: Array<string | null> | null = null;
+      pivotValueRows.forEach(({ ids, amounts }) => {
+        const rowValues = amounts.map((amount, index) => {
+          if (amount === null) {
+            return '';
+          }
+          if (previousIds && ids[index] === previousIds[index]) {
+            return '';
+          }
+          return formatAmount(amount, decimals);
+        });
+        previousIds = ids;
         lines.push(rowValues.map(escapeCell).join(','));
-        return;
-      }
-      const rowValues = [...path, formatAmount(row.amount, decimals)];
-      lines.push(rowValues.map(escapeCell).join(','));
-    });
+      });
+    } else {
+      outputRows.forEach(({ row, path }) => {
+        const rowValues = [...path, formatAmount(row.amount, decimals)];
+        lines.push(rowValues.map(escapeCell).join(','));
+      });
+    }
     const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
