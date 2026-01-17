@@ -324,7 +324,22 @@ export const ShareSplitter = () => {
   const [rows, setRows] = useState<SplitNode[]>(createInitialRows());
 
   const totalParsed = parseColumn(totalInput)[0];
-  const totalValue = totalParsed && totalParsed.value !== null ? totalParsed.value : 0;
+  const totalValue = useMemo(() => {
+    if (totalInput.trim() !== '') {
+      return totalParsed && totalParsed.value !== null ? totalParsed.value : 0;
+    }
+    const { mode } = detectMode(rows);
+    if (mode !== 'absolute') {
+      return 0;
+    }
+    return rows.reduce((acc, row) => {
+      if (row.name.trim() === '') {
+        return acc;
+      }
+      const parsed = parseShareInput(row.valueInput);
+      return acc + (parsed.hasValue ? parsed.value : 0);
+    }, 0);
+  }, [rows, totalInput, totalParsed]);
   const decimals = Number.isFinite(Number.parseInt(roundingInput, 10))
     ? Math.min(Math.max(Number.parseInt(roundingInput, 10), 0), 6)
     : 2;
