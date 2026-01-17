@@ -755,9 +755,24 @@ body::after {
 }
 
 .creative-result-meta {
-  margin: 8px 0 0;
+  margin: 0;
   font-size: 0.85rem;
   color: rgba(52, 80, 82, 0.75);
+}
+
+.creative-result-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.creative-result-title h2,
+.creative-result-meta {
+  line-height: 1.1;
+}
+
+.creative-result-meta {
+  transform: translateY(2px);
 }
 
 .creative-result-item {

@@ -351,6 +351,7 @@ export const CreativeRenamer = () => {
   const [files, setFiles] = useState<Record<string, CreativeFile>>({});
   const [separator, setSeparator] = useState('-');
   const [includeSize, setIncludeSize] = useState(true);
+  const [includeFormat, setIncludeFormat] = useState(false);
   const [outputFormat, setOutputFormat] = useState<'keep' | 'jpg' | 'png' | 'mp4'>('keep');
   const [assetKind, setAssetKind] = useState<'image' | 'video' | null>(null);
   const [uploadError, setUploadError] = useState('');
@@ -392,15 +393,16 @@ export const CreativeRenamer = () => {
         parts.push(identifier);
       }
       const baseName = parts.join(separator);
-      const extension =
-        outputFormat === 'keep'
+      const extension = includeFormat
+        ? outputFormat === 'keep'
           ? file.extension
           : outputFormat === 'jpg'
             ? 'jpg'
             : outputFormat === 'png'
               ? 'png'
-              : 'mp4';
-      const fullName = baseName ? `${baseName}.${extension}` : '';
+              : 'mp4'
+        : '';
+      const fullName = baseName ? (extension ? `${baseName}.${extension}` : baseName) : '';
       return {
         file,
         baseName,
@@ -435,7 +437,7 @@ export const CreativeRenamer = () => {
       }
       return { ...entry, errors };
     });
-  }, [fileEntries, files, includeSize, outputFormat, separator]);
+  }, [fileEntries, files, includeSize, includeFormat, outputFormat, separator]);
 
   const hasErrors = renamePreview.some((entry) => entry && entry.errors.length > 0) || !!formatMismatch;
 
@@ -900,6 +902,14 @@ export const CreativeRenamer = () => {
                       placeholder="-"
                     />
                   </div>
+                  <label className="creative-toggle">
+                    <span>Include format in name</span>
+                    <input
+                      type="checkbox"
+                      checked={includeFormat}
+                      onChange={(event) => setIncludeFormat(event.target.checked)}
+                    />
+                  </label>
                 </div>
               </div>
             </div>
@@ -959,7 +969,14 @@ export const CreativeRenamer = () => {
       <section className="card results-card creative-results">
         <header className="card-header">
           <div className="card-header-top">
-            <h2>Result</h2>
+            <div className="creative-result-title">
+              <h2>Result</h2>
+              {hasFiles ? (
+                <span className="creative-result-meta">
+                  {filesArray.length} files · {assetKind === 'video' ? 'Video' : 'Image'}
+                </span>
+              ) : null}
+            </div>
             <div className="split-result-actions">
               <button type="button" onClick={handleCopyNames} disabled={hasErrors || !hasFiles}>
                 {copyState === 'copied' ? 'Copied!' : 'Copy names'}
@@ -972,11 +989,6 @@ export const CreativeRenamer = () => {
               </button>
             </div>
           </div>
-          {hasFiles ? (
-            <p className="creative-result-meta">
-              {filesArray.length} files · {assetKind === 'video' ? 'Video' : 'Image'}
-            </p>
-          ) : null}
         </header>
         <div className="creative-result-list">
           {renamePreview.length === 0 ? (
