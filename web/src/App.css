@@ -637,6 +637,26 @@ body::after {
   color: #3f4b55;
 }
 
+.split-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.split-name-cell .split-name-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.split-error-inline {
+  font-size: 0.75rem;
+  color: #b63f4c;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .split-name-input:focus,
 .split-value-input:focus {
   outline: none;
@@ -646,12 +666,6 @@ body::after {
   text-align: right;
 }
 
-.split-error {
-  grid-column: 1 / -1;
-  font-size: 0.75rem;
-  color: #b63f4c;
-  margin-top: 2px;
-}
 
 .split-results .card-header-top {
   align-items: flex-start;

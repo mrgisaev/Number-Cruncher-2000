@@ -451,44 +451,47 @@ export const ShareSplitter = () => {
     const disableActions = row.isNotSet;
     return (
       <div className={`split-cell${row.isNotSet ? ' split-cell-muted' : ''}`}>
-        <input
-          className="split-name-input"
-          value={row.name}
-          disabled={row.isNotSet}
-          onChange={(event) => handleUpdateName(row.id, event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              handleAddSibling(row.id);
-            }
-            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-              const direction = event.key === 'ArrowDown' ? 1 : -1;
-              const next = document.querySelector<HTMLInputElement>(
-                `[data-row="${rowIndex + direction}"][data-field="name"]`,
-              );
-              if (next) {
-                next.focus();
-                event.preventDefault();
+        <div className="split-name-cell">
+          <input
+            className="split-name-input"
+            value={row.name}
+            disabled={row.isNotSet}
+            onChange={(event) => handleUpdateName(row.id, event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                handleAddSibling(row.id);
               }
-            }
-            if (event.key === 'ArrowRight') {
-              const next = document.querySelector<HTMLInputElement>(
-                `[data-row="${rowIndex}"][data-field="value"]`,
-              );
-              if (next) {
-                next.focus();
-                event.preventDefault();
+              if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                const direction = event.key === 'ArrowDown' ? 1 : -1;
+                const next = document.querySelector<HTMLInputElement>(
+                  `[data-row="${rowIndex + direction}"][data-field="name"]`,
+                );
+                if (next) {
+                  next.focus();
+                  event.preventDefault();
+                }
               }
-            }
-          }}
-          onPaste={(event) => {
-            if (!row.isNotSet) {
-              event.preventDefault();
-              handlePaste(row.id, 'name', event.clipboardData.getData('text'));
-            }
-          }}
-          data-row={rowIndex}
-          data-field="name"
-        />
+              if (event.key === 'ArrowRight') {
+                const next = document.querySelector<HTMLInputElement>(
+                  `[data-row="${rowIndex}"][data-field="value"]`,
+                );
+                if (next) {
+                  next.focus();
+                  event.preventDefault();
+                }
+              }
+            }}
+            onPaste={(event) => {
+              if (!row.isNotSet) {
+                event.preventDefault();
+                handlePaste(row.id, 'name', event.clipboardData.getData('text'));
+              }
+            }}
+            data-row={rowIndex}
+            data-field="name"
+          />
+          {row.error ? <span className="split-error-inline">{row.error}</span> : null}
+        </div>
         <input
           className="split-value-input"
           value={row.valueInput}
@@ -545,7 +548,6 @@ export const ShareSplitter = () => {
             x
           </button>
         </div>
-        {row.error ? <span className="split-error">{row.error}</span> : null}
       </div>
     );
   };
