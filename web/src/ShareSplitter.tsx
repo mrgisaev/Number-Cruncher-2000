@@ -1,0 +1,668 @@
+import { useMemo, useState } from 'react';
+
+import { addGrouping, parseColumn } from './shareSplitterUtils';
+
+type SplitNode = {
+  id: string;
+  name: string;
+  valueInput: string;
+  children: SplitNode[];
+};
+
+type ComputedNode = {
+  id: string;
+  sourceId: string | null;
+  name: string;
+  valueInput: string;
+  amount: number;
+  percent: number;
+  depth: number;
+  isNotSet: boolean;
+  isIgnored: boolean;
+  children: ComputedNode[];
+  error?: string | null;
+};
+
+const createId = () => Math.random().toString(36).slice(2, 10);
+
+const createDefaultChildren = () => [
+  { id: createId(), name: 'Subgroup 1', valueInput: '50%', children: [] },
+  { id: createId(), name: 'Subgroup 2', valueInput: '50%', children: [] },
+];
+
+const createRow = (label: string) => ({
+  id: createId(),
+  name: label,
+  valueInput: '',
+  children: [],
+});
+
+const parseShareInput = (input: string) => {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return { value: 0, hasValue: false, hasPercent: false };
+  }
+  const hasPercent = trimmed.includes('%');
+  const cleaned = trimmed.replace(/[%\s]/g, '');
+  const parsed = parseColumn(cleaned)[0];
+  if (!parsed || parsed.value === null) {
+    return { value: 0, hasValue: false, hasPercent };
+  }
+  return { value: parsed.value, hasValue: true, hasPercent };
+};
+
+const formatAmount = (value: number, decimals: number) => {
+  const fixed = value.toFixed(decimals);
+  const [integerPart, fraction] = fixed.split('.');
+  const grouped = addGrouping(integerPart);
+  return fraction ? `${grouped}.${fraction}` : grouped;
+};
+
+const toPercentString = (value: number) => {
+  const trimmed = Number.isFinite(value) ? value : 0;
+  const normalized = Number(trimmed.toFixed(2));
+  return `${normalized}%`;
+};
+
+const roundGroup = (rows: ComputedNode[], parentTotal: number, decimals: number) => {
+  if (!rows.length) {
+    return rows;
+  }
+  const unit = 10 ** decimals;
+  const rounded = rows.map((row) => Math.round(row.amount * unit));
+  const target = Math.round(parentTotal * unit);
+  const diff = target - rounded.reduce((acc, val) => acc + val, 0);
+  if (diff !== 0) {
+    let lastIndex = rounded.length - 1;
+    while (lastIndex >= 0 && rows[lastIndex].isIgnored) {
+      lastIndex -= 1;
+    }
+    if (lastIndex >= 0) {
+      rounded[lastIndex] += diff;
+    }
+  }
+  return rows.map((row, index) => ({ ...row, amount: rounded[index] / unit }));
+};
+
+const detectMode = (rows: SplitNode[]) => {
+  const active = rows.filter((row) => row.name.trim() !== '');
+  const parsed = active.map((row) => parseShareInput(row.valueInput));
+  const hasPercent = parsed.some((entry) => entry.hasPercent);
+  const hasLarge = parsed.some((entry) => !entry.hasPercent && entry.hasValue && entry.value > 100);
+  if (hasPercent && hasLarge) {
+    return { mode: 'mixed' as const, error: 'Mixing percents and absolute values.' };
+  }
+  if (hasPercent) {
+    return { mode: 'percent' as const, error: null };
+  }
+  if (hasLarge) {
+    return { mode: 'absolute' as const, error: null };
+  }
+  return { mode: 'percent' as const, error: null };
+};
+
+const buildComputed = (
+  rows: SplitNode[],
+  parentAmount: number,
+  depth: number,
+  decimals: number,
+): ComputedNode[] => {
+  const { mode, error } = detectMode(rows);
+  const parsedAll = rows.map((row) => ({
+    row,
+    parsed: parseShareInput(row.valueInput),
+    isActive: row.name.trim() !== '',
+  }));
+  const parsedActive = parsedAll.filter((entry) => entry.isActive);
+
+  const totals = parsedActive.reduce(
+    (acc, entry) => {
+      acc.sum += entry.parsed.value;
+      return acc;
+    },
+    { sum: 0 },
+  );
+
+  const maxValue = mode === 'percent' ? 100 : parentAmount;
+  const overLimit = totals.sum > maxValue + 1e-9;
+  const remainder = Math.max(0, maxValue - totals.sum);
+  const showNotSet = !overLimit && remainder > 0.00001;
+  const notSetIndex = parsedAll.reduce(
+    (acc, entry, index) => (entry.isActive ? acc : index),
+    -1,
+  );
+
+  const computedRows = parsedAll.map(({ row, parsed: parsedRow, isActive }, index) => {
+    const isNotSet = showNotSet && index === notSetIndex;
+    const normalizedValue = isActive ? parsedRow.value : 0;
+    const valueForCalc = isNotSet ? remainder : normalizedValue;
+    const percent =
+      mode === 'percent'
+        ? valueForCalc
+        : parentAmount === 0
+          ? 0
+          : (valueForCalc / parentAmount) * 100;
+    const amount = mode === 'percent' ? parentAmount * (valueForCalc / 100) : valueForCalc;
+    return {
+      id: row.id,
+      sourceId: row.id,
+      name: isNotSet ? 'Not set' : row.name,
+      valueInput: isNotSet
+        ? mode === 'percent'
+          ? toPercentString(remainder)
+          : formatAmount(remainder, decimals)
+        : row.valueInput,
+      amount,
+      percent,
+      depth,
+      isNotSet,
+      isIgnored: !isActive && !isNotSet,
+      children: [],
+      error:
+        isActive && overLimit
+          ? `Sum exceeds ${mode === 'percent' ? '100%' : 'parent total'}.`
+          : error,
+    };
+  });
+
+  if (showNotSet && notSetIndex === -1) {
+    const remainderPercent = mode === 'percent' ? remainder : parentAmount === 0 ? 0 : (remainder / parentAmount) * 100;
+    computedRows.push({
+      id: `not-set-${depth}-${createId()}`,
+      sourceId: null,
+      name: 'Not set',
+      valueInput: mode === 'percent' ? toPercentString(remainder) : formatAmount(remainder, decimals),
+      amount: mode === 'percent' ? parentAmount * (remainder / 100) : remainder,
+      percent: remainderPercent,
+      depth,
+      isNotSet: true,
+      isIgnored: false,
+      children: [],
+      error: null,
+    });
+  }
+
+  return roundGroup(computedRows, parentAmount, decimals);
+};
+
+const buildTree = (
+  nodes: SplitNode[],
+  parentAmount: number,
+  depth: number,
+  decimals: number,
+): ComputedNode[] => {
+  const computed = buildComputed(nodes, parentAmount, depth, decimals);
+  return computed.map((row) => {
+    if (!row.sourceId) {
+      return row;
+    }
+    const original = nodes.find((node) => node.id === row.sourceId);
+    if (!original || original.children.length === 0) {
+      return row;
+    }
+    const children = buildTree(original.children, row.amount, depth + 1, decimals);
+    return { ...row, children };
+  });
+};
+
+const flattenTree = (nodes: ComputedNode[]) => {
+  const rows: ComputedNode[] = [];
+  const walk = (list: ComputedNode[]) => {
+    list.forEach((node) => {
+      rows.push(node);
+      if (node.children.length > 0) {
+        walk(node.children);
+      }
+    });
+  };
+  walk(nodes);
+  return rows;
+};
+
+const getMaxDepth = (nodes: SplitNode[], depth = 0): number => {
+  if (!nodes.length) {
+    return depth;
+  }
+  return nodes.reduce((acc, node) => {
+    const childDepth = node.children.length ? getMaxDepth(node.children, depth + 1) : depth;
+    return Math.max(acc, childDepth);
+  }, depth);
+};
+
+const updateNode = (nodes: SplitNode[], id: string, updater: (node: SplitNode) => SplitNode): SplitNode[] => {
+  return nodes.map((node) => {
+    if (node.id === id) {
+      return updater(node);
+    }
+    if (node.children.length) {
+      return { ...node, children: updateNode(node.children, id, updater) };
+    }
+    return node;
+  });
+};
+
+const updateListContaining = (
+  nodes: SplitNode[],
+  targetId: string,
+  updater: (list: SplitNode[], index: number) => SplitNode[],
+): SplitNode[] => {
+  const index = nodes.findIndex((node) => node.id === targetId);
+  if (index !== -1) {
+    return updater(nodes, index);
+  }
+  let didChange = false;
+  const next = nodes.map((node) => {
+    if (!node.children.length) {
+      return node;
+    }
+    const updatedChildren = updateListContaining(node.children, targetId, updater);
+    if (updatedChildren !== node.children) {
+      didChange = true;
+      return { ...node, children: updatedChildren };
+    }
+    return node;
+  });
+  return didChange ? next : nodes;
+};
+
+const addSiblingRow = (nodes: SplitNode[], targetId: string, label: string) => {
+  return updateListContaining(nodes, targetId, (list, index) => {
+    const next = [...list];
+    next.splice(index + 1, 0, createRow(label));
+    return next;
+  });
+};
+
+const removeNode = (nodes: SplitNode[], targetId: string) => {
+  return updateListContaining(nodes, targetId, (list, index) => {
+    const next = [...list];
+    next.splice(index, 1);
+    return next;
+  });
+};
+
+const addChildren = (nodes: SplitNode[], targetId: string) => {
+  return updateNode(nodes, targetId, (node) => {
+    if (node.children.length === 0) {
+      return { ...node, children: createDefaultChildren() };
+    }
+    return {
+      ...node,
+      children: [
+        ...node.children,
+        { id: createId(), name: 'Subgroup', valueInput: '', children: [] },
+        { id: createId(), name: 'Subgroup', valueInput: '', children: [] },
+      ],
+    };
+  });
+};
+
+const addLevelToLeaves = (nodes: SplitNode[]) => {
+  return nodes.map((node) => {
+    if (!node.children.length) {
+      return { ...node, children: createDefaultChildren() };
+    }
+    return { ...node, children: addLevelToLeaves(node.children) };
+  });
+};
+
+const removeDeepestLevel = (nodes: SplitNode[], depth: number, maxDepth: number): SplitNode[] => {
+  if (depth === maxDepth - 1) {
+    return nodes.map((node) => ({ ...node, children: [] }));
+  }
+  return nodes.map((node) => ({
+    ...node,
+    children: removeDeepestLevel(node.children, depth + 1, maxDepth),
+  }));
+};
+
+const createInitialRows = () => [
+  { id: createId(), name: 'Group 1', valueInput: '50%', children: [] },
+  { id: createId(), name: 'Group 2', valueInput: '50%', children: [] },
+];
+
+export const ShareSplitter = () => {
+  const [totalInput, setTotalInput] = useState('');
+  const [roundingInput, setRoundingInput] = useState('2');
+  const [rows, setRows] = useState<SplitNode[]>(createInitialRows());
+
+  const totalParsed = parseColumn(totalInput)[0];
+  const totalValue = totalParsed && totalParsed.value !== null ? totalParsed.value : 0;
+  const decimals = Number.isFinite(Number.parseInt(roundingInput, 10))
+    ? Math.min(Math.max(Number.parseInt(roundingInput, 10), 0), 6)
+    : 2;
+
+  const computedTree = useMemo(() => buildTree(rows, totalValue, 0, decimals), [rows, totalValue, decimals]);
+  const computedRows = useMemo(() => flattenTree(computedTree), [computedTree]);
+  const resultRows = useMemo(
+    () => computedRows.filter((row) => row.name.trim() !== ''),
+    [computedRows],
+  );
+  const maxDepth = useMemo(() => getMaxDepth(rows, 0) + 1, [rows]);
+
+  const handleAddSibling = (id: string) => {
+    setRows((prev) => addSiblingRow(prev, id, 'Group'));
+  };
+
+  const handleAddChild = (id: string) => {
+    setRows((prev) => addChildren(prev, id));
+  };
+
+  const handleRemoveRow = (id: string, isNotSet: boolean) => {
+    if (isNotSet) {
+      return;
+    }
+    if (!window.confirm('Delete this group and its subgroups?')) {
+      return;
+    }
+    setRows((prev) => removeNode(prev, id));
+  };
+
+  const handleAddLevel = () => {
+    setRows((prev) => addLevelToLeaves(prev));
+  };
+
+  const handleRemoveLevel = () => {
+    const depth = getMaxDepth(rows, 0);
+    if (depth === 0) {
+      return;
+    }
+    if (!window.confirm('Remove the deepest level?')) {
+      return;
+    }
+    setRows((prev) => removeDeepestLevel(prev, 0, depth));
+  };
+
+  const handleUpdateName = (id: string, nextValue: string) => {
+    setRows((prev) => updateNode(prev, id, (node) => ({ ...node, name: nextValue })));
+  };
+
+  const handleUpdateValue = (id: string, nextValue: string) => {
+    setRows((prev) => updateNode(prev, id, (node) => ({ ...node, valueInput: nextValue })));
+  };
+
+  const handlePaste = (id: string, field: 'name' | 'value', text: string) => {
+    const rowsData = text
+      .trimEnd()
+      .split(/\r?\n/)
+      .map((line) => {
+        if (line.includes('\t')) {
+          return line.split('\t');
+        }
+        if (line.includes(',') && (line.includes('"') || /[A-Za-z]/.test(line))) {
+          return line.split(',');
+        }
+        return [line];
+      });
+
+    setRows((prev) =>
+      updateListContaining(prev, id, (list, startIndex) => {
+        const parent = [...list];
+        rowsData.forEach((rowData, offset) => {
+          const idx = startIndex + offset;
+          if (!parent[idx]) {
+            parent.push(createRow('Group'));
+          }
+          const target = parent[idx];
+          const nameValue = rowData[0] ?? '';
+          const shareValue = rowData[1] ?? '';
+          parent[idx] = {
+            ...target,
+            name: field === 'name' ? nameValue : target.name || nameValue,
+            valueInput: field === 'value' ? nameValue : shareValue || target.valueInput,
+          };
+        });
+        return parent;
+      }),
+    );
+  };
+
+  const handleCopyResult = () => {
+    const lines = resultRows
+      .map((row) => `${'  '.repeat(row.depth)}${row.name}\t${formatAmount(row.amount, decimals)}`);
+    navigator.clipboard.writeText(lines.join('\n')).catch(() => null);
+  };
+
+  const handleExportCsv = () => {
+    const lines = ['Name,Amount'];
+    resultRows.forEach((row) => {
+      if (!row.name.trim()) {
+        return;
+      }
+      const path = `${'  '.repeat(row.depth)}${row.name}`;
+      lines.push(`"${path}","${formatAmount(row.amount, decimals)}"`);
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'share-splitter.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const renderInputCell = (row: ComputedNode, rowIndex: number) => {
+    const disableActions = row.isNotSet;
+    return (
+      <div className={`split-cell${row.isNotSet ? ' split-cell-muted' : ''}`}>
+        <div className="split-cell-actions">
+          <button
+            type="button"
+            onClick={() => handleAddSibling(row.id)}
+            title="Add row"
+            disabled={disableActions}
+          >
+            +
+          </button>
+        </div>
+        <input
+          className="split-name-input"
+          value={row.name}
+          disabled={row.isNotSet}
+          onChange={(event) => handleUpdateName(row.id, event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              handleAddSibling(row.id);
+            }
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+              const direction = event.key === 'ArrowDown' ? 1 : -1;
+              const next = document.querySelector<HTMLInputElement>(
+                `[data-row="${rowIndex + direction}"][data-field="name"]`,
+              );
+              if (next) {
+                next.focus();
+                event.preventDefault();
+              }
+            }
+            if (event.key === 'ArrowRight') {
+              const next = document.querySelector<HTMLInputElement>(
+                `[data-row="${rowIndex}"][data-field="value"]`,
+              );
+              if (next) {
+                next.focus();
+                event.preventDefault();
+              }
+            }
+          }}
+          onPaste={(event) => {
+            if (!row.isNotSet) {
+              event.preventDefault();
+              handlePaste(row.id, 'name', event.clipboardData.getData('text'));
+            }
+          }}
+          data-row={rowIndex}
+          data-field="name"
+        />
+        <input
+          className="split-value-input"
+          value={row.valueInput}
+          disabled={row.isNotSet}
+          onChange={(event) => handleUpdateValue(row.id, event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              handleAddSibling(row.id);
+            }
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+              const direction = event.key === 'ArrowDown' ? 1 : -1;
+              const next = document.querySelector<HTMLInputElement>(
+                `[data-row="${rowIndex + direction}"][data-field="value"]`,
+              );
+              if (next) {
+                next.focus();
+                event.preventDefault();
+              }
+            }
+            if (event.key === 'ArrowLeft') {
+              const next = document.querySelector<HTMLInputElement>(
+                `[data-row="${rowIndex}"][data-field="name"]`,
+              );
+              if (next) {
+                next.focus();
+                event.preventDefault();
+              }
+            }
+          }}
+          onPaste={(event) => {
+            if (!row.isNotSet) {
+              event.preventDefault();
+              handlePaste(row.id, 'value', event.clipboardData.getData('text'));
+            }
+          }}
+          data-row={rowIndex}
+          data-field="value"
+        />
+        <div className="split-cell-actions">
+          <button
+            type="button"
+            onClick={() => handleAddChild(row.id)}
+            title="Add children"
+            disabled={disableActions}
+          >
+            +
+          </button>
+          <button
+            type="button"
+            onClick={() => handleRemoveRow(row.id, row.isNotSet)}
+            title="Remove row"
+            disabled={disableActions}
+          >
+            x
+          </button>
+        </div>
+        {row.error ? <span className="split-error">{row.error}</span> : null}
+      </div>
+    );
+  };
+
+  return (
+    <section className="share-splitter">
+      <header className="controls-wrapper">
+        <div className="controls">
+          <div className="controls-heading">
+            <h1 className="controls-heading-title">Share Splitter</h1>
+            <p className="controls-subtitle">
+              Split a total across groups and nested subgroups with automatic balancing.
+            </p>
+          </div>
+          <div className="split-control">
+            <div className="stacked-field-column">
+              <div className="stacked-field">
+                <div className="number-field number-field-mode">
+                  <label className="number-field-label">Total sum</label>
+                  <div className="number-field-input-wrapper">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={totalInput}
+                      onChange={(event) => setTotalInput(event.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="stacked-field-column">
+              <div className="stacked-field">
+                <div className="number-field number-field-mode">
+                  <label className="number-field-label">Rounding</label>
+                  <div className="number-field-input-wrapper">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={roundingInput}
+                      onChange={(event) => setRoundingInput(event.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="stacked-field-column">
+              <div className="stacked-field">
+                <div className="number-field number-field-mode">
+                  <label className="number-field-label">Levels</label>
+                  <div className="split-level-actions">
+                    <button type="button" onClick={handleAddLevel}>
+                      + level
+                    </button>
+                    <button type="button" onClick={handleRemoveLevel}>
+                      remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="split-grid">
+        <div className="split-grid-header">
+          <span>Name</span>
+          <span>Share</span>
+        </div>
+        <div
+          className="split-table"
+          style={{ gridTemplateColumns: `repeat(${maxDepth}, minmax(220px, 1fr))` }}
+        >
+          {computedRows.map((row, rowIndex) => (
+            <div key={row.id} className="split-row" style={{ gridColumn: '1 / -1' }}>
+              {Array.from({ length: maxDepth }).map((_, level) => (
+                <div key={`${row.id}-${level}`} className="split-cell-wrapper">
+                  {level === row.depth ? renderInputCell(row, rowIndex) : null}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <section className="card results-card split-results">
+        <header className="card-header">
+          <div className="card-header-top">
+            <h2>Result</h2>
+            <div className="split-result-actions">
+              <button type="button" onClick={handleCopyResult}>
+                Copy result
+              </button>
+              <button type="button" onClick={handleExportCsv}>
+                Export CSV
+              </button>
+            </div>
+          </div>
+        </header>
+        <div className="result-summary">
+          <span>Total</span>
+          <strong>{formatAmount(totalValue, decimals)}</strong>
+        </div>
+        <div className="split-result-list">
+          {resultRows.map((row) => (
+            <div key={`result-${row.id}`} className="split-result-row">
+              <span style={{ paddingLeft: `${row.depth * 18}px` }}>{row.name}</span>
+              <strong>{formatAmount(row.amount, decimals)}</strong>
+            </div>
+          ))}
+        </div>
+      </section>
+    </section>
+  );
+};
+

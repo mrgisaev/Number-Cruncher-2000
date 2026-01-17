@@ -1,4 +1,5 @@
 import { type ChangeEvent, type CSSProperties, useEffect, useId, useMemo, useState } from 'react';
+import { ShareSplitter } from './ShareSplitter';
 import './App.css';
 
 const sampleColumn = '';
@@ -282,6 +283,7 @@ function App() {
   const [showScrollCue, setShowScrollCue] = useState(false);
   const footerYear = new Date().getFullYear();
   const isWhatsNew = typeof window !== 'undefined' && window.location.pathname.includes('whats-new');
+  const isShareSplitter = typeof window !== 'undefined' && window.location.pathname.includes('share-splitter');
   const releaseDate = 'Jan 14, 2026';
   const firstReleaseDate = 'Jan 12, 2026';
   const additionInputId = useId();
@@ -500,6 +502,11 @@ function App() {
               </a>
             </li>
             <li>
+              <a className="tool-link-button" href="/share-splitter.html">
+                Share Splitter
+              </a>
+            </li>
+            <li>
               <a className="tool-link-button" href="/whats-new.html">
                 What's new
               </a>
@@ -542,6 +549,8 @@ function App() {
               </section>
             </main>
           </>
+        ) : isShareSplitter ? (
+          <ShareSplitter />
         ) : (
           <>
             <section className="controls-wrapper">
