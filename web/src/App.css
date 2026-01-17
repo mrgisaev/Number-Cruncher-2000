@@ -691,6 +691,15 @@ body::after {
   justify-content: center;
 }
 
+.split-cell-actions .split-remove-button {
+  background: transparent;
+  color: rgba(52, 80, 82, 0.5);
+  box-shadow: none;
+  font-size: 0.85rem;
+  line-height: 1;
+  font-weight: 600;
+}
+
 .split-name-input,
 .split-value-input {
   width: 100%;

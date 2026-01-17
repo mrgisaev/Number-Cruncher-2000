@@ -421,7 +421,7 @@ const createInitialRows = () => [
 
 export const ShareSplitter = () => {
   const [totalInput, setTotalInput] = useState('');
-  const [roundingInput, setRoundingInput] = useState('2');
+  const [roundingInput, setRoundingInput] = useState('');
   const [rows, setRows] = useState<SplitNode[]>(createInitialRows());
   const [outputMode, setOutputMode] = useState<'pivot' | 'pivot-leaves' | 'pivot-values'>('pivot');
   const [randomPercentInput, setRandomPercentInput] = useState('');
@@ -522,8 +522,8 @@ export const ShareSplitter = () => {
     setRows((prev) => addChildren(prev, id));
   };
 
-  const handleRemoveRow = (id: string, isNotSet: boolean) => {
-    if (isNotSet) {
+  const handleRemoveRow = (id: string, isNotSet: boolean, disableRemove: boolean) => {
+    if (isNotSet || disableRemove) {
       return;
     }
     setRows((prev) => removeNode(prev, id));
@@ -540,6 +540,8 @@ export const ShareSplitter = () => {
     }
     setRows((prev) => removeDeepestLevel(prev, 0, depth));
   };
+
+  const rootCount = rows.filter((row) => row.name.trim() !== '' || row.valueInput.trim() !== '').length;
 
   const handleUpdateName = (id: string, nextValue: string) => {
     setRows((prev) => updateNode(prev, id, (node) => ({ ...node, name: nextValue })));
@@ -650,6 +652,8 @@ export const ShareSplitter = () => {
 
   const renderInputCell = (row: ComputedNode, rowIndex: number) => {
     const disableActions = row.isNotSet;
+    const disableRemove =
+      row.isNotSet || (row.depth === 0 && rootCount <= 1 && row.name.trim() !== '');
     return (
       <div className={`split-cell${row.isNotSet ? ' split-cell-muted' : ''}`}>
         <div className="split-name-cell">
@@ -742,9 +746,10 @@ export const ShareSplitter = () => {
           </button>
           <button
             type="button"
-            onClick={() => handleRemoveRow(row.id, row.isNotSet)}
+            className="split-remove-button"
+            onClick={() => handleRemoveRow(row.id, row.isNotSet, disableRemove)}
             title="Remove row"
-            disabled={disableActions}
+            disabled={disableActions || disableRemove}
           >
             x
           </button>
@@ -866,10 +871,6 @@ export const ShareSplitter = () => {
             </button>
           </div>
         </header>
-        <div className="split-grid-header">
-          <span>Name</span>
-          <span>Share</span>
-        </div>
         <div
           className="split-table"
           style={{ gridTemplateColumns: `repeat(${maxDepth}, minmax(0, 1fr))` }}
