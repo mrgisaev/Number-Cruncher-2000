@@ -429,6 +429,15 @@ export const ShareSplitter = () => {
     setRows((prev) => addSiblingRow(prev, id, 'Group'));
   };
 
+  const changeRounding = (delta: number) => {
+    setRoundingInput((prev) => {
+      const parsed = Number.parseInt(prev, 10);
+      const current = Number.isFinite(parsed) ? parsed : 0;
+      const next = Math.max(0, Math.min(6, current + delta));
+      return String(next);
+    });
+  };
+
   const handleAddChild = (id: string) => {
     setRows((prev) => addChildren(prev, id));
   };
@@ -694,7 +703,27 @@ export const ShareSplitter = () => {
               <div className="stacked-field">
                 <div className="number-field number-field-mode">
                   <label className="number-field-label">Rounding</label>
-                  <div className="number-field-input-wrapper">
+                  <div className="number-field-input-wrapper input-with-toggle digits-toggle">
+                    <div className="mode-toggle mode-toggle-inline" role="group" aria-label="Rounding control">
+                      <button
+                        type="button"
+                        className="mode-toggle-button"
+                        onClick={() => changeRounding(-1)}
+                        disabled={decimals <= 0}
+                        title="Decrease decimal places"
+                      >
+                        -0.0
+                      </button>
+                      <button
+                        type="button"
+                        className="mode-toggle-button"
+                        onClick={() => changeRounding(1)}
+                        disabled={decimals >= 6}
+                        title="Increase decimal places"
+                      >
+                        +0.00
+                      </button>
+                    </div>
                     <input
                       type="text"
                       inputMode="numeric"
