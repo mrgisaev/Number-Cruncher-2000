@@ -574,7 +574,15 @@ body::after {
   border: none;
   border-radius: 10px;
   width: 28px;
+  min-width: 28px;
+  max-width: 28px;
   height: 28px;
+  min-height: 28px;
+  max-height: 28px;
+  padding: 0;
+  box-sizing: border-box;
+  font-size: 0.95rem;
+  line-height: 1;
   font-weight: 700;
   background: linear-gradient(135deg, #eefafd, #d1f1f6);
   color: rgba(52, 80, 82, 0.92);
@@ -582,6 +590,9 @@ body::after {
   box-shadow:
     inset 0 1px 4px rgba(255, 255, 255, 0.55),
     0 2px 6px rgba(196, 246, 248, 0.45);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   justify-self: end;
   margin-right: 10px;
 }
@@ -593,7 +604,7 @@ body::after {
 
 .split-cell {
   display: grid;
-  grid-template-columns: 1fr 120px 52px;
+  grid-template-columns: 1fr 120px 64px;
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
@@ -618,14 +629,25 @@ body::after {
   border: none;
   border-radius: 10px;
   width: 28px;
+  min-width: 28px;
+  max-width: 28px;
   height: 28px;
+  min-height: 28px;
+  max-height: 28px;
+  padding: 0;
+  box-sizing: border-box;
   font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1;
   background: linear-gradient(135deg, #eefafd, #d1f1f6);
   color: rgba(52, 80, 82, 0.92);
   cursor: pointer;
   box-shadow:
     inset 0 1px 4px rgba(255, 255, 255, 0.55),
     0 2px 6px rgba(196, 246, 248, 0.45);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .split-name-input,
@@ -664,6 +686,7 @@ body::after {
 
 .split-value-input {
   text-align: right;
+  padding-right: 6px;
 }
 
 
@@ -704,6 +727,21 @@ body::after {
     0 3px 8px rgba(196, 246, 248, 0.45);
   white-space: nowrap;
   appearance: none;
+  position: relative;
+  padding-right: 36px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(70, 92, 100, 0.7) 50%),
+    linear-gradient(135deg, rgba(70, 92, 100, 0.7) 50%, transparent 50%),
+    linear-gradient(135deg, #eefafd, #d1f1f6);
+  background-position:
+    calc(100% - 20px) 50%,
+    calc(100% - 14px) 50%,
+    0 0;
+  background-size:
+    6px 6px,
+    6px 6px,
+    100% 100%;
+  background-repeat: no-repeat;
 }
 
 .split-output-select:focus {
@@ -711,6 +749,13 @@ body::after {
   box-shadow:
     inset 0 1px 5px rgba(255, 255, 255, 0.55),
     0 4px 10px rgba(173, 222, 244, 0.5);
+}
+
+.split-output-select:hover {
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(70, 92, 100, 0.9) 50%),
+    linear-gradient(135deg, rgba(70, 92, 100, 0.9) 50%, transparent 50%),
+    linear-gradient(135deg, #e1f8ff, #c7edf7);
 }
 
 .split-result-list {
