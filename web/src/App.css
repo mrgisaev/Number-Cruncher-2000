@@ -589,6 +589,10 @@ body::after {
   padding: 0 12px 12px;
 }
 
+.split-grid-header-row {
+  margin-bottom: 8px;
+}
+
 .split-table {
   display: grid;
   row-gap: 12px;
@@ -689,6 +693,24 @@ body::after {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.split-cell-actions button:hover:not(:disabled):not(.split-remove-button) {
+  transform: translateY(1px);
+  background: linear-gradient(135deg, #d8f6fd, #b4f2f4);
+  box-shadow:
+    inset 0 2px 6px rgba(255, 255, 255, 0.55),
+    0 4px 10px rgba(173, 222, 244, 0.5);
+  color: rgba(35, 55, 60, 0.95);
+}
+
+.split-outside-action:hover:not(:disabled) {
+  transform: translateY(1px);
+  background: linear-gradient(135deg, #d8f6fd, #b4f2f4);
+  box-shadow:
+    inset 0 2px 6px rgba(255, 255, 255, 0.55),
+    0 4px 10px rgba(173, 222, 244, 0.5);
+  color: rgba(35, 55, 60, 0.95);
 }
 
 .split-cell-actions .split-remove-button {
