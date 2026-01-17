@@ -356,7 +356,7 @@ export const CreativeRenamer = () => {
   const [includeFormat, setIncludeFormat] = useState(false);
   const [outputFormat, setOutputFormat] = useState<'keep' | 'jpg' | 'png' | 'mp4'>('keep');
   const [isFormatMenuOpen, setIsFormatMenuOpen] = useState(false);
-  const [assetKind, setAssetKind] = useState<'image' | 'video' | null>(null);
+  const [assetKind, setAssetKind] = useState<'image' | 'video' | 'mixed' | null>(null);
   const [uploadError, setUploadError] = useState('');
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
   const [isExporting, setIsExporting] = useState(false);
@@ -380,17 +380,21 @@ export const CreativeRenamer = () => {
   const hasFiles = filesArray.length > 0;
 
   const formatMismatch = useMemo(() => {
-    if (!assetKind || outputFormat === 'keep') {
+    if (outputFormat === 'keep' || filesArray.length === 0) {
       return '';
     }
-    if (outputFormat === 'mp4' && assetKind !== 'video') {
-      return 'MP4 output is only available for video creatives.';
+    if (outputFormat === 'mp4') {
+      return filesArray.some((file) => file.kind !== 'video')
+        ? 'MP4 output only applies to video files.'
+        : '';
     }
-    if ((outputFormat === 'jpg' || outputFormat === 'png') && assetKind !== 'image') {
-      return 'JPG/PNG output is only available for image creatives.';
+    if (outputFormat === 'jpg' || outputFormat === 'png') {
+      return filesArray.some((file) => file.kind !== 'image')
+        ? 'JPG/PNG output only applies to image files.'
+        : '';
     }
     return '';
-  }, [assetKind, outputFormat]);
+  }, [filesArray, outputFormat]);
 
   const renamePreview = useMemo(() => {
     const entries = fileEntries.map((entry) => {
@@ -447,8 +451,17 @@ export const CreativeRenamer = () => {
       if (includeSize && !entry.sizeValue) {
         errors.push('Missing size.');
       }
-      if (outputFormat === 'mp4' && entry.file.kind === 'video' && entry.file.extension !== 'mp4') {
-        errors.push('Only MP4 input is supported for MP4 output.');
+      if (outputFormat === 'mp4') {
+        if (entry.file.kind !== 'video') {
+          errors.push('MP4 output only applies to video files.');
+        } else if (entry.file.extension !== 'mp4') {
+          errors.push('Only MP4 input is supported for MP4 output.');
+        }
+      }
+      if (outputFormat === 'jpg' || outputFormat === 'png') {
+        if (entry.file.kind !== 'image') {
+          errors.push('JPG/PNG output only applies to image files.');
+        }
       }
       if (entry.fullName) {
         const pathKey = entry.pathIds.join('>');
@@ -538,18 +551,19 @@ export const CreativeRenamer = () => {
       return;
     }
     const kinds = new Set(extracted.map((file) => file.kind));
-    if (kinds.size > 1) {
-      extracted.forEach((file) => URL.revokeObjectURL(file.previewUrl));
-      setUploadError('Upload either images or videos, not both.');
-      return;
-    }
-    const nextKind = Array.from(kinds)[0];
-    if (assetKind && assetKind !== nextKind) {
-      extracted.forEach((file) => URL.revokeObjectURL(file.previewUrl));
-      setUploadError('Upload either images or videos, not both.');
-      return;
-    }
-    setAssetKind(nextKind);
+    const nextKind = kinds.size > 1 ? 'mixed' : Array.from(kinds)[0];
+    setAssetKind((prev) => {
+      if (!prev) {
+        return nextKind ?? null;
+      }
+      if (prev === 'mixed' || nextKind === 'mixed') {
+        return 'mixed';
+      }
+      if (nextKind && prev !== nextKind) {
+        return 'mixed';
+      }
+      return prev;
+    });
     setFiles((prev) => {
       const next = { ...prev };
       extracted.forEach((file) => {
@@ -1036,7 +1050,8 @@ export const CreativeRenamer = () => {
               <h2>Result</h2>
               {hasFiles ? (
                 <span className="creative-result-meta">
-                  {filesArray.length} files · {assetKind === 'video' ? 'Video' : 'Image'}
+                  {filesArray.length} files ·{' '}
+                  {assetKind === 'mixed' ? 'Mixed' : assetKind === 'video' ? 'Video' : 'Image'}
                 </span>
               ) : null}
             </div>
