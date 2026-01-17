@@ -854,6 +854,18 @@ export const ShareSplitter = () => {
       </header>
 
       <div className="split-grid">
+        <header className="card-header split-grid-header-row">
+          <div className="card-header-top">
+            <h2>Input data</h2>
+            <button
+              type="button"
+              onClick={() => setRows(createInitialRows())}
+              disabled={!rows.length}
+            >
+              Clear field
+            </button>
+          </div>
+        </header>
         <div className="split-grid-header">
           <span>Name</span>
           <span>Share</span>

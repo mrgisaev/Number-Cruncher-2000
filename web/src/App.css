@@ -559,6 +559,25 @@ body::after {
     inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
+.split-grid .card-header {
+  margin-bottom: 12px;
+}
+
+.split-grid .card-header-top {
+  align-items: center;
+  margin-top: 0;
+}
+
+.split-grid .card-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: #4b4253;
+}
+
+.split-grid .card-header button {
+  min-width: 140px;
+}
+
 .split-grid-header {
   display: grid;
   grid-template-columns: 1fr 120px;
