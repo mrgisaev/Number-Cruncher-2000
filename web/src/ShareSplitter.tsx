@@ -210,7 +210,7 @@ const buildComputed = (
     showNotSet = cached.remainder > 0.00001;
   }
 
-  const computedRows = parsedAll.map(({ row, parsed: parsedRow, isActive, derivedValue }, index) => {
+  const computedRows: ComputedNode[] = parsedAll.map(({ row, parsed: parsedRow, isActive, derivedValue }, index) => {
     const isNotSet = showNotSet && index === notSetIndex;
     const normalizedValue = isActive ? (derivedValue ?? parsedRow.value) : 0;
     const valueForCalc = isNotSet ? remainder : normalizedValue;
@@ -429,25 +429,6 @@ const addChildren = (nodes: SplitNode[], targetId: string) => {
   });
 };
 
-const addLevelToLeaves = (nodes: SplitNode[], depth = 0) => {
-  return nodes.map((node) => {
-    if (!node.children.length) {
-      return { ...node, children: createDefaultChildren([], depth + 1) };
-    }
-    return { ...node, children: addLevelToLeaves(node.children, depth + 1) };
-  });
-};
-
-const removeDeepestLevel = (nodes: SplitNode[], depth: number, maxDepth: number): SplitNode[] => {
-  if (depth === maxDepth - 1) {
-    return nodes.map((node) => ({ ...node, children: [] }));
-  }
-  return nodes.map((node) => ({
-    ...node,
-    children: removeDeepestLevel(node.children, depth + 1, maxDepth),
-  }));
-};
-
 const createInitialRows = () => [
   { id: createId(), name: 'Group 1', valueInput: '50%', children: [] },
   { id: createId(), name: 'Group 2', valueInput: '50%', children: [] },
@@ -590,18 +571,6 @@ export const ShareSplitter = () => {
       return;
     }
     setRows((prev) => removeNode(prev, id));
-  };
-
-  const handleAddLevel = () => {
-    setRows((prev) => addLevelToLeaves(prev));
-  };
-
-  const handleRemoveLevel = () => {
-    const depth = getMaxDepth(rows, 0);
-    if (depth === 0) {
-      return;
-    }
-    setRows((prev) => removeDeepestLevel(prev, 0, depth));
   };
 
   const rootCount = rows.filter((row) => row.name.trim() !== '' || row.valueInput.trim() !== '').length;
