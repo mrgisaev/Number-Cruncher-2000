@@ -162,6 +162,8 @@ body::after {
   padding: 10px 12px;
   font-size: 1rem;
   background: #fffefe;
+  width: 100%;
+  box-sizing: border-box;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 

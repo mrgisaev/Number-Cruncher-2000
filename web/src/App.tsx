@@ -613,7 +613,7 @@ function App() {
                       <div className="stacked-field">
                         <div className="number-field number-field-mode">
                           <label className="number-field-label" htmlFor={digitsInputId}>
-                            Decimal places
+                            Rounding
                           </label>
                           <div className="number-field-input-wrapper input-with-toggle digits-toggle">
                             <div className="mode-toggle mode-toggle-inline" role="group" aria-label="Decimal control">
