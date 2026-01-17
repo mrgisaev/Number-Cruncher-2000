@@ -412,32 +412,38 @@ export const CreativeRenamer = () => {
         parts.push(identifier);
       }
       const baseName = parts.join(separator);
-      const extension = includeFormat
-        ? outputFormat === 'keep'
+      const extension =
+        outputFormat === 'keep'
           ? file.extension
           : outputFormat === 'jpg'
             ? 'jpg'
             : outputFormat === 'png'
               ? 'png'
-              : 'mp4'
+              : 'mp4';
+      const displayName = baseName
+        ? includeFormat
+          ? `${baseName}.${extension}`
+          : baseName
         : '';
-      const fullName = baseName ? (extension ? `${baseName}.${extension}` : baseName) : '';
+      const exportName = baseName ? `${baseName}.${extension}` : '';
       return {
         file,
         baseName,
-        fullName,
+        displayName,
+        exportName,
         sizeValue,
         pathLabel: entry.pathSegments.join(' / '),
         pathIds: entry.pathIds,
+        pathSegments: entry.pathSegments,
       };
     });
     const nameCounts = new Map<string, number>();
     entries.forEach((entry) => {
-      if (!entry || !entry.fullName) {
+      if (!entry || !entry.exportName) {
         return;
       }
       const pathKey = entry.pathIds.join('>');
-      const key = `${entry.fullName}||${pathKey}`;
+      const key = `${entry.exportName}||${pathKey}`;
       nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
     });
     return entries.map((entry) => {
@@ -463,9 +469,9 @@ export const CreativeRenamer = () => {
           errors.push('JPG/PNG output only applies to image files.');
         }
       }
-      if (entry.fullName) {
+      if (entry.exportName) {
         const pathKey = entry.pathIds.join('>');
-        const key = `${entry.fullName}||${pathKey}`;
+        const key = `${entry.exportName}||${pathKey}`;
         if ((nameCounts.get(key) ?? 0) > 1) {
           errors.push('Duplicate filename.');
         }
@@ -715,8 +721,8 @@ export const CreativeRenamer = () => {
       return;
     }
     const lines = renamePreview
-      .filter((entry) => entry && entry.fullName)
-      .map((entry) => entry?.fullName)
+      .filter((entry) => entry && entry.displayName)
+      .map((entry) => entry?.displayName)
       .join('\n');
     try {
       await navigator.clipboard.writeText(lines);
@@ -735,7 +741,7 @@ export const CreativeRenamer = () => {
       .filter((entry) => entry)
       .map((entry) => [
         entry?.file.originalName ?? '',
-        entry?.fullName ?? '',
+        entry?.displayName ?? '',
         entry?.pathLabel ?? '',
         entry?.sizeValue ?? '',
         entry?.file.identifier ?? '',
@@ -763,7 +769,7 @@ export const CreativeRenamer = () => {
     try {
       const zip = new JSZip();
       for (const entry of renamePreview) {
-        if (!entry || !entry.fullName) {
+        if (!entry || !entry.exportName) {
           continue;
         }
         const file = entry.file;
@@ -775,7 +781,12 @@ export const CreativeRenamer = () => {
         } else if (outputFormat === 'keep') {
           blob = file.file;
         }
-        zip.file(entry.fullName, blob);
+        const folderPath = entry.pathSegments
+          .map((segment) => normalizeSegment(segment))
+          .filter(Boolean)
+          .join('/');
+        const filePath = folderPath ? `${folderPath}/${entry.exportName}` : entry.exportName;
+        zip.file(filePath, blob);
       }
       const content = await zip.generateAsync({ type: 'blob' });
       const url = URL.createObjectURL(content);
@@ -1080,7 +1091,7 @@ export const CreativeRenamer = () => {
                 <div key={entry.file.id} className="creative-result-item">
                   <div className="creative-result-main">
                     <span className="creative-result-original">{entry.file.originalName}</span>
-                    <strong className="creative-result-name">{entry.fullName || '—'}</strong>
+                    <strong className="creative-result-name">{entry.displayName || '—'}</strong>
                   </div>
                   {entry.errors.length ? (
                     <span className="creative-result-error">{entry.errors.join(' ')}</span>
