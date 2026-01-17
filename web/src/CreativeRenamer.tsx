@@ -934,11 +934,11 @@ export const CreativeRenamer = () => {
                     />
                   </div>
                   <label className="creative-toggle">
-                    <span>Include format in name</span>
+                    <span>Include size in name</span>
                     <input
                       type="checkbox"
-                      checked={includeFormat}
-                      onChange={(event) => setIncludeFormat(event.target.checked)}
+                      checked={includeSize}
+                      onChange={(event) => setIncludeSize(event.target.checked)}
                     />
                   </label>
                 </div>
@@ -986,11 +986,11 @@ export const CreativeRenamer = () => {
                     </div>
                   </div>
                   <label className="creative-toggle">
-                    <span>Include size in name</span>
+                    <span>Include format in name</span>
                     <input
                       type="checkbox"
-                      checked={includeSize}
-                      onChange={(event) => setIncludeSize(event.target.checked)}
+                      checked={includeFormat}
+                      onChange={(event) => setIncludeFormat(event.target.checked)}
                     />
                   </label>
                 </div>
