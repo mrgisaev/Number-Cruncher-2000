@@ -352,9 +352,6 @@ export const ShareSplitter = () => {
     if (isNotSet) {
       return;
     }
-    if (!window.confirm('Delete this group and its subgroups?')) {
-      return;
-    }
     setRows((prev) => removeNode(prev, id));
   };
 
@@ -365,9 +362,6 @@ export const ShareSplitter = () => {
   const handleRemoveLevel = () => {
     const depth = getMaxDepth(rows, 0);
     if (depth === 0) {
-      return;
-    }
-    if (!window.confirm('Remove the deepest level?')) {
       return;
     }
     setRows((prev) => removeDeepestLevel(prev, 0, depth));
