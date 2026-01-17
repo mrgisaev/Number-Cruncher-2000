@@ -88,17 +88,14 @@ const detectMode = (rows: SplitNode[]) => {
   const active = rows.filter((row) => row.name.trim() !== '');
   const parsed = active.map((row) => parseShareInput(row.valueInput));
   const hasPercent = parsed.some((entry) => entry.hasPercent);
-  const hasLarge = parsed.some((entry) => !entry.hasPercent && entry.hasValue && entry.value > 100);
-  if (hasPercent && hasLarge) {
+  const hasAbsolute = parsed.some((entry) => entry.hasValue && !entry.hasPercent);
+  if (hasPercent && hasAbsolute) {
     return { mode: 'mixed' as const, error: 'Mixing percents and absolute values.' };
   }
   if (hasPercent) {
     return { mode: 'percent' as const, error: null };
   }
-  if (hasLarge) {
-    return { mode: 'absolute' as const, error: null };
-  }
-  return { mode: 'percent' as const, error: null };
+  return { mode: 'absolute' as const, error: null };
 };
 
 const buildComputed = (
@@ -619,7 +616,7 @@ export const ShareSplitter = () => {
         </div>
         <div
           className="split-table"
-          style={{ gridTemplateColumns: `repeat(${maxDepth}, minmax(220px, 1fr))` }}
+          style={{ gridTemplateColumns: `repeat(${maxDepth}, minmax(0, 1fr))` }}
         >
           {computedRows.map((row, rowIndex) => (
             <div key={row.id} className="split-row" style={{ gridColumn: '1 / -1' }}>
