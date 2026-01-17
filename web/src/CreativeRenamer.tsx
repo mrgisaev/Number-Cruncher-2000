@@ -921,14 +921,6 @@ export const CreativeRenamer = () => {
                       <option value="mp4">MP4</option>
                     </select>
                   </div>
-                  <label className="creative-toggle">
-                    <input
-                      type="checkbox"
-                      checked={includeSize}
-                      onChange={(event) => setIncludeSize(event.target.checked)}
-                    />
-                    Include size in name
-                  </label>
                 </div>
               </div>
             </div>
@@ -973,9 +965,19 @@ export const CreativeRenamer = () => {
             </div>
           </div>
           {hasFiles ? (
-            <p className="creative-result-meta">
-              {filesArray.length} files · {assetKind === 'video' ? 'Video' : 'Image'}
-            </p>
+            <div className="creative-result-meta-row">
+              <p className="creative-result-meta">
+                {filesArray.length} files · {assetKind === 'video' ? 'Video' : 'Image'}
+              </p>
+              <label className="creative-toggle">
+                <input
+                  type="checkbox"
+                  checked={includeSize}
+                  onChange={(event) => setIncludeSize(event.target.checked)}
+                />
+                Include size in name
+              </label>
+            </div>
           ) : null}
         </header>
         <div className="creative-result-list">

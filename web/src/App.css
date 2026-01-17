@@ -738,6 +738,18 @@ body::after {
   color: rgba(52, 80, 82, 0.75);
 }
 
+.creative-result-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.creative-result-meta-row .creative-result-meta {
+  margin: 0;
+}
+
 .creative-result-item {
   display: flex;
   flex-direction: column;
@@ -938,6 +950,8 @@ body::after {
 .split-cell-actions {
   display: flex;
   gap: 6px;
+  width: 100%;
+  justify-content: flex-end;
 }
 
 .split-cell-actions button {
