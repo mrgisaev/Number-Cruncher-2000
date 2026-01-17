@@ -545,7 +545,8 @@ body::after {
 .creative-upload button {
   border: 1px solid rgba(212, 255, 255, 0.7);
   border-radius: 12px;
-  padding: 8px 16px;
+  height: 43px;
+  padding: 0 16px;
   font-weight: 600;
   background: linear-gradient(135deg, #eefafd, #d1f1f6);
   color: rgba(52, 80, 82, 0.92);
@@ -728,6 +729,12 @@ body::after {
   flex-direction: column;
   gap: 10px;
   padding: 6px 2px;
+}
+
+.creative-result-meta {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  color: rgba(52, 80, 82, 0.75);
 }
 
 .creative-result-item {

@@ -873,11 +873,6 @@ export const CreativeRenamer = () => {
                     <button type="button" onClick={handleFileButton}>
                       Upload ZIPs or files
                     </button>
-                    <span>
-                      {hasFiles
-                        ? `${filesArray.length} files · ${assetKind === 'video' ? 'Video' : 'Image'}`
-                        : 'ZIPs or files'}
-                    </span>
                   </div>
                   <input
                     ref={fileInputRef}
@@ -977,6 +972,11 @@ export const CreativeRenamer = () => {
               </button>
             </div>
           </div>
+          {hasFiles ? (
+            <p className="creative-result-meta">
+              {filesArray.length} files · {assetKind === 'video' ? 'Video' : 'Image'}
+            </p>
+          ) : null}
         </header>
         <div className="creative-result-list">
           {renamePreview.length === 0 ? (
