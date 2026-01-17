@@ -110,6 +110,7 @@ const buildComputed = (
   parentAmount: number,
   depth: number,
   decimals: number,
+  randomPercent: number,
   modeCache: Map<string, CachedMode>,
   cacheKey: string,
 ): ComputedNode[] => {
@@ -206,6 +207,33 @@ const buildComputed = (
     });
   }
 
+  if (randomPercent > 0 && !overLimit && parentAmount !== 0) {
+    const fixedAmount = computedRows.reduce(
+      (acc, row) => acc + (row.isNotSet ? row.amount : 0),
+      0,
+    );
+    const adjustable = computedRows.filter((row) => !row.isIgnored && !row.isNotSet);
+    if (adjustable.length > 0) {
+      const factor = randomPercent / 100;
+      const jittered = adjustable.map((row) => row.amount * (1 + (Math.random() * 2 - 1) * factor));
+      const sum = jittered.reduce((acc, value) => acc + value, 0);
+      const targetAmount = Math.max(0, parentAmount - fixedAmount);
+      if (sum !== 0) {
+        const scale = targetAmount / sum;
+        const updated = new Map<string, number>();
+        adjustable.forEach((row, index) => {
+          updated.set(row.id, jittered[index] * scale);
+        });
+        computedRows.forEach((row, index) => {
+          const nextAmount = updated.get(row.id);
+          if (nextAmount !== undefined) {
+            computedRows[index] = { ...row, amount: nextAmount };
+          }
+        });
+      }
+    }
+  }
+
   return roundGroup(computedRows, parentAmount, decimals);
 };
 
@@ -214,10 +242,11 @@ const buildTree = (
   parentAmount: number,
   depth: number,
   decimals: number,
+  randomPercent: number,
   modeCache: Map<string, CachedMode>,
   cacheKey: string,
 ): ComputedNode[] => {
-  const computed = buildComputed(nodes, parentAmount, depth, decimals, modeCache, cacheKey);
+  const computed = buildComputed(nodes, parentAmount, depth, decimals, randomPercent, modeCache, cacheKey);
   return computed.map((row) => {
     if (!row.sourceId) {
       return row;
@@ -226,7 +255,15 @@ const buildTree = (
     if (!original || original.children.length === 0) {
       return row;
     }
-    const children = buildTree(original.children, row.amount, depth + 1, decimals, modeCache, original.id);
+    const children = buildTree(
+      original.children,
+      row.amount,
+      depth + 1,
+      decimals,
+      randomPercent,
+      modeCache,
+      original.id,
+    );
     return { ...row, children };
   });
 };
@@ -352,6 +389,7 @@ export const ShareSplitter = () => {
   const [roundingInput, setRoundingInput] = useState('2');
   const [rows, setRows] = useState<SplitNode[]>(createInitialRows());
   const [outputMode, setOutputMode] = useState<'pivot' | 'pivot-leaves' | 'pivot-values'>('pivot');
+  const [randomPercentInput, setRandomPercentInput] = useState('');
   const modeCacheRef = useRef<Map<string, CachedMode>>(new Map());
 
   const totalParsed = parseColumn(totalInput)[0];
@@ -374,10 +412,14 @@ export const ShareSplitter = () => {
   const decimals = Number.isFinite(Number.parseInt(roundingInput, 10))
     ? Math.min(Math.max(Number.parseInt(roundingInput, 10), 0), 6)
     : 2;
+  const parsedRandomPercent = Number.parseFloat(randomPercentInput.replace(',', '.'));
+  const randomPercentValue = Number.isFinite(parsedRandomPercent)
+    ? Math.min(Math.max(parsedRandomPercent, 0), 100)
+    : 0;
 
   const computedTree = useMemo(
-    () => buildTree(rows, totalValue, 0, decimals, modeCacheRef.current, 'root'),
-    [rows, totalValue, decimals],
+    () => buildTree(rows, totalValue, 0, decimals, randomPercentValue, modeCacheRef.current, 'root'),
+    [rows, totalValue, decimals, randomPercentValue],
   );
   const computedRows = useMemo(() => flattenTree(computedTree), [computedTree]);
   const resultRows = useMemo(
@@ -435,6 +477,15 @@ export const ShareSplitter = () => {
       const current = Number.isFinite(parsed) ? parsed : 0;
       const next = Math.max(0, Math.min(6, current + delta));
       return String(next);
+    });
+  };
+
+  const changeRandomPercent = (delta: number) => {
+    setRandomPercentInput((prev) => {
+      const parsed = Number.parseFloat(prev.replace(',', '.'));
+      const current = Number.isFinite(parsed) ? parsed : 0;
+      const next = Math.max(0, Math.min(100, current + delta));
+      return String(Math.round(next));
     });
   };
 
@@ -737,14 +788,34 @@ export const ShareSplitter = () => {
             <div className="stacked-field-column">
               <div className="stacked-field">
                 <div className="number-field number-field-mode">
-                  <label className="number-field-label">Levels</label>
-                  <div className="split-level-actions">
-                    <button type="button" onClick={handleAddLevel}>
-                      + level
-                    </button>
-                    <button type="button" onClick={handleRemoveLevel}>
-                      remove
-                    </button>
+                  <label className="number-field-label">Randomizer (%)</label>
+                  <div className="number-field-input-wrapper input-with-toggle random-toggle">
+                    <div className="mode-toggle mode-toggle-inline" role="group" aria-label="Randomizer control">
+                      <button
+                        type="button"
+                        className="mode-toggle-button"
+                        onClick={() => changeRandomPercent(-1)}
+                        disabled={randomPercentValue <= 0}
+                        title="Decrease randomness"
+                      >
+                        -
+                      </button>
+                      <button
+                        type="button"
+                        className="mode-toggle-button"
+                        onClick={() => changeRandomPercent(1)}
+                        disabled={randomPercentValue >= 100}
+                        title="Increase randomness"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={randomPercentInput}
+                      onChange={(event) => setRandomPercentInput(event.target.value)}
+                    />
                   </div>
                 </div>
               </div>
