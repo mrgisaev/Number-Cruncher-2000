@@ -12,6 +12,7 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         whatsNew: resolve(__dirname, 'whats-new.html'),
         shareSplitter: resolve(__dirname, 'share-splitter.html'),
+        creativeRenamer: resolve(__dirname, 'creative-renamer.html'),
       },
     },
   },

@@ -1,4 +1,5 @@
 import { type ChangeEvent, type CSSProperties, useEffect, useId, useMemo, useState } from 'react';
+import { CreativeRenamer } from './CreativeRenamer';
 import { ShareSplitter } from './ShareSplitter';
 import './App.css';
 
@@ -284,6 +285,8 @@ function App() {
   const footerYear = new Date().getFullYear();
   const isWhatsNew = typeof window !== 'undefined' && window.location.pathname.includes('whats-new');
   const isShareSplitter = typeof window !== 'undefined' && window.location.pathname.includes('share-splitter');
+  const isCreativeRenamer =
+    typeof window !== 'undefined' && window.location.pathname.includes('creative-renamer');
   const latestReleaseDate = 'Jan 17, 2026';
   const releaseDate = 'Jan 14, 2026';
   const firstReleaseDate = 'Jan 12, 2026';
@@ -519,6 +522,11 @@ function App() {
               </a>
             </li>
             <li>
+              <a className="tool-link-button" href="/creative-renamer.html">
+                Creative Renamer
+              </a>
+            </li>
+            <li>
               <a className="tool-link-button" href="/whats-new.html">
                 What's new
               </a>
@@ -570,6 +578,8 @@ function App() {
               </section>
             </main>
           </>
+        ) : isCreativeRenamer ? (
+          <CreativeRenamer />
         ) : isShareSplitter ? (
           <ShareSplitter />
         ) : (
