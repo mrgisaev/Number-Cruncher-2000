@@ -32,10 +32,32 @@ type CachedMode = {
 
 const createId = () => Math.random().toString(36).slice(2, 10);
 
-const createDefaultChildren = () => [
-  { id: createId(), name: 'Subgroup 1', valueInput: '50%', children: [] },
-  { id: createId(), name: 'Subgroup 2', valueInput: '50%', children: [] },
-];
+const getNextIndex = (nodes: SplitNode[], base: string) => {
+  const regex = new RegExp(`^${base}\\s*(\\d+)?$`, 'i');
+  return nodes.reduce((max, node) => {
+    const match = node.name.trim().match(regex);
+    if (!match) {
+      return max;
+    }
+    const value = match[1] ? Number.parseInt(match[1], 10) : 1;
+    return Number.isFinite(value) ? Math.max(max, value) : max;
+  }, 0) + 1;
+};
+
+const getNextLabel = (nodes: SplitNode[], depth: number) => {
+  const base = depth === 0 ? 'Group' : 'Subgroup';
+  const nextIndex = getNextIndex(nodes, base);
+  return `${base} ${nextIndex}`;
+};
+
+const createDefaultChildren = (existing: SplitNode[] = [], depth = 1) => {
+  const base = depth === 0 ? 'Group' : 'Subgroup';
+  const start = getNextIndex(existing, base);
+  return [
+    { id: createId(), name: `${base} ${start}`, valueInput: '50%', children: [] },
+    { id: createId(), name: `${base} ${start + 1}`, valueInput: '50%', children: [] },
+  ];
+};
 
 const createRow = (label: string) => ({
   id: createId(),
@@ -342,18 +364,19 @@ const updateNode = (nodes: SplitNode[], id: string, updater: (node: SplitNode) =
 const updateListContaining = (
   nodes: SplitNode[],
   targetId: string,
-  updater: (list: SplitNode[], index: number) => SplitNode[],
+  updater: (list: SplitNode[], index: number, depth: number) => SplitNode[],
+  depth = 0,
 ): SplitNode[] => {
   const index = nodes.findIndex((node) => node.id === targetId);
   if (index !== -1) {
-    return updater(nodes, index);
+    return updater(nodes, index, depth);
   }
   let didChange = false;
   const next = nodes.map((node) => {
     if (!node.children.length) {
       return node;
     }
-    const updatedChildren = updateListContaining(node.children, targetId, updater);
+    const updatedChildren = updateListContaining(node.children, targetId, updater, depth + 1);
     if (updatedChildren !== node.children) {
       didChange = true;
       return { ...node, children: updatedChildren };
@@ -363,44 +386,55 @@ const updateListContaining = (
   return didChange ? next : nodes;
 };
 
-const addSiblingRow = (nodes: SplitNode[], targetId: string, label: string) => {
-  return updateListContaining(nodes, targetId, (list, index) => {
+const addSiblingRow = (nodes: SplitNode[], targetId: string) => {
+  return updateListContaining(nodes, targetId, (list, index, depth) => {
     const next = [...list];
-    next.splice(index + 1, 0, createRow(label));
+    next.splice(index + 1, 0, createRow(getNextLabel(list, depth)));
     return next;
   });
 };
 
 const removeNode = (nodes: SplitNode[], targetId: string) => {
-  return updateListContaining(nodes, targetId, (list, index) => {
+  return updateListContaining(nodes, targetId, (list, index, _depth) => {
     const next = [...list];
     next.splice(index, 1);
     return next;
   });
 };
 
-const addChildren = (nodes: SplitNode[], targetId: string) => {
-  return updateNode(nodes, targetId, (node) => {
-    if (node.children.length === 0) {
-      return { ...node, children: createDefaultChildren() };
+const updateNodeWithDepth = (
+  nodes: SplitNode[],
+  targetId: string,
+  updater: (node: SplitNode, depth: number) => SplitNode,
+  depth = 0,
+): SplitNode[] => {
+  return nodes.map((node) => {
+    if (node.id === targetId) {
+      return updater(node, depth);
     }
-    return {
-      ...node,
-      children: [
-        ...node.children,
-        { id: createId(), name: 'Subgroup', valueInput: '', children: [] },
-        { id: createId(), name: 'Subgroup', valueInput: '', children: [] },
-      ],
-    };
+    if (node.children.length) {
+      return { ...node, children: updateNodeWithDepth(node.children, targetId, updater, depth + 1) };
+    }
+    return node;
   });
 };
 
-const addLevelToLeaves = (nodes: SplitNode[]) => {
+const addChildren = (nodes: SplitNode[], targetId: string) => {
+  return updateNodeWithDepth(nodes, targetId, (node, depth) => {
+    const nextChildren =
+      node.children.length === 0
+        ? createDefaultChildren([], depth + 1)
+        : [...node.children, ...createDefaultChildren(node.children, depth + 1)];
+    return { ...node, children: nextChildren };
+  });
+};
+
+const addLevelToLeaves = (nodes: SplitNode[], depth = 0) => {
   return nodes.map((node) => {
     if (!node.children.length) {
-      return { ...node, children: createDefaultChildren() };
+      return { ...node, children: createDefaultChildren([], depth + 1) };
     }
-    return { ...node, children: addLevelToLeaves(node.children) };
+    return { ...node, children: addLevelToLeaves(node.children, depth + 1) };
   });
 };
 
@@ -497,7 +531,7 @@ export const ShareSplitter = () => {
   }, [computedTree, maxDepth]);
 
   const handleAddSibling = (id: string) => {
-    setRows((prev) => addSiblingRow(prev, id, 'Group'));
+    setRows((prev) => addSiblingRow(prev, id));
   };
 
   const changeRounding = (delta: number) => {
@@ -566,12 +600,12 @@ export const ShareSplitter = () => {
       });
 
     setRows((prev) =>
-      updateListContaining(prev, id, (list, startIndex) => {
+      updateListContaining(prev, id, (list, startIndex, depth) => {
         const parent = [...list];
         rowsData.forEach((rowData, offset) => {
           const idx = startIndex + offset;
           if (!parent[idx]) {
-            parent.push(createRow('Group'));
+            parent.push(createRow(getNextLabel(parent, depth)));
           }
           const target = parent[idx];
           const nameValue = rowData[0] ?? '';
