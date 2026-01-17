@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { type CSSProperties, useMemo, useState } from 'react';
 
 import { addGrouping, parseColumn } from './shareSplitterUtils';
 
@@ -434,22 +434,8 @@ export const ShareSplitter = () => {
 
   const renderInputCell = (row: ComputedNode, rowIndex: number) => {
     const disableActions = row.isNotSet;
-    const widthOffset = row.depth * 50;
     return (
-      <div
-        className={`split-cell${row.isNotSet ? ' split-cell-muted' : ''}`}
-        style={{ width: `calc(100% - ${widthOffset}px)` }}
-      >
-        <div className="split-cell-actions">
-          <button
-            type="button"
-            onClick={() => handleAddSibling(row.id)}
-            title="Add row"
-            disabled={disableActions}
-          >
-            +
-          </button>
-        </div>
+      <div className={`split-cell${row.isNotSet ? ' split-cell-muted' : ''}`}>
         <input
           className="split-name-input"
           value={row.name}
@@ -618,15 +604,34 @@ export const ShareSplitter = () => {
           className="split-table"
           style={{ gridTemplateColumns: `repeat(${maxDepth}, minmax(0, 1fr))` }}
         >
-          {computedRows.map((row, rowIndex) => (
-            <div key={row.id} className="split-row" style={{ gridColumn: '1 / -1' }}>
-              {Array.from({ length: maxDepth }).map((_, level) => (
-                <div key={`${row.id}-${level}`} className="split-cell-wrapper">
-                  {level === row.depth ? renderInputCell(row, rowIndex) : null}
-                </div>
-              ))}
-            </div>
-          ))}
+          {computedRows.map((row, rowIndex) => {
+            const widthOffset = 38 + row.depth * 50;
+            return (
+              <div key={row.id} className="split-row" style={{ gridColumn: '1 / -1' }}>
+                {Array.from({ length: maxDepth }).map((_, level) => (
+                  <div key={`${row.id}-${level}`} className="split-cell-wrapper">
+                    {level === row.depth ? (
+                      <div
+                        className="split-cell-with-outside"
+                        style={{ '--panel-offset': `${widthOffset}px` } as CSSProperties}
+                      >
+                        <button
+                          type="button"
+                          className="split-outside-action"
+                          onClick={() => handleAddSibling(row.id)}
+                          title="Add row"
+                          disabled={row.isNotSet}
+                        >
+                          +
+                        </button>
+                        {renderInputCell(row, rowIndex)}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
         </div>
       </div>
 

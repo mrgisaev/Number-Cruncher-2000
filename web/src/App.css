@@ -563,16 +563,43 @@ body::after {
   display: flex;
 }
 
+.split-cell-with-outside {
+  display: grid;
+  grid-template-columns: var(--panel-offset, 38px) 1fr;
+  align-items: center;
+  width: 100%;
+}
+
+.split-outside-action {
+  border: none;
+  border-radius: 10px;
+  width: 28px;
+  height: 28px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #eefafd, #d1f1f6);
+  color: rgba(52, 80, 82, 0.92);
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 4px rgba(255, 255, 255, 0.55),
+    0 2px 6px rgba(196, 246, 248, 0.45);
+  justify-self: end;
+  margin-right: 10px;
+}
+
+.split-outside-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .split-cell {
   display: grid;
-  grid-template-columns: 28px 1fr 120px 52px;
+  grid-template-columns: 1fr 120px 52px;
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
   border-radius: 16px;
   background: linear-gradient(135deg, rgba(247, 255, 255, 0.9), rgba(214, 241, 246, 0.9));
   width: 100%;
-  margin-left: auto;
   box-shadow:
     inset 0 1px 4px rgba(255, 255, 255, 0.5),
     0 6px 16px rgba(5, 80, 110, 0.15);
@@ -620,7 +647,7 @@ body::after {
 }
 
 .split-error {
-  grid-column: 2 / -1;
+  grid-column: 1 / -1;
   font-size: 0.75rem;
   color: #b63f4c;
   margin-top: 2px;
