@@ -193,6 +193,10 @@ body::after {
   width: 100%;
 }
 
+.share-splitter .number-field-input-wrapper {
+  width: 100%;
+}
+
 .number-field-input-wrapper.input-with-toggle {
   --toggle-padding: 96px;
 }
@@ -291,9 +295,11 @@ body::after {
 
 .split-control {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   width: 100%;
+  justify-items: stretch;
+  align-items: stretch;
 }
 
 .stacked-field-column {
@@ -312,6 +318,18 @@ body::after {
 
 .split-control .number-field {
   width: 100%;
+}
+
+.share-splitter .split-control {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.share-splitter .stacked-field-column {
+  width: 100%;
+}
+
+.share-splitter .number-field {
+  min-width: 0;
 }
 
 .summary-inline {

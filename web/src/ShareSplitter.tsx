@@ -58,6 +58,30 @@ const parseShareInput = (input: string) => {
   return { value: parsed.value, hasValue: true, hasPercent };
 };
 
+const computeAbsoluteValue = (node: SplitNode): number => {
+  const parsed = parseShareInput(node.valueInput);
+  if (node.valueInput.trim() !== '' && parsed.hasValue) {
+    return parsed.value;
+  }
+  if (!node.children.length) {
+    return 0;
+  }
+  const childMode = detectMode(node.children);
+  if (childMode.mode !== 'absolute') {
+    return 0;
+  }
+  return node.children.reduce((acc, child) => acc + computeAbsoluteValue(child), 0);
+};
+
+const sumAbsoluteLevel = (nodes: SplitNode[]) => {
+  return nodes.reduce((acc, node) => {
+    if (node.name.trim() === '') {
+      return acc;
+    }
+    return acc + computeAbsoluteValue(node);
+  }, 0);
+};
+
 const formatAmount = (value: number, decimals: number) => {
   const fixed = value.toFixed(decimals);
   const [integerPart, fraction] = fixed.split('.');
@@ -117,16 +141,27 @@ const buildComputed = (
   const { mode, error } = detectMode(rows);
   const cached = modeCache.get(cacheKey);
   const effectiveMode = mode === 'mixed' ? cached?.mode ?? 'absolute' : mode;
-  const parsedAll = rows.map((row) => ({
-    row,
-    parsed: parseShareInput(row.valueInput),
-    isActive: row.name.trim() !== '',
-  }));
+  const parsedAll = rows.map((row) => {
+    const parsed = parseShareInput(row.valueInput);
+    const isActive = row.name.trim() !== '';
+    const isAutoAbsolute =
+      isActive &&
+      row.valueInput.trim() === '' &&
+      row.children.length > 0 &&
+      detectMode(row.children).mode === 'absolute';
+    const derivedValue = isAutoAbsolute ? computeAbsoluteValue(row) : null;
+    return {
+      row,
+      parsed,
+      isActive,
+      derivedValue,
+    };
+  });
   const parsedActive = parsedAll.filter((entry) => entry.isActive);
 
   const totals = parsedActive.reduce(
     (acc, entry) => {
-      acc.sum += entry.parsed.value;
+      acc.sum += entry.derivedValue ?? entry.parsed.value;
       return acc;
     },
     { sum: 0 },
@@ -153,9 +188,9 @@ const buildComputed = (
     showNotSet = cached.remainder > 0.00001;
   }
 
-  const computedRows = parsedAll.map(({ row, parsed: parsedRow, isActive }, index) => {
+  const computedRows = parsedAll.map(({ row, parsed: parsedRow, isActive, derivedValue }, index) => {
     const isNotSet = showNotSet && index === notSetIndex;
-    const normalizedValue = isActive ? parsedRow.value : 0;
+    const normalizedValue = isActive ? (derivedValue ?? parsedRow.value) : 0;
     const valueForCalc = isNotSet ? remainder : normalizedValue;
     const percent =
       effectiveMode === 'percent'
@@ -207,7 +242,7 @@ const buildComputed = (
     });
   }
 
-  if (randomPercent > 0 && !overLimit && parentAmount !== 0) {
+  if (randomPercent > 0 && !overLimit && parentAmount !== 0 && effectiveMode === 'percent' && mode !== 'mixed') {
     const fixedAmount = computedRows.reduce(
       (acc, row) => acc + (row.isNotSet ? row.amount : 0),
       0,
@@ -401,13 +436,7 @@ export const ShareSplitter = () => {
     if (mode !== 'absolute') {
       return 0;
     }
-    return rows.reduce((acc, row) => {
-      if (row.name.trim() === '') {
-        return acc;
-      }
-      const parsed = parseShareInput(row.valueInput);
-      return acc + (parsed.hasValue ? parsed.value : 0);
-    }, 0);
+    return sumAbsoluteLevel(rows);
   }, [rows, totalInput, totalParsed]);
   const decimals = Number.isFinite(Number.parseInt(roundingInput, 10))
     ? Math.min(Math.max(Number.parseInt(roundingInput, 10), 0), 6)
