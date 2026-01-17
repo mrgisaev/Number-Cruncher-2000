@@ -1,4 +1,4 @@
-import { type CSSProperties, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 
 import { addGrouping, parseColumn } from './shareSplitterUtils';
 
@@ -458,8 +458,19 @@ export const ShareSplitter = () => {
   const [roundingInput, setRoundingInput] = useState('');
   const [rows, setRows] = useState<SplitNode[]>(createInitialRows());
   const [outputMode, setOutputMode] = useState<'pivot' | 'pivot-leaves' | 'pivot-values'>('pivot');
+  const [isOutputMenuOpen, setIsOutputMenuOpen] = useState(false);
   const [randomPercentInput, setRandomPercentInput] = useState('');
   const modeCacheRef = useRef<Map<string, CachedMode>>(new Map());
+  const outputMenuRef = useRef<HTMLDivElement | null>(null);
+  const outputOptions = useMemo(
+    () => [
+      { value: 'pivot' as const, label: 'Pivot style' },
+      { value: 'pivot-leaves' as const, label: 'Table leaves only' },
+      { value: 'pivot-values' as const, label: 'Values only' },
+    ],
+    [],
+  );
+  const outputLabel = outputOptions.find((option) => option.value === outputMode)?.label ?? 'Pivot style';
 
   const totalParsed = parseColumn(totalInput)[0];
   const totalValue = useMemo(() => {
@@ -529,6 +540,24 @@ export const ShareSplitter = () => {
     walk(computedTree, Array.from({ length: maxDepth }, () => null), Array.from({ length: maxDepth }, () => null));
     return collected;
   }, [computedTree, maxDepth]);
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!outputMenuRef.current) {
+        return;
+      }
+      if (!outputMenuRef.current.contains(event.target as Node)) {
+        setIsOutputMenuOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, []);
+
+  const handleOutputSelect = (value: 'pivot' | 'pivot-leaves' | 'pivot-values') => {
+    setOutputMode(value);
+    setIsOutputMenuOpen(false);
+  };
 
   const handleAddSibling = (id: string) => {
     setRows((prev) => addSiblingRow(prev, id));
@@ -945,18 +974,39 @@ export const ShareSplitter = () => {
           <div className="card-header-top">
             <h2>Result</h2>
             <div className="split-result-actions">
-              <select
-                className="split-output-select"
-                value={outputMode}
-                onChange={(event) =>
-                  setOutputMode(event.target.value as 'pivot' | 'pivot-leaves' | 'pivot-values')
-                }
-                aria-label="Output format"
-              >
-                <option value="pivot">Pivot style</option>
-                <option value="pivot-leaves">Table leaves only</option>
-                <option value="pivot-values">Table without names</option>
-              </select>
+              <div className="split-output-dropdown" ref={outputMenuRef}>
+                <button
+                  type="button"
+                  className="split-output-trigger"
+                  aria-haspopup="listbox"
+                  aria-expanded={isOutputMenuOpen}
+                  onClick={() => setIsOutputMenuOpen((prev) => !prev)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') {
+                      setIsOutputMenuOpen(false);
+                    }
+                  }}
+                >
+                  <span className="split-output-label">{outputLabel}</span>
+                  <span className="split-output-caret" aria-hidden="true" />
+                </button>
+                {isOutputMenuOpen ? (
+                  <div className="split-output-menu" role="listbox" aria-label="Output format">
+                    {outputOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={`split-output-option${option.value === outputMode ? ' is-active' : ''}`}
+                        role="option"
+                        aria-selected={option.value === outputMode}
+                        onClick={() => handleOutputSelect(option.value)}
+                      >
+                        <span className="split-output-option-text">{option.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
               <button type="button" onClick={handleCopyResult}>
                 Copy result
               </button>
