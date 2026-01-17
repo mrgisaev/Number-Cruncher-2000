@@ -284,6 +284,7 @@ function App() {
   const footerYear = new Date().getFullYear();
   const isWhatsNew = typeof window !== 'undefined' && window.location.pathname.includes('whats-new');
   const isShareSplitter = typeof window !== 'undefined' && window.location.pathname.includes('share-splitter');
+  const latestReleaseDate = 'Jan 17, 2026';
   const releaseDate = 'Jan 14, 2026';
   const firstReleaseDate = 'Jan 12, 2026';
   const additionInputId = useId();
@@ -460,9 +461,20 @@ function App() {
     updateScrollCue();
     window.addEventListener('resize', updateScrollCue);
     window.addEventListener('scroll', updateScrollCue, { passive: true });
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => updateScrollCue());
+      if (document.body) {
+        resizeObserver.observe(document.body);
+      }
+      resizeObserver.observe(document.documentElement);
+    }
     return () => {
       window.removeEventListener('resize', updateScrollCue);
       window.removeEventListener('scroll', updateScrollCue);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
     };
   }, []);
 
@@ -532,6 +544,15 @@ function App() {
                     <h2>Release notes</h2>
                   </div>
                 </header>
+                <div className="release-entry">
+                  <p className="release-date">{latestReleaseDate}</p>
+                  <ul className="whats-new-list">
+                    <li>Added the Share Splitter tool with nested group breakdowns.</li>
+                    <li>Introduced pivot-style copy/export modes, including a values-only table.</li>
+                    <li>Improved auto naming, row controls, and input/clear UX for large trees.</li>
+                    <li>Added rounding and randomizer controls to Share Splitter.</li>
+                  </ul>
+                </div>
                 <div className="release-entry">
                   <p className="release-date">{releaseDate}</p>
                   <ul className="whats-new-list">
