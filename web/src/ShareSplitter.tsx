@@ -437,8 +437,12 @@ export const ShareSplitter = () => {
 
   const renderInputCell = (row: ComputedNode, rowIndex: number) => {
     const disableActions = row.isNotSet;
+    const widthOffset = row.depth * 50;
     return (
-      <div className={`split-cell${row.isNotSet ? ' split-cell-muted' : ''}`}>
+      <div
+        className={`split-cell${row.isNotSet ? ' split-cell-muted' : ''}`}
+        style={{ width: `calc(100% - ${widthOffset}px)` }}
+      >
         <div className="split-cell-actions">
           <button
             type="button"
