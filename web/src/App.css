@@ -602,12 +602,34 @@ body::after {
 }
 
 .creative-toggle {
-  margin-top: 8px;
+  margin-top: 10px;
   font-size: 0.85rem;
-  color: rgba(52, 80, 82, 0.75);
-  display: flex;
+  color: rgba(52, 80, 82, 0.92);
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(212, 255, 255, 0.7);
+  background: linear-gradient(135deg, #eefafd, #d1f1f6);
+  box-shadow:
+    inset 0 1px 5px rgba(255, 255, 255, 0.55),
+    0 3px 8px rgba(196, 246, 248, 0.45);
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.creative-toggle input {
+  margin: 0;
+  justify-self: end;
+  accent-color: rgba(52, 80, 82, 0.75);
+}
+
+.creative-toggle span {
+  white-space: nowrap;
+  font-weight: 600;
 }
 
 .creative-error {
@@ -736,18 +758,6 @@ body::after {
   margin: 8px 0 0;
   font-size: 0.85rem;
   color: rgba(52, 80, 82, 0.75);
-}
-
-.creative-result-meta-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 8px;
-}
-
-.creative-result-meta-row .creative-result-meta {
-  margin: 0;
 }
 
 .creative-result-item {
