@@ -731,6 +731,11 @@ body::after {
   gap: 8px;
 }
 
+.creative-size-cell,
+.creative-id-cell {
+  min-width: 0;
+}
+
 .creative-drag-handle {
   font-weight: 700;
   color: rgba(52, 80, 82, 0.6);
@@ -1644,8 +1649,8 @@ body::after {
   }
 
   .creative-cell {
-    grid-template-columns: 1fr;
-    gap: 6px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.28fr) minmax(0, 0.32fr) minmax(0, 56px);
+    gap: 8px;
   }
 
   .creative-result-main {
