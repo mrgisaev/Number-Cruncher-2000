@@ -351,6 +351,33 @@ const isDescendant = (nodes: CreativeNode[], ancestorId: string, targetId: strin
   return false;
 };
 
+const findParentId = (
+  nodes: CreativeNode[],
+  targetId: string,
+  parentId: string | null = null,
+): string | null => {
+  for (const node of nodes) {
+    if (node.id === targetId) {
+      return parentId;
+    }
+    if (node.children.length) {
+      const found = findParentId(node.children, targetId, node.id);
+      if (found !== null) {
+        return found;
+      }
+    }
+  }
+  return null;
+};
+
+const moveGroupToRoot = (nodes: CreativeNode[], groupId: string) => {
+  const detachedResult = detachNode(nodes, groupId);
+  if (!detachedResult.detached) {
+    return nodes;
+  }
+  return [...detachedResult.nodes, detachedResult.detached];
+};
+
 const moveGroupToGroup = (nodes: CreativeNode[], groupId: string, targetGroupId: string) => {
   const detachedResult = detachNode(nodes, groupId);
   if (!detachedResult.detached) {
@@ -813,6 +840,8 @@ export const CreativeRenamer = () => {
   const handleDropOnGroup = (event: DragEvent<HTMLDivElement>, groupId: string) => {
     event.preventDefault();
     setPreview(null);
+    const rect = event.currentTarget.getBoundingClientRect();
+    const isOutdent = event.clientX < rect.left + 32;
     const payload = event.dataTransfer.getData('application/x-creative-node');
     let parsed: { type: 'file' | 'group'; id: string } | null = null;
     if (payload) {
@@ -840,6 +869,17 @@ export const CreativeRenamer = () => {
       }
       if (parsed.id === groupId || isDescendant(prev, parsed.id, groupId)) {
         return prev;
+      }
+      const currentParentId = findParentId(prev, parsed.id);
+      if (currentParentId && (isOutdent || groupId === currentParentId)) {
+        const newParentId = findParentId(prev, currentParentId);
+        if (!newParentId) {
+          return moveGroupToRoot(prev, parsed.id);
+        }
+        if (newParentId === parsed.id) {
+          return prev;
+        }
+        return moveGroupToGroup(prev, parsed.id, newParentId);
       }
       return moveGroupToGroup(prev, parsed.id, groupId);
     });
