@@ -301,12 +301,62 @@ const detachFileNode = (nodes: CreativeNode[], fileId: string): DetachResult => 
   return { nodes: next, detached };
 };
 
+const detachNode = (nodes: CreativeNode[], nodeId: string): DetachResult => {
+  let detached: CreativeNode | null = null;
+  const next = nodes
+    .filter((node) => {
+      if (node.id === nodeId) {
+        detached = node;
+        return false;
+      }
+      return true;
+    })
+    .map((node) => {
+      if (!node.children.length) {
+        return node;
+      }
+      const result = detachNode(node.children, nodeId);
+      if (result.detached) {
+        detached = result.detached;
+      }
+      return { ...node, children: result.nodes };
+    });
+  return { nodes: next, detached };
+};
+
 const moveFileToGroup = (nodes: CreativeNode[], fileId: string, groupId: string) => {
   const detachedResult = detachFileNode(nodes, fileId);
   if (!detachedResult.detached) {
     return nodes;
   }
   return insertNodeToGroup(detachedResult.nodes, groupId, detachedResult.detached);
+};
+
+const containsNodeId = (node: CreativeNode, targetId: string): boolean => {
+  if (node.id === targetId) {
+    return true;
+  }
+  return node.children.some((child) => containsNodeId(child, targetId));
+};
+
+const isDescendant = (nodes: CreativeNode[], ancestorId: string, targetId: string): boolean => {
+  for (const node of nodes) {
+    if (node.id === ancestorId) {
+      return containsNodeId(node, targetId);
+    }
+    if (node.children.length && isDescendant(node.children, ancestorId, targetId)) {
+      return true;
+    }
+  }
+  return false;
+};
+
+const moveGroupToGroup = (nodes: CreativeNode[], groupId: string, targetGroupId: string) => {
+  const detachedResult = detachNode(nodes, groupId);
+  if (!detachedResult.detached) {
+    return nodes;
+  }
+  return insertNodeToGroup(detachedResult.nodes, targetGroupId, detachedResult.detached);
 };
 
 const flattenFiles = (nodes: CreativeNode[], path: string[] = [], pathIds: string[] = []) => {
@@ -734,17 +784,55 @@ export const CreativeRenamer = () => {
   const handleDragStart = (event: DragEvent<HTMLDivElement>, fileId: string) => {
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', fileId);
+    event.dataTransfer.setData(
+      'application/x-creative-node',
+      JSON.stringify({ type: 'file', id: fileId }),
+    );
+    setPreview(null);
+  };
+
+  const handleDragStartGroup = (event: DragEvent<HTMLDivElement>, groupId: string) => {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData(
+      'application/x-creative-node',
+      JSON.stringify({ type: 'group', id: groupId }),
+    );
     setPreview(null);
   };
 
   const handleDropOnGroup = (event: DragEvent<HTMLDivElement>, groupId: string) => {
     event.preventDefault();
-    const fileId = event.dataTransfer.getData('text/plain');
-    if (!fileId) {
+    setPreview(null);
+    const payload = event.dataTransfer.getData('application/x-creative-node');
+    let parsed: { type: 'file' | 'group'; id: string } | null = null;
+    if (payload) {
+      try {
+        const data = JSON.parse(payload) as { type?: string; id?: string };
+        if ((data.type === 'file' || data.type === 'group') && data.id) {
+          parsed = { type: data.type, id: data.id };
+        }
+      } catch {
+        parsed = null;
+      }
+    }
+    if (!parsed) {
+      const fileId = event.dataTransfer.getData('text/plain');
+      if (fileId) {
+        parsed = { type: 'file', id: fileId };
+      }
+    }
+    if (!parsed) {
       return;
     }
-    setPreview(null);
-    setGroups((prev) => moveFileToGroup(prev, fileId, groupId));
+    setGroups((prev) => {
+      if (parsed.type === 'file') {
+        return moveFileToGroup(prev, parsed.id, groupId);
+      }
+      if (parsed.id === groupId || isDescendant(prev, parsed.id, groupId)) {
+        return prev;
+      }
+      return moveGroupToGroup(prev, parsed.id, groupId);
+    });
   };
 
   const handleCopyNames = async () => {
@@ -855,6 +943,12 @@ export const CreativeRenamer = () => {
               )}
               <div
                 className={`creative-cell${isGroup ? ' is-group' : ' is-file'}`}
+                draggable={isGroup}
+                onDragStart={(event) => {
+                  if (isGroup) {
+                    handleDragStartGroup(event, node.id);
+                  }
+                }}
                 onDragOver={(event) => {
                   if (isGroup) {
                     event.preventDefault();
@@ -1076,12 +1170,6 @@ export const CreativeRenamer = () => {
             </button>
           </div>
         </header>
-        <div className="creative-grid-header">
-          <span>Name</span>
-          <span>Size</span>
-          <span>Identifier</span>
-          <span className="creative-header-spacer" />
-        </div>
         <div className="creative-table">{renderRows(groups)}</div>
       </div>
 
