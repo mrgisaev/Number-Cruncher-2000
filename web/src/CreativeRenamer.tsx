@@ -1,4 +1,12 @@
-﻿import { type CSSProperties, type DragEvent, useEffect, useMemo, useRef, useState } from 'react';
+﻿import {
+  type CSSProperties,
+  type DragEvent,
+  type ReactElement,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import JSZip from 'jszip';
 
 type CreativeNode = {
@@ -25,6 +33,21 @@ type FileEntry = {
   fileId: string;
   pathSegments: string[];
   pathIds: string[];
+};
+
+type GroupChange = {
+  nodes: CreativeNode[];
+  changed: boolean;
+};
+
+type RemoveResult = {
+  nodes: CreativeNode[];
+  removedFileIds: string[];
+};
+
+type DetachResult = {
+  nodes: CreativeNode[];
+  detached: CreativeNode | null;
 };
 
 const imageExtensions = new Set([
@@ -145,7 +168,7 @@ const getNextGroupLabel = (nodes: CreativeNode[], depth: number) => {
   return `${base} ${nextIndex}`;
 };
 
-const addSiblingGroup = (nodes: CreativeNode[], id: string, depth = 0) => {
+const addSiblingGroup = (nodes: CreativeNode[], id: string, depth = 0): GroupChange => {
   let changed = false;
   const next: CreativeNode[] = [];
   nodes.forEach((node) => {
@@ -168,7 +191,7 @@ const addSiblingGroup = (nodes: CreativeNode[], id: string, depth = 0) => {
   return { nodes: next, changed };
 };
 
-const addChildGroup = (nodes: CreativeNode[], id: string, depth = 0) => {
+const addChildGroup = (nodes: CreativeNode[], id: string, depth = 0): GroupChange => {
   let changed = false;
   const next = nodes.map((node) => {
     if (node.id === id && node.type === 'group') {
@@ -190,7 +213,11 @@ const addChildGroup = (nodes: CreativeNode[], id: string, depth = 0) => {
   return { nodes: next, changed };
 };
 
-const addFilesToGroup = (nodes: CreativeNode[], groupId: string, files: CreativeFile[]) => {
+const addFilesToGroup = (
+  nodes: CreativeNode[],
+  groupId: string,
+  files: CreativeFile[],
+): CreativeNode[] => {
   const fileNodes: CreativeNode[] = files.map((file) => ({
     id: file.id,
     type: 'file',
@@ -208,7 +235,11 @@ const addFilesToGroup = (nodes: CreativeNode[], groupId: string, files: Creative
   });
 };
 
-const insertNodeToGroup = (nodes: CreativeNode[], groupId: string, child: CreativeNode) =>
+const insertNodeToGroup = (
+  nodes: CreativeNode[],
+  groupId: string,
+  child: CreativeNode,
+): CreativeNode[] =>
   nodes.map((node) => {
     if (node.id === groupId && node.type === 'group') {
       return { ...node, children: [...node.children, child] };
@@ -219,7 +250,7 @@ const insertNodeToGroup = (nodes: CreativeNode[], groupId: string, child: Creati
     return node;
   });
 
-const removeNodeAndCollect = (nodes: CreativeNode[], id: string) => {
+const removeNodeAndCollect = (nodes: CreativeNode[], id: string): RemoveResult => {
   const removedFileIds: string[] = [];
   const collectFileIds = (node: CreativeNode) => {
     if (node.type === 'file') {
@@ -247,7 +278,7 @@ const removeNodeAndCollect = (nodes: CreativeNode[], id: string) => {
   return { nodes: next, removedFileIds };
 };
 
-const detachFileNode = (nodes: CreativeNode[], fileId: string) => {
+const detachFileNode = (nodes: CreativeNode[], fileId: string): DetachResult => {
   let detached: CreativeNode | null = null;
   const next = nodes
     .filter((node) => {
@@ -800,7 +831,7 @@ export const CreativeRenamer = () => {
     }
   };
 
-  const renderRows = (nodes: CreativeNode[], depth = 0): JSX.Element[] =>
+  const renderRows = (nodes: CreativeNode[], depth = 0): ReactElement[] =>
     nodes.flatMap((node) => {
       const isGroup = node.type === 'group';
       const file = files[node.id];
