@@ -1,4 +1,5 @@
-import { type ChangeEvent, type CSSProperties, useEffect, useId, useMemo, useState } from 'react';
+import type React from 'react';
+import { type ChangeEvent, type CSSProperties, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { CreativeRenamer } from './CreativeRenamer';
 import { ShareSplitter } from './ShareSplitter';
 import './App.css';
@@ -282,6 +283,8 @@ function App() {
   const [randomPercentInput, setRandomPercentInput] = useState('');
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
   const [showScrollCue, setShowScrollCue] = useState(false);
+  const [menuOverflow, setMenuOverflow] = useState(false);
+  const menuScrollRef = useRef<HTMLUListElement | null>(null);
   const footerYear = new Date().getFullYear();
   const isWhatsNew = typeof window !== 'undefined' && window.location.pathname.includes('whats-new');
   const isShareSplitter = typeof window !== 'undefined' && window.location.pathname.includes('share-splitter');
@@ -482,6 +485,17 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const updateMenuOverflow = () => {
+      const el = menuScrollRef.current;
+      if (!el) return;
+      setMenuOverflow(el.scrollWidth > el.clientWidth + 2);
+    };
+    updateMenuOverflow();
+    window.addEventListener('resize', updateMenuOverflow);
+    return () => window.removeEventListener('resize', updateMenuOverflow);
+  }, []);
+
   return (
     <>
       <div className="dust-overlay" aria-hidden="true">
@@ -510,8 +524,11 @@ function App() {
       </div>
       <div className="app-shell">
       <aside className="card menu-card floating-menu">
-        <nav>
-          <ul className="tool-links">
+        <nav className={`menu-nav${menuOverflow ? ' is-scrollable' : ''}`}>
+          <ul
+            className={`tool-links${menuOverflow ? ' is-scrollable' : ''}`}
+            ref={menuScrollRef}
+          >
             <li>
               <a className="tool-link-button" href="https://number-cruncher.org">
                 Number Cruncher
