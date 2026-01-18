@@ -788,6 +788,11 @@ export const CreativeRenamer = () => {
       'application/x-creative-node',
       JSON.stringify({ type: 'file', id: fileId }),
     );
+    const dragTarget = (event.currentTarget.closest('.creative-cell') as HTMLElement | null)
+      ?? event.currentTarget;
+    if (dragTarget) {
+      event.dataTransfer.setDragImage(dragTarget, 24, 24);
+    }
     setPreview(null);
   };
 
@@ -797,6 +802,11 @@ export const CreativeRenamer = () => {
       'application/x-creative-node',
       JSON.stringify({ type: 'group', id: groupId }),
     );
+    const dragTarget = (event.currentTarget.closest('.creative-cell') as HTMLElement | null)
+      ?? event.currentTarget;
+    if (dragTarget) {
+      event.dataTransfer.setDragImage(dragTarget, 24, 24);
+    }
     setPreview(null);
   };
 
@@ -943,12 +953,6 @@ export const CreativeRenamer = () => {
               )}
               <div
                 className={`creative-cell${isGroup ? ' is-group' : ' is-file'}`}
-                draggable={isGroup}
-                onDragStart={(event) => {
-                  if (isGroup) {
-                    handleDragStartGroup(event, node.id);
-                  }
-                }}
                 onDragOver={(event) => {
                   if (isGroup) {
                     event.preventDefault();
@@ -962,35 +966,55 @@ export const CreativeRenamer = () => {
               >
                 <div className="creative-name-cell">
                   {isGroup ? (
-                    <input
-                      className="creative-name-input"
-                      value={node.name}
-                      onChange={(event) =>
-                        setGroups((prev) => handleUpdateGroupName(node.id, event.target.value, prev))
-                      }
-                      placeholder="Group name"
-                    />
+                    <>
+                      <span
+                        className="creative-drag-handle"
+                        draggable
+                        onDragStart={(event) => handleDragStartGroup(event, node.id)}
+                        aria-hidden="true"
+                        title="Drag group"
+                      >
+                        ::
+                      </span>
+                      <input
+                        className="creative-name-input"
+                        value={node.name}
+                        onChange={(event) =>
+                          setGroups((prev) => handleUpdateGroupName(node.id, event.target.value, prev))
+                        }
+                        placeholder="Group name"
+                      />
+                    </>
                   ) : (
-                    <div
-                      className="creative-file-name"
-                      draggable
-                      onDragStart={(event) => handleDragStart(event, node.id)}
-                      onMouseEnter={(event) => {
-                        if (!file) {
-                          return;
-                        }
-                        setPreview({ file, x: event.clientX, y: event.clientY });
-                      }}
-                      onMouseMove={(event) => {
-                        if (!preview || preview.file.id !== node.id) {
-                          return;
-                        }
-                        setPreview({ file: preview.file, x: event.clientX, y: event.clientY });
-                      }}
-                      onMouseLeave={() => setPreview(null)}
-                    >
-                      {node.name}
-                    </div>
+                    <>
+                      <span
+                        className="creative-drag-handle"
+                        draggable
+                        onDragStart={(event) => handleDragStart(event, node.id)}
+                        aria-hidden="true"
+                        title="Drag file"
+                      >
+                        ::
+                      </span>
+                      <div
+                        className="creative-file-name"
+                        onMouseEnter={(event) => {
+                          if (!file) {
+                            return;
+                          }
+                          setPreview({ file, x: event.clientX, y: event.clientY });
+                        }}
+                        onMouseMove={(event) => {
+                          if (!preview || preview.file.id !== node.id) {
+                            return;
+                          }
+                          setPreview({ file: preview.file, x: event.clientX, y: event.clientY });
+                        }}
+                        onMouseLeave={() => setPreview(null)}
+                      >
+                        {node.name}
+                      </div>
+                    </>
                   )}
                 </div>
                 <div className="creative-size-cell">

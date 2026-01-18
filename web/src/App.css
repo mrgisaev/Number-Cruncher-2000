@@ -728,6 +728,15 @@ body::after {
   display: flex;
   align-items: center;
   min-width: 0;
+  gap: 8px;
+}
+
+.creative-drag-handle {
+  font-weight: 700;
+  color: rgba(52, 80, 82, 0.6);
+  letter-spacing: 1px;
+  cursor: grab;
+  user-select: none;
 }
 
 .creative-name-input,
