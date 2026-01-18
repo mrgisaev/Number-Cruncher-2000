@@ -1331,7 +1331,7 @@ body::after {
   font-style: italic;
 }
 
-.menu-card nav {
+.menu-card .menu-nav {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -1599,21 +1599,42 @@ body::after {
     font-size: 1.1rem;
   }
 
-  .floating-menu nav {
+  .floating-menu .menu-nav {
     flex: 1 1 auto;
     display: flex;
     flex-direction: row;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: flex-start;
     min-width: 0;
+    overflow: hidden;
+    width: 100%;
   }
 
   .floating-menu .tool-links {
     flex-direction: row;
     align-items: center;
-    justify-content: flex-end;
-    width: auto;
+    justify-content: flex-start;
+    width: 100%;
     gap: 16px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    cursor: grab;
+  }
+
+  .floating-menu .tool-links:active {
+    cursor: grabbing;
+  }
+
+  .floating-menu .tool-links::-webkit-scrollbar {
+    display: none;
+  }
+
+  .floating-menu .tool-link-button {
+    width: auto;
+    flex: 0 0 auto;
   }
 }
 
