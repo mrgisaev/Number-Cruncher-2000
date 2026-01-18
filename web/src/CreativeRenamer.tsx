@@ -915,7 +915,7 @@ export const CreativeRenamer = () => {
     });
   };
 
-  const handleDragStart = (event: DragEvent<HTMLDivElement>, fileId: string) => {
+  const handleDragStart = (event: DragEvent<HTMLElement>, fileId: string) => {
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', fileId);
     event.dataTransfer.setData(
@@ -930,7 +930,7 @@ export const CreativeRenamer = () => {
     setPreview(null);
   };
 
-  const handleDragStartGroup = (event: DragEvent<HTMLDivElement>, groupId: string) => {
+  const handleDragStartGroup = (event: DragEvent<HTMLElement>, groupId: string) => {
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData(
       'application/x-creative-node',
