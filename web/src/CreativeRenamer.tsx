@@ -1,5 +1,6 @@
 ﻿import {
   type CSSProperties,
+  type ClipboardEvent,
   type DragEvent,
   type ReactElement,
   useEffect,
@@ -113,6 +114,12 @@ const getMime = (extension: string, kind: 'image' | 'video') => {
 const normalizeSegment = (value: string) =>
   value.trim().replace(/\s+/g, ' ').replace(/[\\/:*?"<>|]/g, '');
 
+const parsePasteLines = (value: string) =>
+  value
+    .split(/\r?\n/)
+    .map((line) => line.split('\t')[0]?.trim() ?? '')
+    .filter((line) => line.length > 0);
+
 const formatSize = (width: number | null, height: number | null) => {
   if (!width || !height) {
     return '';
@@ -180,6 +187,34 @@ const addSiblingGroup = (nodes: CreativeNode[], id: string, depth = 0): GroupCha
     }
     if (node.children.length) {
       const result = addSiblingGroup(node.children, id, depth + 1);
+      if (result.changed) {
+        next.push({ ...node, children: result.nodes });
+        changed = true;
+        return;
+      }
+    }
+    next.push(node);
+  });
+  return { nodes: next, changed };
+};
+
+const addSiblingGroups = (nodes: CreativeNode[], id: string, labels: string[]): GroupChange => {
+  if (!labels.length) {
+    return { nodes, changed: false };
+  }
+  let changed = false;
+  const next: CreativeNode[] = [];
+  nodes.forEach((node) => {
+    if (node.id === id && node.type === 'group') {
+      next.push(node);
+      labels.forEach((label) => {
+        next.push(createGroupNode(label));
+      });
+      changed = true;
+      return;
+    }
+    if (node.children.length) {
+      const result = addSiblingGroups(node.children, id, labels);
       if (result.changed) {
         next.push({ ...node, children: result.nodes });
         changed = true;
@@ -384,6 +419,33 @@ const moveGroupToGroup = (nodes: CreativeNode[], groupId: string, targetGroupId:
     return nodes;
   }
   return insertNodeToGroup(detachedResult.nodes, targetGroupId, detachedResult.detached);
+};
+
+const collectFileIds = (nodes: CreativeNode[]): string[] => {
+  const ids: string[] = [];
+  nodes.forEach((node) => {
+    if (node.type === 'file') {
+      ids.push(node.id);
+      return;
+    }
+    ids.push(...collectFileIds(node.children));
+  });
+  return ids;
+};
+
+const getGroupFileIds = (nodes: CreativeNode[], groupId: string): string[] => {
+  for (const node of nodes) {
+    if (node.id === groupId && node.type === 'group') {
+      return collectFileIds(node.children);
+    }
+    if (node.children.length) {
+      const result = getGroupFileIds(node.children, groupId);
+      if (result.length) {
+        return result;
+      }
+    }
+  }
+  return [];
 };
 
 const flattenFiles = (nodes: CreativeNode[], path: string[] = [], pathIds: string[] = []) => {
@@ -808,6 +870,51 @@ export const CreativeRenamer = () => {
     setGroups(result.nodes);
   };
 
+  const handleGroupPaste = (event: ClipboardEvent<HTMLInputElement>, groupId: string) => {
+    const lines = parsePasteLines(event.clipboardData.getData('text'));
+    if (lines.length <= 1) {
+      return;
+    }
+    event.preventDefault();
+    setGroups((prev) => {
+      let next = handleUpdateGroupName(groupId, lines[0], prev);
+      const siblings = lines.slice(1);
+      const result = addSiblingGroups(next, groupId, siblings);
+      return result.changed ? result.nodes : next;
+    });
+  };
+
+  const handleIdentifierPaste = (event: ClipboardEvent<HTMLInputElement>, fileId: string) => {
+    const lines = parsePasteLines(event.clipboardData.getData('text'));
+    if (lines.length <= 1) {
+      return;
+    }
+    event.preventDefault();
+    const parentId = findParentId(groups, fileId);
+    if (!parentId) {
+      return;
+    }
+    const ids = getGroupFileIds(groups, parentId);
+    if (!ids.length) {
+      return;
+    }
+    setFiles((prev) => {
+      const next = { ...prev };
+      lines.forEach((line, index) => {
+        const targetId = ids[index];
+        if (!targetId) {
+          return;
+        }
+        const target = next[targetId];
+        if (!target) {
+          return;
+        }
+        next[targetId] = { ...target, identifier: line };
+      });
+      return next;
+    });
+  };
+
   const handleDragStart = (event: DragEvent<HTMLDivElement>, fileId: string) => {
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', fileId);
@@ -1022,6 +1129,7 @@ export const CreativeRenamer = () => {
                         onChange={(event) =>
                           setGroups((prev) => handleUpdateGroupName(node.id, event.target.value, prev))
                         }
+                        onPaste={(event) => handleGroupPaste(event, node.id)}
                         placeholder="Group name"
                       />
                     </>
@@ -1079,6 +1187,7 @@ export const CreativeRenamer = () => {
                       className="creative-id-input"
                       value={file?.identifier ?? ''}
                       onChange={(event) => handleUpdateFile(node.id, { identifier: event.target.value })}
+                      onPaste={(event) => handleIdentifierPaste(event, node.id)}
                       placeholder="Identifier"
                     />
                   )}

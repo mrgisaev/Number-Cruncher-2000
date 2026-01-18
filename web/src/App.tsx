@@ -287,7 +287,8 @@ function App() {
   const isShareSplitter = typeof window !== 'undefined' && window.location.pathname.includes('share-splitter');
   const isCreativeRenamer =
     typeof window !== 'undefined' && window.location.pathname.includes('creative-renamer');
-  const latestReleaseDate = 'Jan 17, 2026';
+  const latestReleaseDate = 'Jan 18, 2026';
+  const shareSplitterReleaseDate = 'Jan 17, 2026';
   const releaseDate = 'Jan 14, 2026';
   const firstReleaseDate = 'Jan 12, 2026';
   const additionInputId = useId();
@@ -554,6 +555,14 @@ function App() {
                 </header>
                 <div className="release-entry">
                   <p className="release-date">{latestReleaseDate}</p>
+                  <ul className="whats-new-list">
+                    <li>Released the Creative Renamer with ZIP uploads and nested grouping.</li>
+                    <li>Added drag-and-drop grouping plus copy/export and ZIP outputs.</li>
+                    <li>Enabled size/format toggles for naming and preview-on-hover.</li>
+                  </ul>
+                </div>
+                <div className="release-entry">
+                  <p className="release-date">{shareSplitterReleaseDate}</p>
                   <ul className="whats-new-list">
                     <li>Added the Share Splitter tool with nested group breakdowns.</li>
                     <li>Introduced pivot-style copy/export modes, including a values-only table.</li>
