@@ -1,4 +1,3 @@
-import type React from 'react';
 import { type ChangeEvent, type CSSProperties, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { CreativeRenamer } from './CreativeRenamer';
 import { ShareSplitter } from './ShareSplitter';
