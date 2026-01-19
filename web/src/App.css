@@ -1636,6 +1636,41 @@ body::after {
     width: auto;
     flex: 0 0 auto;
   }
+
+  .floating-menu .menu-nav.is-scrollable {
+    position: relative;
+  }
+
+  .floating-menu .menu-nav.is-scrollable::before,
+  .floating-menu .menu-nav.is-scrollable::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 16px;
+    pointer-events: none;
+    z-index: 1;
+    background: linear-gradient(90deg, rgba(15, 50, 70, 0.12) 0%, rgba(15, 50, 70, 0) 90%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .floating-menu .menu-nav.is-scrollable::after {
+    right: 0;
+    transform: scaleX(-1);
+  }
+
+  .floating-menu .menu-nav.is-scrollable::before {
+    left: 0;
+  }
+
+  .floating-menu .menu-nav.has-left-fade::before {
+    opacity: 1;
+  }
+
+  .floating-menu .menu-nav.has-right-fade::after {
+    opacity: 1;
+  }
 }
 
 @media (max-width: 980px) {

@@ -283,6 +283,8 @@ function App() {
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
   const [showScrollCue, setShowScrollCue] = useState(false);
   const [menuOverflow, setMenuOverflow] = useState(false);
+  const [menuFadeLeft, setMenuFadeLeft] = useState(false);
+  const [menuFadeRight, setMenuFadeRight] = useState(false);
   const menuScrollRef = useRef<HTMLUListElement | null>(null);
   const footerYear = new Date().getFullYear();
   const isWhatsNew = typeof window !== 'undefined' && window.location.pathname.includes('whats-new');
@@ -488,11 +490,25 @@ function App() {
     const updateMenuOverflow = () => {
       const el = menuScrollRef.current;
       if (!el) return;
-      setMenuOverflow(el.scrollWidth > el.clientWidth + 2);
+      const hasOverflow = el.scrollWidth > el.clientWidth + 2;
+      setMenuOverflow(hasOverflow);
+      const leftVisible = el.scrollLeft > 2;
+      const rightVisible = el.scrollLeft < el.scrollWidth - el.clientWidth - 2;
+      setMenuFadeLeft(hasOverflow && leftVisible);
+      setMenuFadeRight(hasOverflow && rightVisible);
     };
     updateMenuOverflow();
     window.addEventListener('resize', updateMenuOverflow);
-    return () => window.removeEventListener('resize', updateMenuOverflow);
+    const el = menuScrollRef.current;
+    if (el) {
+      el.addEventListener('scroll', updateMenuOverflow, { passive: true });
+    }
+    return () => {
+      window.removeEventListener('resize', updateMenuOverflow);
+      if (el) {
+        el.removeEventListener('scroll', updateMenuOverflow);
+      }
+    };
   }, []);
 
   return (
@@ -523,7 +539,9 @@ function App() {
       </div>
       <div className="app-shell">
       <aside className="card menu-card floating-menu">
-        <nav className={`menu-nav${menuOverflow ? ' is-scrollable' : ''}`}>
+        <nav
+          className={`menu-nav${menuOverflow ? ' is-scrollable' : ''}${menuFadeLeft ? ' has-left-fade' : ''}${menuFadeRight ? ' has-right-fade' : ''}`}
+        >
           <ul
             className={`tool-links${menuOverflow ? ' is-scrollable' : ''}`}
             ref={menuScrollRef}
