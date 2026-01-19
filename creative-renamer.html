@@ -4,18 +4,25 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="./vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-4FPWFTG76J"></script>
     <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-
-      gtag('config', 'G-4FPWFTG76J');
+      (function () {
+        const consent = localStorage.getItem('nc-analytics-consent');
+        if (consent === 'granted') {
+          const s = document.createElement('script');
+          s.async = true;
+          s.src = 'https://www.googletagmanager.com/gtag/js?id=G-4FPWFTG76J';
+          document.head.appendChild(s);
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-4FPWFTG76J', { anonymize_ip: true });
+          window.__ncGaLoaded = true;
+        }
+      })();
     </script>
     <title>Creative Renamer - Number Cruncher 2026</title>
-    <script type="module" crossorigin src="./assets/main-Cl_iL2c-.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/main-BMoUAQMO.css">
+    <script type="module" crossorigin src="./assets/main-B7GMuYK8.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/main-B01ZgQG-.css">
   </head>
   <body>
     <div id="root"></div>
