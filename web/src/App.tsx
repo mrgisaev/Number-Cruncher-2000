@@ -4,6 +4,29 @@ import { ShareSplitter } from './ShareSplitter';
 import './App.css';
 
 const sampleColumn = '';
+const GA_ID = 'G-4FPWFTG76J';
+
+const loadAnalytics = () => {
+  if (typeof window === 'undefined') return;
+  const anyWindow = window as any;
+  if (anyWindow.__ncGaLoaded) return;
+
+  const existing = document.querySelector(`script[src*="googletagmanager.com/gtag/js?id=${GA_ID}"]`);
+  if (!existing) {
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
+    document.head.appendChild(script);
+  }
+
+  anyWindow.dataLayer = anyWindow.dataLayer || [];
+  function gtag(...args: unknown[]) {
+    anyWindow.dataLayer.push(args);
+  }
+  gtag('js', new Date());
+  gtag('config', GA_ID, { anonymize_ip: true });
+  anyWindow.__ncGaLoaded = true;
+};
 
 const numberFormatter = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
@@ -286,6 +309,10 @@ function App() {
   const [menuFadeLeft, setMenuFadeLeft] = useState(false);
   const [menuFadeRight, setMenuFadeRight] = useState(false);
   const menuScrollRef = useRef<HTMLUListElement | null>(null);
+  const [showConsent, setShowConsent] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('nc-analytics-consent') !== 'granted';
+  });
   const footerYear = new Date().getFullYear();
   const isWhatsNew = typeof window !== 'undefined' && window.location.pathname.includes('whats-new');
   const isShareSplitter = typeof window !== 'undefined' && window.location.pathname.includes('share-splitter');
@@ -460,6 +487,15 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleConsent = (choice: 'granted' | 'denied') => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('nc-analytics-consent', choice);
+    setShowConsent(false);
+    if (choice === 'granted') {
+      loadAnalytics();
+    }
+  };
+
   useEffect(() => {
     const updateScrollCue = () => {
       const doc = document.documentElement;
@@ -509,6 +545,14 @@ function App() {
         el.removeEventListener('scroll', updateMenuOverflow);
       }
     };
+  }, []);
+
+  useEffect(() => {
+    const consent = typeof window !== 'undefined' ? localStorage.getItem('nc-analytics-consent') : null;
+    if (consent === 'granted') {
+      loadAnalytics();
+      setShowConsent(false);
+    }
   }, []);
 
   return (
@@ -846,6 +890,21 @@ function App() {
       >
         <span className="scroll-cue-arrow" aria-hidden="true" />
       </button>
+      {showConsent && (
+        <div className="consent-banner" role="dialog" aria-label="Analytics consent">
+          <div className="consent-text">
+            We use Google Analytics to understand usage. You can accept or reject analytics cookies.
+          </div>
+          <div className="consent-actions">
+            <button type="button" className="consent-button" onClick={() => handleConsent('granted')}>
+              Accept
+            </button>
+            <button type="button" className="consent-button ghost" onClick={() => handleConsent('denied')}>
+              Reject
+            </button>
+          </div>
+        </div>
+      )}
     </div>
     </>
   );
