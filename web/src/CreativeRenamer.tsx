@@ -524,6 +524,7 @@ export const CreativeRenamer = () => {
   const [separator, setSeparator] = useState('-');
   const [includeSize, setIncludeSize] = useState(true);
   const [includeFormat, setIncludeFormat] = useState(false);
+  const [preserveStructure, setPreserveStructure] = useState(true);
   const [outputFormat, setOutputFormat] = useState<'keep' | 'jpg' | 'png' | 'mp4'>('keep');
   const [isFormatMenuOpen, setIsFormatMenuOpen] = useState(false);
   const [assetKind, setAssetKind] = useState<'image' | 'video' | 'mixed' | null>(null);
@@ -1057,10 +1058,12 @@ export const CreativeRenamer = () => {
         } else if (outputFormat === 'keep') {
           blob = file.file;
         }
-        const folderPath = entry.pathSegments
-          .map((segment) => normalizeSegment(segment))
-          .filter(Boolean)
-          .join('/');
+        const folderPath = preserveStructure
+          ? entry.pathSegments
+              .map((segment) => normalizeSegment(segment))
+              .filter(Boolean)
+              .join('/')
+          : '';
         const filePath = folderPath ? `${folderPath}/${entry.exportName}` : entry.exportName;
         zip.file(filePath, blob);
       }
@@ -1250,6 +1253,14 @@ export const CreativeRenamer = () => {
                     }}
                     hidden
                   />
+                  <label className="creative-toggle">
+                    <span>Preserve folder structure in ZIP</span>
+                    <input
+                      type="checkbox"
+                      checked={preserveStructure}
+                      onChange={(event) => setPreserveStructure(event.target.checked)}
+                    />
+                  </label>
                 </div>
               </div>
             </div>

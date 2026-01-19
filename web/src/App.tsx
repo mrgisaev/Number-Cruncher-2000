@@ -893,7 +893,8 @@ function App() {
       {showConsent && (
         <div className="consent-banner" role="dialog" aria-label="Analytics consent">
           <div className="consent-text">
-            We use Google Analytics to understand usage. You can accept or reject analytics cookies.
+            I use Google Analytics to understand usage. You can accept or reject analytics cookies. Please allow data
+            collection — it really helps me improve the tool.
           </div>
           <div className="consent-actions">
             <button type="button" className="consent-button" onClick={() => handleConsent('granted')}>
