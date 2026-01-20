@@ -1507,7 +1507,7 @@ body::after {
   gap: 12px;
   align-items: center;
   z-index: 50;
-  opacity: 0.7;
+  opacity: 0.9;
   animation:
     consent-pulse 0.005s ease-in-out infinite,
     consent-wiggle 1.8s ease-in-out infinite;
