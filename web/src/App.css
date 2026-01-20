@@ -1490,7 +1490,10 @@ body::after {
   position: fixed;
   bottom: 16px;
   left: 50%;
-  transform: translateX(-50%);
+  --pulse: 1;
+  --wiggle-x: 0px;
+  --wiggle-y: 0px;
+  transform: translateX(-50%) translate(var(--wiggle-x), var(--wiggle-y)) scale(var(--pulse));
   width: calc(100% - 32px);
   max-width: 920px;
   background: linear-gradient(135deg, rgba(250, 255, 255, 0.94), rgba(228, 244, 246, 0.92));
@@ -1504,6 +1507,22 @@ body::after {
   gap: 12px;
   align-items: center;
   z-index: 50;
+  opacity: 0.7;
+  animation:
+    consent-pulse 0.005s ease-in-out infinite,
+    consent-wiggle 1.8s ease-in-out infinite;
+  transition: opacity 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.consent-banner:hover {
+  opacity: 1;
+  --wiggle-x: 0px;
+  --wiggle-y: 0px;
+  --pulse: 1;
+  animation: none;
+  box-shadow:
+    0 10px 26px rgba(0, 73, 97, 0.26),
+    inset 0 1px 4px rgba(255, 255, 255, 0.7);
 }
 
 .consent-text {
@@ -1541,6 +1560,54 @@ body::after {
 
 .consent-button.ghost {
   background: linear-gradient(135deg, #f3f7f8, #e7f0f3);
+}
+
+@keyframes consent-pulse {
+  0%,
+  100% {
+    --pulse: 1;
+  }
+  12.5% {
+    --pulse: 1.0015;
+  }
+  25% {
+    --pulse: 1.003;
+  }
+  37.5% {
+    --pulse: 1.0045;
+  }
+  50% {
+    --pulse: 1.006;
+  }
+  62% {
+    --pulse: 1.0045;
+  }
+  75% {
+    --pulse: 1.003;
+  }
+  87% {
+    --pulse: 1.0015;
+  }
+}
+
+@keyframes consent-wiggle {
+  0%,
+  100% {
+    --wiggle-x: 0px;
+    --wiggle-y: 0px;
+  }
+  25% {
+    --wiggle-x: -0.2px;
+    --wiggle-y: 0.2px;
+  }
+  50% {
+    --wiggle-x: 0.4px;
+    --wiggle-y: -0.4px;
+  }
+  75% {
+    --wiggle-x: -0.2px;
+    --wiggle-y: -0.2px;
+  }
 }
 
 @media (max-width: 1099px) {
