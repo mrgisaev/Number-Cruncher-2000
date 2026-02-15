@@ -319,7 +319,8 @@ function App() {
   const isShareSplitter = typeof window !== 'undefined' && window.location.pathname.includes('share-splitter');
   const isCreativeRenamer =
     typeof window !== 'undefined' && window.location.pathname.includes('creative-renamer');
-  const latestReleaseDate = 'Jan 18, 2026';
+  const latestReleaseDate = 'Feb 15, 2026';
+  const jan18ReleaseDate = 'Jan 18, 2026';
   const shareSplitterReleaseDate = 'Jan 17, 2026';
   const releaseDate = 'Jan 14, 2026';
   const firstReleaseDate = 'Jan 12, 2026';
@@ -647,6 +648,14 @@ function App() {
                 </header>
                 <div className="release-entry">
                   <p className="release-date">{latestReleaseDate}</p>
+                  <ul className="whats-new-list">
+                    <li>“Not set” rows in Share Splitter can now be clicked to become full groups with editable names.</li>
+                    <li>Improved paste handling on Number Cruncher to keep the viewport anchored at the top, including on Safari/mobile.</li>
+                    <li>Minor fixes and polish to grouping, exports, and scrolling behaviour.</li>
+                  </ul>
+                </div>
+                <div className="release-entry">
+                  <p className="release-date">{jan18ReleaseDate}</p>
                   <ul className="whats-new-list">
                     <li>Released the Creative Renamer with ZIP uploads and nested grouping.</li>
                     <li>Added drag-and-drop grouping plus copy/export and ZIP outputs.</li>
