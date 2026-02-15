@@ -159,6 +159,7 @@ const buildComputed = (
   randomPercent: number,
   modeCache: Map<string, CachedMode>,
   cacheKey: string,
+  parentId: string | null,
 ): ComputedNode[] => {
   const { mode, error } = detectMode(rows);
   const cached = modeCache.get(cacheKey);
@@ -224,6 +225,7 @@ const buildComputed = (
     return {
       id: row.id,
       sourceId: row.id,
+      parentId,
       name: isNotSet ? notSetLabel : row.name,
       valueInput: isNotSet ? notSetValueInput : row.valueInput,
       amount,
@@ -252,6 +254,7 @@ const buildComputed = (
     computedRows.push({
       id: `not-set-${depth}-${createId()}`,
       sourceId: null,
+      parentId,
       name: notSetLabel,
       valueInput: notSetValueInput,
       amount: effectiveMode === 'percent' ? parentAmount * (remainder / 100) : remainder,
@@ -302,8 +305,18 @@ const buildTree = (
   randomPercent: number,
   modeCache: Map<string, CachedMode>,
   cacheKey: string,
+  parentId: string | null,
 ): ComputedNode[] => {
-  const computed = buildComputed(nodes, parentAmount, depth, decimals, randomPercent, modeCache, cacheKey);
+  const computed = buildComputed(
+    nodes,
+    parentAmount,
+    depth,
+    decimals,
+    randomPercent,
+    modeCache,
+    cacheKey,
+    parentId,
+  );
   return computed.map((row) => {
     if (!row.sourceId) {
       return row;
@@ -320,6 +333,7 @@ const buildTree = (
       randomPercent,
       modeCache,
       original.id,
+      row.id,
     );
     return { ...row, children };
   });
@@ -441,6 +455,7 @@ export const ShareSplitter = () => {
   const [outputMode, setOutputMode] = useState<'pivot' | 'pivot-leaves' | 'pivot-values'>('pivot');
   const [isOutputMenuOpen, setIsOutputMenuOpen] = useState(false);
   const [randomPercentInput, setRandomPercentInput] = useState('');
+  const [focusRowId, setFocusRowId] = useState<string | null>(null);
   const modeCacheRef = useRef<Map<string, CachedMode>>(new Map());
   const outputMenuRef = useRef<HTMLDivElement | null>(null);
   const outputOptions = useMemo(
@@ -473,7 +488,7 @@ export const ShareSplitter = () => {
     : 0;
 
   const computedTree = useMemo(
-    () => buildTree(rows, totalValue, 0, decimals, randomPercentValue, modeCacheRef.current, 'root'),
+    () => buildTree(rows, totalValue, 0, decimals, randomPercentValue, modeCacheRef.current, 'root', null),
     [rows, totalValue, decimals, randomPercentValue],
   );
   const computedRows = useMemo(() => flattenTree(computedTree), [computedTree]);
@@ -521,6 +536,18 @@ export const ShareSplitter = () => {
     walk(computedTree, Array.from({ length: maxDepth }, () => null), Array.from({ length: maxDepth }, () => null));
     return collected;
   }, [computedTree, maxDepth]);
+
+  useEffect(() => {
+    if (focusRowId) {
+      requestAnimationFrame(() => {
+        const input = document.querySelector<HTMLInputElement>(`[data-id="${focusRowId}"][data-field="name"]`);
+        if (input) {
+          input.focus();
+          setFocusRowId(null);
+        }
+      });
+    }
+  }, [focusRowId, computedRows]);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -581,6 +608,22 @@ export const ShareSplitter = () => {
 
   const handleUpdateValue = (id: string, nextValue: string) => {
     setRows((prev) => updateNode(prev, id, (node) => ({ ...node, valueInput: nextValue })));
+  };
+
+  const handleConvertNotSet = (row: ComputedNode) => {
+    if (!row.isNotSet) return;
+    const newId = createId();
+    const newRow: SplitNode = { id: newId, name: row.name, valueInput: row.valueInput, children: [] };
+    setRows((prev) => {
+      if (!row.parentId) {
+        return [...prev, newRow];
+      }
+      return updateNode(prev, row.parentId, (node) => ({
+        ...node,
+        children: [...node.children, newRow],
+      }));
+    });
+    setFocusRowId(newId);
   };
 
   const handlePaste = (id: string, field: 'name' | 'value', text: string) => {
@@ -692,7 +735,9 @@ export const ShareSplitter = () => {
           <input
             className="split-name-input"
             value={row.name}
-            disabled={row.isNotSet}
+            disabled={false}
+            onFocus={() => row.isNotSet && handleConvertNotSet(row)}
+            onClick={() => row.isNotSet && handleConvertNotSet(row)}
             onChange={(event) => handleUpdateName(row.id, event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
@@ -719,13 +764,17 @@ export const ShareSplitter = () => {
               }
             }}
             onPaste={(event) => {
-              if (!row.isNotSet) {
+              if (row.isNotSet) {
                 event.preventDefault();
-                handlePaste(row.id, 'name', event.clipboardData.getData('text'));
+                handleConvertNotSet(row);
+                return;
               }
+              event.preventDefault();
+              handlePaste(row.id, 'name', event.clipboardData.getData('text'));
             }}
             data-row={rowIndex}
             data-field="name"
+            data-id={row.id}
           />
           {row.error ? <span className="split-error-inline">{row.error}</span> : null}
         </div>
@@ -759,13 +808,17 @@ export const ShareSplitter = () => {
             }
           }}
           onPaste={(event) => {
-            if (!row.isNotSet) {
+            if (row.isNotSet) {
               event.preventDefault();
-              handlePaste(row.id, 'value', event.clipboardData.getData('text'));
+              handleConvertNotSet(row);
+              return;
             }
+            event.preventDefault();
+            handlePaste(row.id, 'value', event.clipboardData.getData('text'));
           }}
           data-row={rowIndex}
           data-field="value"
+          data-id={row.id}
         />
         <div className="split-cell-actions">
           <button
