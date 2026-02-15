@@ -309,7 +309,6 @@ function App() {
   const [menuFadeLeft, setMenuFadeLeft] = useState(false);
   const [menuFadeRight, setMenuFadeRight] = useState(false);
   const pasteAreaRef = useRef<HTMLTextAreaElement | null>(null);
-  const [scrollTopRequested, setScrollTopRequested] = useState(false);
   const menuScrollRef = useRef<HTMLUListElement | null>(null);
   const [showConsent, setShowConsent] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -500,21 +499,16 @@ function App() {
 
   const handlePasteStayTop = () => {
     if (typeof window === 'undefined') return;
-    setScrollTopRequested(true);
+    const scrollTop = () => {
+      pasteAreaRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    };
+    // do it on next frame to avoid Safari rubber-band artefacts
+    requestAnimationFrame(scrollTop);
+    setTimeout(scrollTop, 0);
   };
-
-  useEffect(() => {
-    if (scrollTopRequested) {
-      const scrollTop = () => {
-        pasteAreaRef.current?.scrollTo({ top: 0, behavior: 'auto' });
-        window.scrollTo({ top: 0, behavior: 'auto' });
-      };
-      scrollTop();
-      requestAnimationFrame(scrollTop);
-      setTimeout(scrollTop, 0);
-      setScrollTopRequested(false);
-    }
-  }, [scrollTopRequested]);
 
   useEffect(() => {
     const updateScrollCue = () => {
