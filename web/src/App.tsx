@@ -308,6 +308,8 @@ function App() {
   const [menuOverflow, setMenuOverflow] = useState(false);
   const [menuFadeLeft, setMenuFadeLeft] = useState(false);
   const [menuFadeRight, setMenuFadeRight] = useState(false);
+  const pasteAreaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [scrollTopRequested, setScrollTopRequested] = useState(false);
   const menuScrollRef = useRef<HTMLUListElement | null>(null);
   const [showConsent, setShowConsent] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -495,6 +497,24 @@ function App() {
       loadAnalytics();
     }
   };
+
+  const handlePasteStayTop = () => {
+    if (typeof window === 'undefined') return;
+    setScrollTopRequested(true);
+  };
+
+  useEffect(() => {
+    if (scrollTopRequested) {
+      const scrollTop = () => {
+        pasteAreaRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+        window.scrollTo({ top: 0, behavior: 'auto' });
+      };
+      scrollTop();
+      requestAnimationFrame(scrollTop);
+      setTimeout(scrollTop, 0);
+      setScrollTopRequested(false);
+    }
+  }, [scrollTopRequested]);
 
   useEffect(() => {
     const updateScrollCue = () => {
@@ -821,18 +841,20 @@ function App() {
                     </div>
                     <p>Copy values in Excel and paste them here with Ctrl+V.</p>
                   </header>
-                  <div className="result-summary summary-inline">
-                    <span>Sum of input values</span>
-                    <strong>{numberFormatter.format(baseSum)}</strong>
-                  </div>
-                  <textarea
-                    className="paste-area"
-                    value={rawInput}
-                    placeholder="Paste numbers..."
-                    onChange={handleInputChange}
-                    spellCheck={false}
-                  />
-                </section>
+                    <div className="result-summary summary-inline">
+                      <span>Sum of input values</span>
+                      <strong>{numberFormatter.format(baseSum)}</strong>
+                    </div>
+                    <textarea
+                      className="paste-area"
+                      value={rawInput}
+                      placeholder="Paste numbers..."
+                      onChange={handleInputChange}
+                      ref={pasteAreaRef}
+                      onPaste={handlePasteStayTop}
+                      spellCheck={false}
+                    />
+                  </section>
 
                 <section className="card results-card">
                   <header className="card-header">
