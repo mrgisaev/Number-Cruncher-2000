@@ -287,6 +287,7 @@ const collectLeafPaths = (nodes: UtmNode[]) => {
 };
 
 const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
+const normalizeUtmParamValue = (value: string) => value.trim().replace(/\s+/g, '-');
 
 export const UtmGenerator = () => {
   const [lpPasteInput, setLpPasteInput] = useState('');
@@ -322,7 +323,7 @@ export const UtmGenerator = () => {
       const params = new URLSearchParams();
       (Object.keys(levelParamKey) as UtmLevel[]).forEach((level) => {
         const key = levelParamKey[level];
-        const value = path[level].trim();
+        const value = normalizeUtmParamValue(path[level]);
         if (value) {
           params.set(key, value);
         }
