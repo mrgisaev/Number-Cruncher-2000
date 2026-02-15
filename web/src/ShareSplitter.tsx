@@ -12,6 +12,7 @@ type SplitNode = {
 type ComputedNode = {
   id: string;
   sourceId: string | null;
+  parentId: string | null;
   name: string;
   valueInput: string;
   amount: number;

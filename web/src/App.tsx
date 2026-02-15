@@ -1,6 +1,7 @@
 import { type ChangeEvent, type CSSProperties, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { CreativeRenamer } from './CreativeRenamer';
 import { ShareSplitter } from './ShareSplitter';
+import { UtmGenerator } from './UtmGenerator';
 import './App.css';
 
 const sampleColumn = '';
@@ -319,6 +320,7 @@ function App() {
   const isShareSplitter = typeof window !== 'undefined' && window.location.pathname.includes('share-splitter');
   const isCreativeRenamer =
     typeof window !== 'undefined' && window.location.pathname.includes('creative-renamer');
+  const isUtmGenerator = typeof window !== 'undefined' && window.location.pathname.includes('utm-generator');
   const latestReleaseDate = 'Feb 15, 2026';
   const jan18ReleaseDate = 'Jan 18, 2026';
   const shareSplitterReleaseDate = 'Jan 17, 2026';
@@ -621,6 +623,11 @@ function App() {
               </a>
             </li>
             <li>
+              <a className="tool-link-button" href="/utm-generator.html">
+                UTM Generator
+              </a>
+            </li>
+            <li>
               <a className="tool-link-button" href="/whats-new.html">
                 What's new
               </a>
@@ -649,8 +656,11 @@ function App() {
                 <div className="release-entry">
                   <p className="release-date">{latestReleaseDate}</p>
                   <ul className="whats-new-list">
-                    <li>“Not set” rows in Share Splitter can now be clicked to become full groups with editable names.</li>
-                    <li>Improved paste handling on Number Cruncher to keep the viewport anchored at the top, including on Safari/mobile.</li>
+                    <li>&quot;Not set&quot; rows in Share Splitter can now be clicked to become full groups with editable names.</li>
+                    <li>Improved paste handling on Number Cruncher to keep the viewport anchored at the top, including on Safari/mobile.</li>
+                    <li>Released UTM Generator with nested Source / Medium / Campaign / Term / Content / ID grouping.</li>
+                    <li>Updated LP input flow: &quot;Paste LP&quot; label, corrected placeholder text, and persistent pasted URLs in the field.</li>
+                    <li>Added Ctrl+V bulk paste into Value to create same-level rows automatically and preserve child values on duplicated groups.</li>
                     <li>Minor fixes and polish to grouping, exports, and scrolling behaviour.</li>
                   </ul>
                 </div>
@@ -690,6 +700,8 @@ function App() {
           </>
         ) : isCreativeRenamer ? (
           <CreativeRenamer />
+        ) : isUtmGenerator ? (
+          <UtmGenerator />
         ) : isShareSplitter ? (
           <ShareSplitter />
         ) : (

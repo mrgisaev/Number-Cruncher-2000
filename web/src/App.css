@@ -532,6 +532,129 @@ body::after {
   gap: 24px;
 }
 
+.utm-generator {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.utm-lp-control {
+  grid-template-columns: 1fr;
+}
+
+.utm-lp-input {
+  width: 100%;
+  height: 43px;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  color: rgba(52, 80, 82, 0.92);
+  background: linear-gradient(135deg, #f8ffff, #ecf4ff);
+  box-shadow:
+    inset 0 1px 5px rgba(255, 255, 255, 0.5),
+    0 4px 12px rgba(120, 198, 224, 0.25);
+  resize: none;
+  overflow: auto;
+}
+
+.utm-lp-input:focus {
+  outline: none;
+  box-shadow:
+    inset 0 1px 6px rgba(255, 255, 255, 0.65),
+    0 8px 18px rgba(120, 198, 224, 0.35);
+}
+
+.utm-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: linear-gradient(135deg, rgba(191, 237, 245, 0.45), rgba(199, 215, 240, 0.55));
+}
+
+.utm-tree-table {
+  row-gap: 10px;
+}
+
+.utm-tree-cell {
+  grid-template-columns: minmax(160px, 1fr) minmax(120px, 1fr) 64px;
+}
+
+.utm-level-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.utm-level-dots {
+  color: rgba(52, 80, 82, 0.48);
+  font-weight: 700;
+  letter-spacing: 1px;
+  flex: 0 0 auto;
+}
+
+.utm-level-cell .split-name-input {
+  min-width: 0;
+}
+
+.utm-errors {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.utm-results-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.utm-result-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.utm-result-actions button {
+  min-width: 150px;
+}
+
+.utm-result-list {
+  padding: 6px 10px;
+  min-height: 0;
+}
+
+.utm-result-item {
+  justify-content: flex-start;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  min-height: 50px;
+  box-sizing: border-box;
+}
+
+.utm-result-list .muted {
+  margin: 0;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+}
+
+.utm-result-value {
+  flex: 1;
+  font-size: 0.92rem;
+  color: #3f4b55;
+  line-break: anywhere;
+}
+
+.utm-result-error {
+  margin: 0;
+  color: #b63f4c;
+}
+
 .creative-upload {
   display: flex;
   align-items: center;
@@ -781,10 +904,7 @@ body::after {
 }
 
 .creative-result-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 6px 2px;
+  padding: 6px 10px;
 }
 
 .creative-result-meta {
@@ -810,28 +930,50 @@ body::after {
 
 .creative-result-item {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 8px 12px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.55);
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px;
 }
 
-.creative-result-main {
+.creative-result-content {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.creative-result-mainline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: baseline;
+  gap: 8px;
+  min-width: 0;
 }
 
 .creative-result-original {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: rgba(63, 75, 85, 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.creative-result-separator {
+  color: rgba(63, 75, 85, 0.55);
+  font-size: 0.82rem;
 }
 
 .creative-result-name {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: #3f4b55;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  text-align: left;
 }
 
 .creative-result-error {
@@ -1833,9 +1975,25 @@ body::after {
     gap: 8px;
   }
 
-  .creative-result-main {
+  .creative-result-content {
+    min-width: 0;
+  }
+
+  .utm-lp-control {
+    grid-template-columns: 1fr;
+  }
+
+  .utm-tree-cell {
+    grid-template-columns: minmax(0, 1fr) minmax(120px, 1fr) 64px;
+  }
+
+  .utm-result-actions {
+    width: 100%;
     flex-direction: column;
-    align-items: flex-start;
+  }
+
+  .utm-result-actions button {
+    width: 100%;
   }
 }
 
@@ -1875,5 +2033,14 @@ body::after {
 
   .split-control .stacked-field-column {
     width: 100%;
+  }
+
+  .utm-tree-cell {
+    grid-template-columns: 1fr;
+    row-gap: 8px;
+  }
+
+  .utm-tree-cell .split-cell-actions {
+    justify-content: flex-start;
   }
 }

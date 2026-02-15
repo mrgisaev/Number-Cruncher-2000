@@ -1382,23 +1382,29 @@ export const CreativeRenamer = () => {
             </div>
           </div>
         </header>
-        <div className="creative-result-list">
+        <div className="result-list creative-result-list">
           {renamePreview.length === 0 ? (
             <p className="muted">Upload creatives to see the new names.</p>
           ) : (
-            renamePreview.map((entry) => {
+            renamePreview.map((entry, index) => {
               if (!entry) {
                 return null;
               }
               return (
-                <div key={entry.file.id} className="creative-result-item">
-                  <div className="creative-result-main">
-                    <span className="creative-result-original">{entry.file.originalName}</span>
-                    <strong className="creative-result-name">{entry.displayName || '—'}</strong>
+                <div key={entry.file.id} className="result-item creative-result-item">
+                  <span className="result-index">{index + 1}</span>
+                  <div className="creative-result-content">
+                    <div className="creative-result-mainline">
+                      <span className="creative-result-original">{entry.file.originalName}</span>
+                      <span className="creative-result-separator" aria-hidden="true">
+                        →
+                      </span>
+                      <strong className="creative-result-name">{entry.displayName || '—'}</strong>
+                    </div>
+                    {entry.errors.length ? (
+                      <span className="creative-result-error">{entry.errors.join(' ')}</span>
+                    ) : null}
                   </div>
-                  {entry.errors.length ? (
-                    <span className="creative-result-error">{entry.errors.join(' ')}</span>
-                  ) : null}
                 </div>
               );
             })
