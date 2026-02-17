@@ -532,6 +532,11 @@ body::after {
   gap: 24px;
 }
 
+.creative-renamer .controls,
+.utm-generator .controls {
+  gap: 10px;
+}
+
 .utm-generator {
   display: flex;
   flex-direction: column;

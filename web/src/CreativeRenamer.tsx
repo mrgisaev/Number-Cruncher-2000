@@ -1208,7 +1208,6 @@ export const CreativeRenamer = () => {
             <div className="stacked-field-column">
               <div className="stacked-field">
                 <div className="number-field number-field-mode">
-                  <label className="number-field-label">&nbsp;</label>
                   <div className="number-field-input-wrapper creative-upload">
                     <button type="button" onClick={handleFileButton}>
                       Upload ZIPs or files
@@ -1238,7 +1237,6 @@ export const CreativeRenamer = () => {
             <div className="stacked-field-column">
               <div className="stacked-field">
                 <div className="number-field number-field-mode">
-                  <label className="number-field-label">&nbsp;</label>
                   <div className="number-field-input-wrapper">
                     <input
                       type="text"
@@ -1261,7 +1259,6 @@ export const CreativeRenamer = () => {
             <div className="stacked-field-column">
               <div className="stacked-field">
                 <div className="number-field number-field-mode">
-                  <label className="number-field-label">&nbsp;</label>
                   <label className="creative-toggle creative-toggle-top">
                     <span>Include format in name</span>
                     <input

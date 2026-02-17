@@ -507,9 +507,6 @@ export const UtmGenerator = () => {
           <div className="split-control utm-lp-control">
             <div className="stacked-field-column">
               <div className="stacked-field">
-                <label className="number-field-label" htmlFor="utm-lp-paste-input">
-                  Paste LP
-                </label>
                 <textarea
                   id="utm-lp-paste-input"
                   className="utm-lp-input"
