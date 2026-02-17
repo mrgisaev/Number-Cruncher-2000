@@ -1,5 +1,6 @@
 import { type ChangeEvent, type CSSProperties, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { CreativeRenamer } from './CreativeRenamer';
+import { CreativeResizer } from './CreativeResizer';
 import { ShareSplitter } from './ShareSplitter';
 import { UtmGenerator } from './UtmGenerator';
 import './App.css';
@@ -320,6 +321,8 @@ function App() {
   const isShareSplitter = typeof window !== 'undefined' && window.location.pathname.includes('share-splitter');
   const isCreativeRenamer =
     typeof window !== 'undefined' && window.location.pathname.includes('creative-renamer');
+  const isCreativeResizer =
+    typeof window !== 'undefined' && window.location.pathname.includes('creative-resizer');
   const isUtmGenerator = typeof window !== 'undefined' && window.location.pathname.includes('utm-generator');
   const latestReleaseDate = 'Feb 17, 2026';
   const feb15ReleaseDate = 'Feb 15, 2026';
@@ -624,6 +627,11 @@ function App() {
               </a>
             </li>
             <li>
+              <a className="tool-link-button" href="/creative-resizer.html">
+                Creative Resizer
+              </a>
+            </li>
+            <li>
               <a className="tool-link-button" href="/utm-generator.html">
                 UTM Generator
               </a>
@@ -709,6 +717,8 @@ function App() {
           </>
         ) : isCreativeRenamer ? (
           <CreativeRenamer />
+        ) : isCreativeResizer ? (
+          <CreativeResizer />
         ) : isUtmGenerator ? (
           <UtmGenerator />
         ) : isShareSplitter ? (

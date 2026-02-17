@@ -13,6 +13,7 @@ export default defineConfig({
         whatsNew: resolve(__dirname, 'whats-new.html'),
         shareSplitter: resolve(__dirname, 'share-splitter.html'),
         creativeRenamer: resolve(__dirname, 'creative-renamer.html'),
+        creativeResizer: resolve(__dirname, 'creative-resizer.html'),
         utmGenerator: resolve(__dirname, 'utm-generator.html'),
       },
     },
