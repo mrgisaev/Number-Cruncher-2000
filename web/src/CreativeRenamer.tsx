@@ -22,7 +22,7 @@ type CreativeFile = {
   file: File;
   originalName: string;
   extension: string;
-  kind: 'image' | 'video';
+  kind: 'image' | 'video' | 'file';
   width: number | null;
   height: number | null;
   sizeInput: string;
@@ -63,6 +63,44 @@ const imageExtensions = new Set([
 ]);
 
 const videoExtensions = new Set(['mp4', 'mov', 'webm', 'avi', 'mkv']);
+const audioExtensions = new Set(['mp3', 'wav', 'ogg', 'aac', 'm4a', 'flac']);
+
+const mimeByExtension: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  svg: 'image/svg+xml',
+  bmp: 'image/bmp',
+  tiff: 'image/tiff',
+  mp4: 'video/mp4',
+  webm: 'video/webm',
+  mov: 'video/quicktime',
+  avi: 'video/x-msvideo',
+  mkv: 'video/x-matroska',
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  aac: 'audio/aac',
+  m4a: 'audio/mp4',
+  flac: 'audio/flac',
+  pdf: 'application/pdf',
+  txt: 'text/plain',
+  csv: 'text/csv',
+  json: 'application/json',
+  xml: 'application/xml',
+  html: 'text/html',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ppt: 'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  zip: 'application/zip',
+  rar: 'application/vnd.rar',
+  '7z': 'application/x-7z-compressed',
+};
 
 const createId = () => Math.random().toString(36).slice(2, 10);
 const createGroupId = () => `group-${createId()}`;
@@ -73,42 +111,28 @@ const getExtension = (name: string) => {
   return match ? match[1].toLowerCase() : '';
 };
 
-const getKind = (extension: string) => {
-  if (imageExtensions.has(extension)) {
+const getKind = (extension: string, mimeType = '') => {
+  const mime = mimeType.toLowerCase();
+  if (imageExtensions.has(extension) || mime.startsWith('image/')) {
     return 'image';
   }
-  if (videoExtensions.has(extension)) {
+  if (videoExtensions.has(extension) || mime.startsWith('video/')) {
     return 'video';
   }
-  return null;
+  return 'file';
 };
 
-const getMime = (extension: string, kind: 'image' | 'video') => {
-  if (kind === 'image') {
-    if (extension === 'jpg' || extension === 'jpeg') {
-      return 'image/jpeg';
-    }
-    if (extension === 'png') {
-      return 'image/png';
-    }
-    if (extension === 'webp') {
-      return 'image/webp';
-    }
-    if (extension === 'gif') {
-      return 'image/gif';
-    }
-    if (extension === 'svg') {
-      return 'image/svg+xml';
-    }
-    return 'image/png';
+const getMime = (extension: string, fallbackType = '') =>
+  mimeByExtension[extension] || fallbackType || 'application/octet-stream';
+
+const formatBytes = (bytes: number) => {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return '0 B';
   }
-  if (extension === 'mp4') {
-    return 'video/mp4';
-  }
-  if (extension === 'webm') {
-    return 'video/webm';
-  }
-  return 'video/mp4';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const idx = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / 1024 ** idx;
+  return `${value >= 10 || idx === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[idx]}`;
 };
 
 const normalizeSegment = (value: string) =>
@@ -131,7 +155,7 @@ const buildCreativeFile = (
   file: File,
   fileName: string,
   extension: string,
-  kind: 'image' | 'video',
+  kind: 'image' | 'video' | 'file',
 ): CreativeFile => ({
   id: createFileId(),
   file,
@@ -144,6 +168,24 @@ const buildCreativeFile = (
   identifier: '',
   previewUrl: URL.createObjectURL(file),
 });
+
+const getPreviewMode = (file: CreativeFile) => {
+  if (file.kind === 'image') {
+    return 'image';
+  }
+  if (file.kind === 'video') {
+    return 'video';
+  }
+  const ext = file.extension.toLowerCase();
+  const mime = file.file.type.toLowerCase();
+  if (ext === 'pdf' || mime === 'application/pdf') {
+    return 'pdf';
+  }
+  if (audioExtensions.has(ext) || mime.startsWith('audio/')) {
+    return 'audio';
+  }
+  return 'generic';
+};
 
 const createGroupNode = (label: string): CreativeNode => ({
   id: createGroupId(),
@@ -527,7 +569,7 @@ export const CreativeRenamer = () => {
   const [preserveStructure, setPreserveStructure] = useState(true);
   const [outputFormat, setOutputFormat] = useState<'keep' | 'jpg' | 'png' | 'mp4'>('keep');
   const [isFormatMenuOpen, setIsFormatMenuOpen] = useState(false);
-  const [assetKind, setAssetKind] = useState<'image' | 'video' | 'mixed' | null>(null);
+  const [assetKind, setAssetKind] = useState<'image' | 'video' | 'file' | 'mixed' | null>(null);
   const [uploadError, setUploadError] = useState('');
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
   const [isExporting, setIsExporting] = useState(false);
@@ -688,10 +730,7 @@ export const CreativeRenamer = () => {
     const zipBatches: { label: string; files: CreativeFile[] }[] = [];
     directFiles.forEach((file) => {
       const extension = getExtension(file.name);
-      const kind = getKind(extension);
-      if (!kind) {
-        return;
-      }
+      const kind = getKind(extension, file.type);
       const created = buildCreativeFile(file, file.name, extension, kind);
       directExtracted.push(created);
       extracted.push(created);
@@ -706,12 +745,10 @@ export const CreativeRenamer = () => {
         }
         const fileName = entry.name.split('/').pop() || entry.name;
         const extension = getExtension(fileName);
-        const kind = getKind(extension);
-        if (!kind) {
-          continue;
-        }
         const blob = await entry.async('blob');
-        const file = new File([blob], fileName, { type: getMime(extension, kind) });
+        const mimeType = getMime(extension, blob.type);
+        const kind = getKind(extension, mimeType);
+        const file = new File([blob], fileName, { type: mimeType });
         const created = buildCreativeFile(file, fileName, extension, kind);
         batch.push(created);
         extracted.push(created);
@@ -724,7 +761,7 @@ export const CreativeRenamer = () => {
       }
     }
     if (!extracted.length) {
-      setUploadError('No supported creatives found. Upload ZIPs or supported files.');
+      setUploadError('No files found in selected items.');
       return;
     }
     const kinds = new Set(extracted.map((file) => file.kind));
@@ -783,7 +820,7 @@ export const CreativeRenamer = () => {
             };
           });
         });
-      } else {
+      } else if (file.kind === 'video') {
         void loadVideoSize(file.previewUrl).then((size) => {
           if (!size) {
             return;
@@ -1245,7 +1282,6 @@ export const CreativeRenamer = () => {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".zip,image/*,video/*"
                     multiple
                     onChange={(event) => {
                       void handleFilesAdded(event.target.files);
@@ -1365,7 +1401,13 @@ export const CreativeRenamer = () => {
               {hasFiles ? (
                 <span className="creative-result-meta">
                   {filesArray.length} files ·{' '}
-                  {assetKind === 'mixed' ? 'Mixed' : assetKind === 'video' ? 'Video' : 'Image'}
+                  {assetKind === 'mixed'
+                    ? 'Mixed'
+                    : assetKind === 'video'
+                      ? 'Video'
+                      : assetKind === 'image'
+                        ? 'Image'
+                        : 'Files'}
                 </span>
               ) : null}
             </div>
@@ -1417,11 +1459,34 @@ export const CreativeRenamer = () => {
           className="creative-preview"
           style={{ left: preview.x + 16, top: preview.y + 16 }}
         >
-          {preview.file.kind === 'image' ? (
-            <img src={preview.file.previewUrl} alt={preview.file.originalName} />
-          ) : (
-            <video src={preview.file.previewUrl} muted autoPlay loop playsInline />
-          )}
+          {(() => {
+            const mode = getPreviewMode(preview.file);
+            if (mode === 'image') {
+              return <img src={preview.file.previewUrl} alt={preview.file.originalName} />;
+            }
+            if (mode === 'video') {
+              return <video src={preview.file.previewUrl} muted autoPlay loop playsInline />;
+            }
+            if (mode === 'pdf') {
+              return <iframe src={preview.file.previewUrl} title={preview.file.originalName} />;
+            }
+            if (mode === 'audio') {
+              return (
+                <div className="creative-preview-audio">
+                  <span>{preview.file.originalName}</span>
+                  <audio src={preview.file.previewUrl} controls />
+                </div>
+              );
+            }
+            return (
+              <div className="creative-preview-generic">
+                <strong>{preview.file.extension ? `.${preview.file.extension}` : 'FILE'}</strong>
+                <span>{preview.file.originalName}</span>
+                <span>{preview.file.file.type || 'Unknown file type'}</span>
+                <span>{formatBytes(preview.file.file.size)}</span>
+              </div>
+            );
+          })()}
         </div>
       ) : null}
     </section>
