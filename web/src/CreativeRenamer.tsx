@@ -2,6 +2,7 @@
   type CSSProperties,
   type ClipboardEvent,
   type DragEvent,
+  type KeyboardEvent,
   type ReactElement,
   useEffect,
   useMemo,
@@ -164,7 +165,7 @@ const buildCreativeFile = (
   kind,
   width: null,
   height: null,
-  sizeInput: '',
+  sizeInput: kind === 'file' ? formatBytes(file.size) : '',
   identifier: '',
   previewUrl: URL.createObjectURL(file),
 });
@@ -616,7 +617,9 @@ export const CreativeRenamer = () => {
         return null;
       }
       const parts = entry.pathSegments.map((segment) => normalizeSegment(segment)).filter(Boolean);
-      const sizeValue = file.sizeInput.trim() || formatSize(file.width, file.height);
+      const fallbackSizeValue =
+        file.kind === 'file' ? formatBytes(file.file.size) : formatSize(file.width, file.height);
+      const sizeValue = file.sizeInput.trim() || fallbackSizeValue;
       if (includeSize && sizeValue) {
         parts.push(sizeValue);
       }
@@ -953,6 +956,41 @@ export const CreativeRenamer = () => {
     });
   };
 
+  const handleVerticalFieldNavigation = (
+    event: KeyboardEvent<HTMLInputElement>,
+    selector: '.creative-name-input' | '.creative-id-input',
+  ) => {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
+      return;
+    }
+    if (event.altKey || event.ctrlKey || event.metaKey) {
+      return;
+    }
+    const table = event.currentTarget.closest('.creative-table');
+    if (!table) {
+      return;
+    }
+    const fields = Array.from(table.querySelectorAll<HTMLInputElement>(selector)).filter(
+      (field) => !field.disabled,
+    );
+    const currentIndex = fields.indexOf(event.currentTarget);
+    if (currentIndex < 0) {
+      return;
+    }
+    const nextIndex =
+      event.key === 'ArrowDown'
+        ? Math.min(currentIndex + 1, fields.length - 1)
+        : Math.max(currentIndex - 1, 0);
+    if (nextIndex === currentIndex) {
+      return;
+    }
+    event.preventDefault();
+    const target = fields[nextIndex];
+    target.focus();
+    const length = target.value.length;
+    target.setSelectionRange(length, length);
+  };
+
   const handleDragStart = (event: DragEvent<HTMLElement>, fileId: string) => {
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', fileId);
@@ -1070,7 +1108,7 @@ export const CreativeRenamer = () => {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = 'creative-renamer.csv';
+    anchor.download = 'asset-renamer.csv';
     anchor.click();
     URL.revokeObjectURL(url);
   };
@@ -1108,7 +1146,7 @@ export const CreativeRenamer = () => {
       const url = URL.createObjectURL(content);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = 'creative-renamer.zip';
+      anchor.download = 'asset-renamer.zip';
       anchor.click();
       URL.revokeObjectURL(url);
     } finally {
@@ -1170,6 +1208,9 @@ export const CreativeRenamer = () => {
                           setGroups((prev) => handleUpdateGroupName(node.id, event.target.value, prev))
                         }
                         onPaste={(event) => handleGroupPaste(event, node.id)}
+                        onKeyDown={(event) =>
+                          handleVerticalFieldNavigation(event, '.creative-name-input')
+                        }
                         placeholder="Group name"
                       />
                     </>
@@ -1208,6 +1249,10 @@ export const CreativeRenamer = () => {
                 <div className="creative-size-cell">
                   {isGroup ? (
                     <span className="creative-placeholder">—</span>
+                  ) : file?.kind === 'file' ? (
+                    <span className="creative-size-static">
+                      {file.sizeInput.trim() || formatBytes(file.file.size)}
+                    </span>
                   ) : (
                     <input
                       className="creative-size-input"
@@ -1228,6 +1273,9 @@ export const CreativeRenamer = () => {
                       value={file?.identifier ?? ''}
                       onChange={(event) => handleUpdateFile(node.id, { identifier: event.target.value })}
                       onPaste={(event) => handleIdentifierPaste(event, node.id)}
+                      onKeyDown={(event) =>
+                        handleVerticalFieldNavigation(event, '.creative-id-input')
+                      }
                       placeholder="Identifier"
                     />
                   )}
@@ -1264,16 +1312,16 @@ export const CreativeRenamer = () => {
       <header className="controls-wrapper">
         <div className="controls">
           <div className="controls-heading">
-            <h1 className="controls-heading-title">Creative Renamer</h1>
+            <h1 className="controls-heading-title">Asset Renamer</h1>
             <p className="controls-subtitle">
-              Upload archives, group your creatives, and generate consistent names with sizes and identifiers.
+              Upload archives, group your assets, and generate consistent names with sizes and identifiers.
             </p>
           </div>
           <div className="split-control">
             <div className="stacked-field-column">
               <div className="stacked-field">
                 <div className="number-field number-field-mode">
-                  <label className="number-field-label">Select creatives</label>
+                  <label className="number-field-label">Select assets</label>
                   <div className="number-field-input-wrapper creative-upload">
                     <button type="button" onClick={handleFileButton}>
                       Upload ZIPs or files
@@ -1426,7 +1474,7 @@ export const CreativeRenamer = () => {
         </header>
         <div className="result-list creative-result-list">
           {renamePreview.length === 0 ? (
-            <p className="muted">Upload creatives to see the new names.</p>
+            <p className="muted">Upload assets to see the new names.</p>
           ) : (
             renamePreview.map((entry, index) => {
               if (!entry) {

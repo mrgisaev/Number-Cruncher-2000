@@ -883,6 +883,15 @@ body::after {
   outline: none;
 }
 
+.creative-size-static {
+  display: inline-block;
+  width: 100%;
+  font-size: 0.9rem;
+  color: rgba(63, 75, 85, 0.75);
+  text-align: right;
+  padding-right: 4px;
+}
+
 .creative-file-name {
   font-size: 0.95rem;
   color: #3f4b55;

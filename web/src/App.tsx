@@ -619,7 +619,7 @@ function App() {
             </li>
             <li>
               <a className="tool-link-button" href="/creative-renamer.html">
-                Creative Renamer
+                Asset Renamer
               </a>
             </li>
             <li>
@@ -667,7 +667,7 @@ function App() {
                 <div className="release-entry">
                   <p className="release-date">{jan18ReleaseDate}</p>
                   <ul className="whats-new-list">
-                    <li>Released the Creative Renamer with ZIP uploads and nested grouping.</li>
+                    <li>Released the Asset Renamer with ZIP uploads and nested grouping.</li>
                     <li>Added drag-and-drop grouping plus copy/export and ZIP outputs.</li>
                     <li>Enabled size/format toggles for naming and preview-on-hover.</li>
                   </ul>
