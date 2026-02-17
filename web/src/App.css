@@ -764,6 +764,10 @@ body::after {
   box-sizing: border-box;
 }
 
+.creative-toggle-top {
+  margin-top: 0;
+}
+
 .creative-toggle input {
   margin: 0;
   justify-self: end;

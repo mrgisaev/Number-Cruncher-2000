@@ -4,7 +4,6 @@
   type DragEvent,
   type KeyboardEvent,
   type ReactElement,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -525,42 +524,6 @@ const loadVideoSize = (url: string) =>
     video.src = url;
   });
 
-const convertImage = (file: File, target: 'jpg' | 'png') =>
-  new Promise<Blob>((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth || img.width;
-      canvas.height = img.naturalHeight || img.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        URL.revokeObjectURL(url);
-        reject(new Error('Canvas not supported.'));
-        return;
-      }
-      ctx.drawImage(img, 0, 0);
-      const mime = target === 'png' ? 'image/png' : 'image/jpeg';
-      canvas.toBlob(
-        (blob) => {
-          URL.revokeObjectURL(url);
-          if (!blob) {
-            reject(new Error('Image conversion failed.'));
-            return;
-          }
-          resolve(blob);
-        },
-        mime,
-        target === 'jpg' ? 0.92 : undefined,
-      );
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('Image conversion failed.'));
-    };
-    img.src = url;
-  });
-
 export const CreativeRenamer = () => {
   const [groups, setGroups] = useState<CreativeNode[]>(createInitialGroups());
   const [files, setFiles] = useState<Record<string, CreativeFile>>({});
@@ -568,47 +531,15 @@ export const CreativeRenamer = () => {
   const [includeSize, setIncludeSize] = useState(true);
   const [includeFormat, setIncludeFormat] = useState(false);
   const [preserveStructure, setPreserveStructure] = useState(true);
-  const [outputFormat, setOutputFormat] = useState<'keep' | 'jpg' | 'png' | 'mp4'>('keep');
-  const [isFormatMenuOpen, setIsFormatMenuOpen] = useState(false);
   const [assetKind, setAssetKind] = useState<'image' | 'video' | 'file' | 'mixed' | null>(null);
   const [uploadError, setUploadError] = useState('');
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
   const [isExporting, setIsExporting] = useState(false);
   const [preview, setPreview] = useState<{ file: CreativeFile; x: number; y: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const formatMenuRef = useRef<HTMLDivElement | null>(null);
-  const outputFormatOptions = useMemo(
-    () => [
-      { value: 'keep' as const, label: 'Keep original' },
-      { value: 'jpg' as const, label: 'JPG' },
-      { value: 'png' as const, label: 'PNG' },
-      { value: 'mp4' as const, label: 'MP4' },
-    ],
-    [],
-  );
-  const outputFormatLabel =
-    outputFormatOptions.find((option) => option.value === outputFormat)?.label ?? 'Keep original';
-
   const fileEntries = useMemo(() => flattenFiles(groups), [groups]);
   const filesArray = useMemo(() => Object.values(files), [files]);
   const hasFiles = filesArray.length > 0;
-
-  const formatMismatch = useMemo(() => {
-    if (outputFormat === 'keep' || filesArray.length === 0) {
-      return '';
-    }
-    if (outputFormat === 'mp4') {
-      return filesArray.some((file) => file.kind !== 'video')
-        ? 'MP4 output only applies to video files.'
-        : '';
-    }
-    if (outputFormat === 'jpg' || outputFormat === 'png') {
-      return filesArray.some((file) => file.kind !== 'image')
-        ? 'JPG/PNG output only applies to image files.'
-        : '';
-    }
-    return '';
-  }, [filesArray, outputFormat]);
 
   const renamePreview = useMemo(() => {
     const entries = fileEntries.map((entry) => {
@@ -628,14 +559,7 @@ export const CreativeRenamer = () => {
         parts.push(identifier);
       }
       const baseName = parts.join(separator);
-      const extension =
-        outputFormat === 'keep'
-          ? file.extension
-          : outputFormat === 'jpg'
-            ? 'jpg'
-            : outputFormat === 'png'
-              ? 'png'
-              : 'mp4';
+      const extension = file.extension;
       const displayName = baseName
         ? includeFormat
           ? `${baseName}.${extension}`
@@ -673,18 +597,6 @@ export const CreativeRenamer = () => {
       if (includeSize && !entry.sizeValue) {
         errors.push('Missing size.');
       }
-      if (outputFormat === 'mp4') {
-        if (entry.file.kind !== 'video') {
-          errors.push('MP4 output only applies to video files.');
-        } else if (entry.file.extension !== 'mp4') {
-          errors.push('Only MP4 input is supported for MP4 output.');
-        }
-      }
-      if (outputFormat === 'jpg' || outputFormat === 'png') {
-        if (entry.file.kind !== 'image') {
-          errors.push('JPG/PNG output only applies to image files.');
-        }
-      }
       if (entry.exportName) {
         const pathKey = entry.pathIds.join('>');
         const key = `${entry.exportName}||${pathKey}`;
@@ -694,27 +606,9 @@ export const CreativeRenamer = () => {
       }
       return { ...entry, errors };
     });
-  }, [fileEntries, files, includeSize, includeFormat, outputFormat, separator]);
+  }, [fileEntries, files, includeSize, includeFormat, separator]);
 
-  const hasErrors = renamePreview.some((entry) => entry && entry.errors.length > 0) || !!formatMismatch;
-
-  useEffect(() => {
-    const handlePointerDown = (event: PointerEvent) => {
-      if (!formatMenuRef.current) {
-        return;
-      }
-      if (!formatMenuRef.current.contains(event.target as Node)) {
-        setIsFormatMenuOpen(false);
-      }
-    };
-    document.addEventListener('pointerdown', handlePointerDown);
-    return () => document.removeEventListener('pointerdown', handlePointerDown);
-  }, []);
-
-  const handleFormatSelect = (value: 'keep' | 'jpg' | 'png' | 'mp4') => {
-    setOutputFormat(value);
-    setIsFormatMenuOpen(false);
-  };
+  const hasErrors = renamePreview.some((entry) => entry && entry.errors.length > 0);
 
   const handleFileButton = () => {
     fileInputRef.current?.click();
@@ -1125,14 +1019,7 @@ export const CreativeRenamer = () => {
           continue;
         }
         const file = entry.file;
-        let blob: Blob = file.file;
-        if (outputFormat === 'jpg' || outputFormat === 'png') {
-          blob = await convertImage(file.file, outputFormat);
-        } else if (outputFormat === 'mp4' && file.extension === 'mp4') {
-          blob = file.file;
-        } else if (outputFormat === 'keep') {
-          blob = file.file;
-        }
+        const blob = file.file;
         const folderPath = preserveStructure
           ? entry.pathSegments
               .map((segment) => normalizeSegment(segment))
@@ -1321,7 +1208,7 @@ export const CreativeRenamer = () => {
             <div className="stacked-field-column">
               <div className="stacked-field">
                 <div className="number-field number-field-mode">
-                  <label className="number-field-label">Select assets</label>
+                  <label className="number-field-label">&nbsp;</label>
                   <div className="number-field-input-wrapper creative-upload">
                     <button type="button" onClick={handleFileButton}>
                       Upload ZIPs or files
@@ -1351,13 +1238,13 @@ export const CreativeRenamer = () => {
             <div className="stacked-field-column">
               <div className="stacked-field">
                 <div className="number-field number-field-mode">
-                  <label className="number-field-label">Separator</label>
+                  <label className="number-field-label">&nbsp;</label>
                   <div className="number-field-input-wrapper">
                     <input
                       type="text"
                       value={separator}
                       onChange={(event) => setSeparator(event.target.value)}
-                      placeholder="-"
+                      placeholder="Separator"
                     />
                   </div>
                   <label className="creative-toggle">
@@ -1374,45 +1261,8 @@ export const CreativeRenamer = () => {
             <div className="stacked-field-column">
               <div className="stacked-field">
                 <div className="number-field number-field-mode">
-                  <label className="number-field-label">Output format</label>
-                  <div className="number-field-input-wrapper">
-                    <div className="split-output-dropdown creative-output-dropdown" ref={formatMenuRef}>
-                      <button
-                        type="button"
-                        className="split-output-trigger"
-                        aria-haspopup="listbox"
-                        aria-expanded={isFormatMenuOpen}
-                        onClick={() => setIsFormatMenuOpen((prev) => !prev)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Escape') {
-                            setIsFormatMenuOpen(false);
-                          }
-                        }}
-                      >
-                        <span className="split-output-label">{outputFormatLabel}</span>
-                        <span className="split-output-caret" aria-hidden="true" />
-                      </button>
-                      {isFormatMenuOpen ? (
-                        <div className="split-output-menu" role="listbox" aria-label="Output format">
-                          {outputFormatOptions.map((option) => (
-                            <button
-                              key={option.value}
-                              type="button"
-                              className={`split-output-option${
-                                option.value === outputFormat ? ' is-active' : ''
-                              }`}
-                              role="option"
-                              aria-selected={option.value === outputFormat}
-                              onClick={() => handleFormatSelect(option.value)}
-                            >
-                              <span className="split-output-option-text">{option.label}</span>
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                  <label className="creative-toggle">
+                  <label className="number-field-label">&nbsp;</label>
+                  <label className="creative-toggle creative-toggle-top">
                     <span>Include format in name</span>
                     <input
                       type="checkbox"
@@ -1425,7 +1275,6 @@ export const CreativeRenamer = () => {
             </div>
           </div>
           {uploadError ? <p className="creative-error">{uploadError}</p> : null}
-          {formatMismatch ? <p className="creative-error">{formatMismatch}</p> : null}
         </div>
       </header>
 
