@@ -236,7 +236,6 @@ export const CreativeResizer = () => {
   const [customAspectH, setCustomAspectH] = useState('16');
   const [cropRect, setCropRect] = useState<CropRect>({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 });
   const [isWorking, setIsWorking] = useState(false);
-  const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
   const [hoverPreview, setHoverPreview] = useState<{ url: string; x: number; y: number } | null>(null);
   const imageWrapRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -532,27 +531,18 @@ export const CreativeResizer = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleCopyNames = async () => {
-    if (!readyItems.length) {
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(readyItems.map((item) => item.name).join('\n'));
-      setCopyState('copied');
-      window.setTimeout(() => setCopyState('idle'), 1200);
-    } catch {
-      setCopyState('idle');
-    }
-  };
-
-  const handleClearAll = () => {
+  const handleClearAssets = () => {
     assets.forEach((asset) => URL.revokeObjectURL(asset.previewUrl));
-    readyItems.forEach((item) => URL.revokeObjectURL(item.previewUrl));
     setAssets([]);
-    setReadyItems([]);
-    setHistory([]);
     setCurrentIndex(0);
     setCropRect({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 });
+    setHistory([]);
+  };
+
+  const handleClearResults = () => {
+    readyItems.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+    setReadyItems([]);
+    setHistory([]);
     setHoverPreview(null);
   };
 
@@ -573,99 +563,32 @@ export const CreativeResizer = () => {
               Upload many images, crop them one by one, and export a ZIP of ready creatives.
             </p>
           </div>
-          <div className="split-control">
-            <div className="stacked-field-column">
-              <div className="stacked-field">
-                <div className="number-field number-field-mode">
-                  <div className="number-field-input-wrapper creative-upload">
-                    <button type="button" onClick={handleUploadClick}>
-                      Upload images
-                    </button>
-                  </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    hidden
-                    onChange={(event) => {
-                      void handleFilesAdded(event.target.files);
-                      event.target.value = '';
-                    }}
-                  />
-                  <div className="creative-toggle resizer-meta-row">
-                    <span>{assets.length} loaded</span>
-                    <button type="button" className="resizer-inline-button" onClick={handleClearAll}>
-                      Clear
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="stacked-field-column">
-              <div className="stacked-field">
-                <div className="number-field number-field-mode">
-                  <label className="number-field-label">Aspect ratio</label>
-                  <div className="number-field-input-wrapper">
-                    <select
-                      className="creative-output-select"
-                      value={aspectPreset}
-                      onChange={(event) => {
-                        const nextPreset = event.target.value as AspectPreset;
-                        const nextTargetAspectRatio = getAspectRatioFromPreset(
-                          nextPreset,
-                          currentAsset,
-                          customAspectW,
-                          customAspectH,
-                        );
-                        const nextNormalizedAspectRatio = getNormalizedAspectRatio(
-                          nextTargetAspectRatio,
-                          imageAspectRatio,
-                        );
-                        setAspectPreset(nextPreset);
-                        setCropRect((prev) =>
-                          fitRectToAspect(prev, nextNormalizedAspectRatio),
-                        );
-                      }}
-                    >
-                      {aspectOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="stacked-field-column">
-              <div className="stacked-field">
-                <div className="number-field number-field-mode">
-                  <label className="number-field-label">Custom W:H</label>
-                  <div className="resizer-ratio-inputs">
-                    <div className="number-field-input-wrapper">
-                      <input
-                        type="text"
-                        value={customAspectW}
-                        onChange={(event) => setCustomAspectW(event.target.value)}
-                        placeholder="W"
-                        disabled={aspectPreset !== 'custom'}
-                      />
-                    </div>
-                    <div className="number-field-input-wrapper">
-                      <input
-                        type="text"
-                        value={customAspectH}
-                        onChange={(event) => setCustomAspectH(event.target.value)}
-                        placeholder="H"
-                        disabled={aspectPreset !== 'custom'}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div className="resizer-primary-actions">
+            <button type="button" onClick={handleUploadClick}>
+              Upload images
+            </button>
+            <button type="button" disabled>
+              {assets.length} loaded
+            </button>
+            <button
+              type="button"
+              onClick={handleClearAssets}
+              disabled={!assets.length}
+            >
+              Clear
+            </button>
           </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(event) => {
+              void handleFilesAdded(event.target.files);
+              event.target.value = '';
+            }}
+          />
         </div>
       </header>
 
@@ -673,9 +596,84 @@ export const CreativeResizer = () => {
         <header className="card-header">
           <div className="card-header-top">
             <h2>Preview</h2>
-            <div className="split-result-actions">
+          </div>
+          <p>
+            {currentAsset
+              ? `Image ${currentIndex + 1} / ${assets.length}: ${currentAsset.file.name}`
+              : 'Upload images to start cropping.'}
+          </p>
+        </header>
+
+        <div className={`resizer-preview-toolbar${aspectPreset === 'custom' ? ' is-custom' : ''}`}>
+          <div className="number-field number-field-mode">
+            <label className="number-field-label">Aspect ratio</label>
+            <div className="number-field-input-wrapper">
+              <select
+                className="creative-output-select resizer-aspect-select"
+                value={aspectPreset}
+                onChange={(event) => {
+                  const nextPreset = event.target.value as AspectPreset;
+                  const nextTargetAspectRatio = getAspectRatioFromPreset(
+                    nextPreset,
+                    currentAsset,
+                    customAspectW,
+                    customAspectH,
+                  );
+                  const nextNormalizedAspectRatio = getNormalizedAspectRatio(
+                    nextTargetAspectRatio,
+                    imageAspectRatio,
+                  );
+                  setAspectPreset(nextPreset);
+                  setCropRect((prev) =>
+                    fitRectToAspect(prev, nextNormalizedAspectRatio),
+                  );
+                }}
+              >
+                {aspectOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {aspectPreset === 'custom' ? (
+            <div className="number-field number-field-mode">
+              <label className="number-field-label">Custom W:H</label>
+              <div className="resizer-ratio-inputs">
+                <div className="number-field-input-wrapper">
+                  <input
+                    type="text"
+                    value={customAspectW}
+                    onChange={(event) => setCustomAspectW(event.target.value)}
+                    placeholder="W"
+                  />
+                </div>
+                <div className="number-field-input-wrapper">
+                  <input
+                    type="text"
+                    value={customAspectH}
+                    onChange={(event) => setCustomAspectH(event.target.value)}
+                    placeholder="H"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : null}
+          <div className="number-field number-field-mode resizer-actions-field">
+            <label className="number-field-label">Actions</label>
+            <div className="resizer-toolbar-actions">
               <button
                 type="button"
+                className="resizer-toolbar-button"
+                onClick={handleUndo}
+                disabled={!history.length || isWorking}
+              >
+                Undo
+              </button>
+              <button
+                type="button"
+                className="resizer-toolbar-button"
                 onClick={() => {
                   void applyResize(false);
                 }}
@@ -685,27 +683,17 @@ export const CreativeResizer = () => {
               </button>
               <button
                 type="button"
+                className="resizer-toolbar-button resizer-toolbar-button-primary"
                 onClick={() => {
                   void applyResize(true);
                 }}
                 disabled={!currentAsset || isWorking}
               >
-                Next image
-              </button>
-              <button type="button" onClick={handleUndo} disabled={!history.length || isWorking}>
-                Undo
-              </button>
-              <button type="button" onClick={handleDownloadZip} disabled={!readyItems.length || isWorking}>
-                Download ZIP
+                {assets.length <= 1 ? 'Resize image' : 'Next image'}
               </button>
             </div>
           </div>
-          <p>
-            {currentAsset
-              ? `Image ${currentIndex + 1} / ${assets.length}: ${currentAsset.file.name}`
-              : 'Upload images to start cropping.'}
-          </p>
-        </header>
+        </div>
 
         <div className="resizer-stage">
           {currentAsset ? (
@@ -735,8 +723,16 @@ export const CreativeResizer = () => {
           <div className="card-header-top">
             <h2>Ready images</h2>
             <div className="split-result-actions">
-              <button type="button" onClick={handleCopyNames} disabled={!readyItems.length}>
-                {copyState === 'copied' ? 'Copied!' : 'Copy names'}
+              <button
+                type="button"
+                className="resizer-clear-result-button"
+                onClick={handleClearResults}
+                disabled={!readyItems.length || isWorking}
+              >
+                Clear result
+              </button>
+              <button type="button" onClick={handleDownloadZip} disabled={!readyItems.length || isWorking}>
+                Download ZIP
               </button>
             </div>
           </div>
