@@ -112,40 +112,54 @@ const getAspectRatioFromPreset = (
   return w / h;
 };
 
-const buildDefaultRect = (aspectRatio: number | null): CropRect => {
-  if (!aspectRatio) {
+const getImageAspectRatio = (asset: ResizerAsset | null) => {
+  if (!asset || asset.height <= 0) {
+    return null;
+  }
+  return asset.width / asset.height;
+};
+
+const getNormalizedAspectRatio = (targetAspectRatio: number | null, imageAspectRatio: number | null) => {
+  if (!targetAspectRatio || !imageAspectRatio || imageAspectRatio <= 0) {
+    return null;
+  }
+  return targetAspectRatio / imageAspectRatio;
+};
+
+const buildDefaultRect = (normalizedAspectRatio: number | null): CropRect => {
+  if (!normalizedAspectRatio) {
     return { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
   }
   let width = 0.9;
-  let height = width / aspectRatio;
+  let height = width / normalizedAspectRatio;
   if (height > 0.9) {
     height = 0.9;
-    width = height * aspectRatio;
+    width = height * normalizedAspectRatio;
   }
   const x = (1 - width) / 2;
   const y = (1 - height) / 2;
   return { x, y, width, height };
 };
 
-const fitRectToAspect = (rect: CropRect, aspectRatio: number | null): CropRect => {
-  if (!aspectRatio) {
+const fitRectToAspect = (rect: CropRect, normalizedAspectRatio: number | null): CropRect => {
+  if (!normalizedAspectRatio) {
     return rect;
   }
   const centerX = rect.x + rect.width / 2;
   const centerY = rect.y + rect.height / 2;
   let width = rect.width;
-  let height = width / aspectRatio;
+  let height = width / normalizedAspectRatio;
   if (height > rect.height) {
     height = rect.height;
-    width = height * aspectRatio;
+    width = height * normalizedAspectRatio;
   }
   if (width > 1) {
     width = 1;
-    height = width / aspectRatio;
+    height = width / normalizedAspectRatio;
   }
   if (height > 1) {
     height = 1;
-    width = height * aspectRatio;
+    width = height * normalizedAspectRatio;
   }
   let x = centerX - width / 2;
   let y = centerY - height / 2;
@@ -237,12 +251,22 @@ export const CreativeResizer = () => {
     [aspectPreset, currentAsset, customAspectW, customAspectH],
   );
 
+  const imageAspectRatio = useMemo(
+    () => getImageAspectRatio(currentAsset),
+    [currentAsset],
+  );
+
+  const normalizedAspectRatio = useMemo(
+    () => getNormalizedAspectRatio(activeAspectRatio, imageAspectRatio),
+    [activeAspectRatio, imageAspectRatio],
+  );
+
   useEffect(() => {
     if (!currentAsset) {
       return;
     }
-    setCropRect(buildDefaultRect(activeAspectRatio));
-  }, [currentAsset?.id, activeAspectRatio]);
+    setCropRect(buildDefaultRect(normalizedAspectRatio));
+  }, [currentAsset?.id, normalizedAspectRatio]);
 
   useEffect(() => {
     assetsRef.current = assets;
@@ -412,7 +436,7 @@ export const CreativeResizer = () => {
       startRect: cropRect,
       boundsWidth: Math.max(1, bounds.width),
       boundsHeight: Math.max(1, bounds.height),
-      aspectRatio: activeAspectRatio,
+      aspectRatio: normalizedAspectRatio,
     };
   };
 
@@ -587,17 +611,20 @@ export const CreativeResizer = () => {
                       className="creative-output-select"
                       value={aspectPreset}
                       onChange={(event) => {
-                        setAspectPreset(event.target.value as AspectPreset);
+                        const nextPreset = event.target.value as AspectPreset;
+                        const nextTargetAspectRatio = getAspectRatioFromPreset(
+                          nextPreset,
+                          currentAsset,
+                          customAspectW,
+                          customAspectH,
+                        );
+                        const nextNormalizedAspectRatio = getNormalizedAspectRatio(
+                          nextTargetAspectRatio,
+                          imageAspectRatio,
+                        );
+                        setAspectPreset(nextPreset);
                         setCropRect((prev) =>
-                          fitRectToAspect(
-                            prev,
-                            getAspectRatioFromPreset(
-                              event.target.value as AspectPreset,
-                              currentAsset,
-                              customAspectW,
-                              customAspectH,
-                            ),
-                          ),
+                          fitRectToAspect(prev, nextNormalizedAspectRatio),
                         );
                       }}
                     >
