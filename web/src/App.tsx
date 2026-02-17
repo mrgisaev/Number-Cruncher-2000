@@ -321,7 +321,8 @@ function App() {
   const isCreativeRenamer =
     typeof window !== 'undefined' && window.location.pathname.includes('creative-renamer');
   const isUtmGenerator = typeof window !== 'undefined' && window.location.pathname.includes('utm-generator');
-  const latestReleaseDate = 'Feb 15, 2026';
+  const latestReleaseDate = 'Feb 17, 2026';
+  const feb15ReleaseDate = 'Feb 15, 2026';
   const jan18ReleaseDate = 'Jan 18, 2026';
   const shareSplitterReleaseDate = 'Jan 17, 2026';
   const releaseDate = 'Jan 14, 2026';
@@ -655,6 +656,14 @@ function App() {
                 </header>
                 <div className="release-entry">
                   <p className="release-date">{latestReleaseDate}</p>
+                  <ul className="whats-new-list">
+                    <li>Released Asset Renamer updates: broader file support, including documents and mixed asset batches.</li>
+                    <li>Added better keyboard navigation in editable rows and improved Input data behavior for large trees.</li>
+                    <li>Refined UTM Generator flow and result rendering for faster bulk setup and copy/export.</li>
+                  </ul>
+                </div>
+                <div className="release-entry">
+                  <p className="release-date">{feb15ReleaseDate}</p>
                   <ul className="whats-new-list">
                     <li>&quot;Not set&quot; rows in Share Splitter can now be clicked to become full groups with editable names.</li>
                     <li>Improved paste handling on Number Cruncher to keep the viewport anchored at the top, including on Safari/mobile.</li>

@@ -1,4 +1,4 @@
-import { type CSSProperties, useMemo, useState } from 'react';
+import { type CSSProperties, type KeyboardEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 type UtmLevel = 'source' | 'medium' | 'campaign' | 'term' | 'content' | 'id';
 
@@ -293,6 +293,7 @@ export const UtmGenerator = () => {
   const [lpPasteInput, setLpPasteInput] = useState('');
   const [rows, setRows] = useState<UtmNode[]>(() => buildDefaultTree());
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
+  const lpInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const landingPages = useMemo(() => parseLandingPages(lpPasteInput), [lpPasteInput]);
   const flatRows = useMemo(() => flattenTree(rows), [rows]);
@@ -377,6 +378,15 @@ export const UtmGenerator = () => {
 
   const invalidLpCount = invalidPages.length;
 
+  useLayoutEffect(() => {
+    const input = lpInputRef.current;
+    if (!input) {
+      return;
+    }
+    input.style.height = 'auto';
+    input.style.height = `${Math.max(43, input.scrollHeight)}px`;
+  }, [lpPasteInput]);
+
   const handleClearTree = () => {
     setRows(buildDefaultTree());
   };
@@ -394,10 +404,6 @@ export const UtmGenerator = () => {
       const next = removeNode(prev, id);
       return next.length ? next : buildDefaultTree();
     });
-  };
-
-  const handleUpdateName = (id: string, value: string) => {
-    setRows((prev) => updateNode(prev, id, (node) => ({ ...node, name: value })));
   };
 
   const handleUpdateValue = (id: string, value: string) => {
@@ -427,6 +433,41 @@ export const UtmGenerator = () => {
         return next;
       }),
     );
+  };
+
+  const handleVerticalFieldNavigation = (
+    event: KeyboardEvent<HTMLInputElement>,
+    selector: '.utm-name-input' | '.utm-value-input',
+  ) => {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
+      return;
+    }
+    if (event.altKey || event.ctrlKey || event.metaKey) {
+      return;
+    }
+    const table = event.currentTarget.closest('.utm-tree-table');
+    if (!table) {
+      return;
+    }
+    const fields = Array.from(table.querySelectorAll<HTMLInputElement>(selector)).filter(
+      (field) => !field.disabled,
+    );
+    const currentIndex = fields.indexOf(event.currentTarget);
+    if (currentIndex < 0) {
+      return;
+    }
+    const nextIndex =
+      event.key === 'ArrowDown'
+        ? Math.min(currentIndex + 1, fields.length - 1)
+        : Math.max(currentIndex - 1, 0);
+    if (nextIndex === currentIndex) {
+      return;
+    }
+    event.preventDefault();
+    const target = fields[nextIndex];
+    target.focus();
+    const length = target.value.length;
+    target.setSelectionRange(length, length);
   };
 
   const handleCopyUrls = async () => {
@@ -472,6 +513,7 @@ export const UtmGenerator = () => {
                 <textarea
                   id="utm-lp-paste-input"
                   className="utm-lp-input"
+                  ref={lpInputRef}
                   value={lpPasteInput}
                   onChange={(event) => setLpPasteInput(event.target.value)}
                   rows={1}
@@ -516,15 +558,18 @@ export const UtmGenerator = () => {
                     <div className="split-cell utm-tree-cell">
                       <div className="utm-level-cell">
                         <input
-                          className="split-name-input"
+                          className="split-name-input utm-name-input"
                           value={row.node.name}
-                          onChange={(event) => handleUpdateName(row.id, event.target.value)}
+                          readOnly
+                          aria-readonly="true"
+                          tabIndex={-1}
                         />
                       </div>
                       <input
-                        className="split-value-input"
+                        className="split-value-input utm-value-input"
                         value={row.node.valueInput}
                         onChange={(event) => handleUpdateValue(row.id, event.target.value)}
+                        onKeyDown={(event) => handleVerticalFieldNavigation(event, '.utm-value-input')}
                         onPaste={(event) => {
                           const text = event.clipboardData.getData('text');
                           const values = parsePastedCells(text);
