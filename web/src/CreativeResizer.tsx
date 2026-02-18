@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 import JSZip from 'jszip';
+import { storeResizerTransfer } from './lib/resizerTransfer';
 
 type AspectPreset = 'free' | 'original' | '1:1' | '4:5' | '5:4' | '16:9' | '9:16' | '4:3' | '3:4' | 'custom';
 
@@ -345,6 +346,8 @@ export const CreativeResizer = () => {
   const [useCustomOutputSize, setUseCustomOutputSize] = useState(false);
   const [cropRect, setCropRect] = useState<CropRect>({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 });
   const [isWorking, setIsWorking] = useState(false);
+  const [isSendingToRenamer, setIsSendingToRenamer] = useState(false);
+  const [sendError, setSendError] = useState('');
   const [zoomPercent, setZoomPercent] = useState(100);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
@@ -761,6 +764,28 @@ export const CreativeResizer = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleSendToAssetRenamer = async () => {
+    if (!readyItems.length || isWorking || isSendingToRenamer) {
+      return;
+    }
+    setSendError('');
+    setIsSendingToRenamer(true);
+    try {
+      const payloadId = await storeResizerTransfer(
+        readyItems.map((item) => ({
+          name: item.name,
+          blob: item.blob,
+          width: item.width,
+          height: item.height,
+        })),
+      );
+      window.location.href = `/creative-renamer.html?import=${encodeURIComponent(payloadId)}`;
+    } catch {
+      setSendError('Could not send files to Asset Renamer. Please try again.');
+      setIsSendingToRenamer(false);
+    }
+  };
+
   const handleClearAssets = () => {
     assets.forEach((asset) => URL.revokeObjectURL(asset.previewUrl));
     setAssets([]);
@@ -774,6 +799,7 @@ export const CreativeResizer = () => {
     readyItems.forEach((item) => URL.revokeObjectURL(item.previewUrl));
     setReadyItems([]);
     setHoverPreview(null);
+    setSendError('');
   };
 
   const handleDownloadReadyItem = (item: ReadyItem) => {
@@ -1143,9 +1169,17 @@ export const CreativeResizer = () => {
               <button type="button" onClick={handleDownloadZip} disabled={!readyItems.length || isWorking}>
                 Download ZIP
               </button>
+              <button
+                type="button"
+                onClick={() => void handleSendToAssetRenamer()}
+                disabled={!readyItems.length || isWorking || isSendingToRenamer}
+              >
+                {isSendingToRenamer ? 'Sending...' : 'To Asset Renamer'}
+              </button>
             </div>
           </div>
         </header>
+        {sendError ? <p className="creative-error">{sendError}</p> : null}
         <div className="result-list resizer-ready-list">
           {readyItems.length ? (
             readyItems.map((item, index) => (

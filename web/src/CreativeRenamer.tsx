@@ -4,11 +4,13 @@
   type DragEvent,
   type KeyboardEvent,
   type ReactElement,
+  useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
 import JSZip from 'jszip';
+import { deleteResizerTransfer, getResizerTransfer } from './lib/resizerTransfer';
 
 type CreativeNode = {
   id: string;
@@ -149,6 +151,23 @@ const formatSize = (width: number | null, height: number | null) => {
     return '';
   }
   return `${width}x${height}`;
+};
+
+const mergeAssetKinds = (
+  current: 'image' | 'video' | 'file' | 'mixed' | null,
+  nextKinds: Set<'image' | 'video' | 'file'>,
+) => {
+  const nextKind = nextKinds.size > 1 ? 'mixed' : Array.from(nextKinds)[0];
+  if (!current) {
+    return nextKind ?? null;
+  }
+  if (current === 'mixed' || nextKind === 'mixed') {
+    return 'mixed';
+  }
+  if (nextKind && current !== nextKind) {
+    return 'mixed';
+  }
+  return current;
 };
 
 const buildCreativeFile = (
@@ -541,6 +560,90 @@ export const CreativeRenamer = () => {
   const filesArray = useMemo(() => Object.values(files), [files]);
   const hasFiles = filesArray.length > 0;
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const transferId = params.get('import');
+    if (!transferId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const importFromResizer = async () => {
+      try {
+        const incoming = await getResizerTransfer(transferId);
+        if (!incoming?.length || cancelled) {
+          return;
+        }
+
+        const importedFiles = incoming.map((item) => {
+          const extensionFromName = getExtension(item.name);
+          const extensionFromMime = Object.entries(mimeByExtension).find(
+            ([, mime]) => mime === item.blob.type,
+          )?.[0] ?? '';
+          const extension = extensionFromName || extensionFromMime || 'bin';
+          const fileName = extensionFromName ? item.name : `${item.name}.${extension}`;
+          const mimeType = getMime(extension, item.blob.type);
+          const file = new File([item.blob], fileName, { type: mimeType });
+          const kind = getKind(extension, mimeType);
+          const width = Number.isFinite(item.width) && item.width > 0 ? Math.round(item.width) : null;
+          const height = Number.isFinite(item.height) && item.height > 0 ? Math.round(item.height) : null;
+          const created = buildCreativeFile(file, fileName, extension, kind);
+          return {
+            ...created,
+            width,
+            height,
+            sizeInput: kind === 'file' ? formatBytes(file.size) : formatSize(width, height),
+          };
+        });
+
+        if (cancelled) {
+          importedFiles.forEach((file) => URL.revokeObjectURL(file.previewUrl));
+          return;
+        }
+
+        const kinds = new Set(importedFiles.map((file) => file.kind));
+        setAssetKind((prev) => mergeAssetKinds(prev, kinds));
+        setUploadError('');
+        setFiles((prev) => {
+          const next = { ...prev };
+          importedFiles.forEach((file) => {
+            next[file.id] = file;
+          });
+          return next;
+        });
+        setGroups((prev) => {
+          const next = prev.length ? prev : createInitialGroups();
+          const targetGroupId = next[0]?.id;
+          if (!targetGroupId) {
+            return next;
+          }
+          return addFilesToGroup(next, targetGroupId, importedFiles);
+        });
+        await deleteResizerTransfer(transferId);
+        if (!cancelled) {
+          params.delete('import');
+          const query = params.toString();
+          const nextUrl = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`;
+          window.history.replaceState({}, '', nextUrl);
+        }
+      } catch {
+        if (!cancelled) {
+          setUploadError('Could not import files from Creative Resizer.');
+        }
+      }
+    };
+
+    void importFromResizer();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const renamePreview = useMemo(() => {
     const entries = fileEntries.map((entry) => {
       const file = files[entry.fileId];
@@ -662,19 +765,7 @@ export const CreativeRenamer = () => {
       return;
     }
     const kinds = new Set(extracted.map((file) => file.kind));
-    const nextKind = kinds.size > 1 ? 'mixed' : Array.from(kinds)[0];
-    setAssetKind((prev) => {
-      if (!prev) {
-        return nextKind ?? null;
-      }
-      if (prev === 'mixed' || nextKind === 'mixed') {
-        return 'mixed';
-      }
-      if (nextKind && prev !== nextKind) {
-        return 'mixed';
-      }
-      return prev;
-    });
+    setAssetKind((prev) => mergeAssetKinds(prev, kinds));
     setFiles((prev) => {
       const next = { ...prev };
       extracted.forEach((file) => {
@@ -1386,3 +1477,4 @@ export const CreativeRenamer = () => {
     </section>
   );
 };
+
