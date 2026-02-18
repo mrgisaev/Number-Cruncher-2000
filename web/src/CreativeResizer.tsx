@@ -55,6 +55,13 @@ type ReadyItem = {
   name: string;
   blob: Blob;
   previewUrl: string;
+  width: number;
+  height: number;
+};
+
+type OutputSize = {
+  width: number;
+  height: number;
 };
 
 const aspectOptions: Array<{ value: AspectPreset; label: string }> = [
@@ -121,6 +128,11 @@ const isTextEntryTarget = (target: EventTarget | null) =>
     || target.tagName === 'INPUT'
     || target.tagName === 'TEXTAREA'
     || target.tagName === 'SELECT');
+
+const parsePositiveInt = (value: string) => {
+  const parsed = Number.parseInt(value.trim(), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
 
 const getAspectRatioFromPreset = (
   preset: AspectPreset,
@@ -228,7 +240,7 @@ const loadImageMeta = (file: File) =>
     img.src = url;
   });
 
-const cropImageBlob = async (asset: ResizerAsset, rect: CropRect) => {
+const cropImageBlob = async (asset: ResizerAsset, rect: CropRect, outputSize: OutputSize | null = null) => {
   const image = new Image();
   await new Promise<void>((resolve, reject) => {
     image.onload = () => resolve();
@@ -240,14 +252,16 @@ const cropImageBlob = async (asset: ResizerAsset, rect: CropRect) => {
   const sourceY = Math.round(rect.y * asset.height);
   const sourceW = Math.max(1, Math.round(rect.width * asset.width));
   const sourceH = Math.max(1, Math.round(rect.height * asset.height));
+  const outputW = outputSize?.width ?? sourceW;
+  const outputH = outputSize?.height ?? sourceH;
   const canvas = document.createElement('canvas');
-  canvas.width = sourceW;
-  canvas.height = sourceH;
+  canvas.width = outputW;
+  canvas.height = outputH;
   const ctx = canvas.getContext('2d');
   if (!ctx) {
     throw new Error('Canvas not supported.');
   }
-  ctx.drawImage(image, sourceX, sourceY, sourceW, sourceH, 0, 0, sourceW, sourceH);
+  ctx.drawImage(image, sourceX, sourceY, sourceW, sourceH, 0, 0, outputW, outputH);
 
   const mimeType = asset.file.type && asset.file.type.startsWith('image/')
     ? asset.file.type
@@ -265,7 +279,11 @@ const cropImageBlob = async (asset: ResizerAsset, rect: CropRect) => {
       mimeType === 'image/jpeg' || mimeType === 'image/webp' ? 0.92 : undefined,
     );
   });
-  return blob;
+  return {
+    blob,
+    width: outputW,
+    height: outputH,
+  };
 };
 
 const rotateImageBlob = async (sourceUrl: string, mimeType: string, direction: -90 | 90) => {
@@ -324,6 +342,7 @@ export const CreativeResizer = () => {
   const [aspectPreset, setAspectPreset] = useState<AspectPreset>('free');
   const [customAspectW, setCustomAspectW] = useState('9');
   const [customAspectH, setCustomAspectH] = useState('16');
+  const [useCustomOutputSize, setUseCustomOutputSize] = useState(false);
   const [cropRect, setCropRect] = useState<CropRect>({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 });
   const [isWorking, setIsWorking] = useState(false);
   const [zoomPercent, setZoomPercent] = useState(100);
@@ -359,6 +378,18 @@ export const CreativeResizer = () => {
     () => getNormalizedAspectRatio(activeAspectRatio, imageAspectRatio),
     [activeAspectRatio, imageAspectRatio],
   );
+
+  const customOutputSize = useMemo<OutputSize | null>(() => {
+    if (!useCustomOutputSize || aspectPreset !== 'custom') {
+      return null;
+    }
+    const width = parsePositiveInt(customAspectW);
+    const height = parsePositiveInt(customAspectH);
+    if (!width || !height) {
+      return null;
+    }
+    return { width, height };
+  }, [useCustomOutputSize, aspectPreset, customAspectW, customAspectH]);
 
   const clampPanOffset = (x: number, y: number, scale = zoomScale) => {
     const wrap = imageWrapRef.current;
@@ -680,18 +711,20 @@ export const CreativeResizer = () => {
     }
     setIsWorking(true);
     try {
-      const blob = await cropImageBlob(currentAsset, cropRect);
+      const cropped = await cropImageBlob(currentAsset, cropRect, customOutputSize);
       const nextCount = currentAsset.cropCount + 1;
       const name = `${currentAsset.nameBase}-crop-${String(nextCount).padStart(2, '0')}.${currentAsset.extension}`;
-      const previewUrl = URL.createObjectURL(blob);
+      const previewUrl = URL.createObjectURL(cropped.blob);
       const readyId = `ready-${createId()}`;
 
       setReadyItems((prev) => [...prev, {
         id: readyId,
         assetId: currentAsset.id,
         name,
-        blob,
+        blob: cropped.blob,
         previewUrl,
+        width: cropped.width,
+        height: cropped.height,
       }]);
       setAssets((prev) =>
         prev.map((asset) =>
@@ -905,6 +938,14 @@ export const CreativeResizer = () => {
                     />
                   </div>
                 </div>
+                <label className="resizer-custom-size-toggle" title="Use W:H as output dimensions">
+                  <input
+                    type="checkbox"
+                    checked={useCustomOutputSize}
+                    onChange={(event) => setUseCustomOutputSize(event.target.checked)}
+                    disabled={aspectPreset !== 'custom'}
+                  />
+                </label>
               </div>
             </div>
           </div>
@@ -1076,7 +1117,6 @@ export const CreativeResizer = () => {
               </button>
             </div>
           </div>
-          <p>{readyItems.length} generated</p>
         </header>
         <div className="result-list resizer-ready-list">
           {readyItems.length ? (
@@ -1093,7 +1133,10 @@ export const CreativeResizer = () => {
                 onMouseLeave={() => setHoverPreview(null)}
               >
                 <span className="result-index">{index + 1}</span>
-                <div className="result-value">{item.name}</div>
+                <div className="result-value">
+                  <span className="resizer-ready-name">{item.name}</span>
+                  <span className="resizer-ready-size">{`${item.width}x${item.height}`}</span>
+                </div>
               </div>
             ))
           ) : (
