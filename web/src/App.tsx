@@ -622,13 +622,13 @@ function App() {
               </a>
             </li>
             <li>
-              <a className="tool-link-button" href="/creative-renamer.html">
-                Asset Renamer
+              <a className="tool-link-button" href="/creative-resizer.html">
+                Creative Resizer
               </a>
             </li>
             <li>
-              <a className="tool-link-button" href="/creative-resizer.html">
-                Creative Resizer
+              <a className="tool-link-button" href="/creative-renamer.html">
+                Asset Renamer
               </a>
             </li>
             <li>
@@ -935,8 +935,9 @@ function App() {
             <a href="https://www.linkedin.com/in/mrgisaev/" target="_blank" rel="noreferrer">
               Grigorii Isaev
             </a>
-            . &copy; {footerYear} Number Cruncher 2026.
+            . &copy; {footerYear} Number Cruncher.
           </p>
+          <p>Let&apos;s meet on LinkedIn!</p>
         </footer>
       </div>
       <button
