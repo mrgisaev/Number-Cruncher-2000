@@ -30,6 +30,14 @@ type DragState = {
   aspectRatio: number | null;
 };
 
+type PanDragState = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  startPanX: number;
+  startPanY: number;
+};
+
 type ResizerAsset = {
   id: string;
   file: File;
@@ -318,9 +326,14 @@ export const CreativeResizer = () => {
   const [customAspectH, setCustomAspectH] = useState('16');
   const [cropRect, setCropRect] = useState<CropRect>({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 });
   const [isWorking, setIsWorking] = useState(false);
+  const [zoomPercent, setZoomPercent] = useState(100);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
   const [hoverPreview, setHoverPreview] = useState<{ url: string; x: number; y: number } | null>(null);
   const imageWrapRef = useRef<HTMLDivElement | null>(null);
+  const zoomLayerRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
+  const panDragRef = useRef<PanDragState | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const assetsRef = useRef<ResizerAsset[]>([]);
   const readyItemsRef = useRef<ReadyItem[]>([]);
@@ -330,6 +343,7 @@ export const CreativeResizer = () => {
   const deckOffset = assets.length > 0
     ? (((assets.length - 1) / 2) - currentIndex) * deckStep
     : 0;
+  const zoomScale = zoomPercent / 100;
 
   const activeAspectRatio = useMemo(
     () => getAspectRatioFromPreset(aspectPreset, currentAsset, customAspectW, customAspectH),
@@ -345,6 +359,21 @@ export const CreativeResizer = () => {
     () => getNormalizedAspectRatio(activeAspectRatio, imageAspectRatio),
     [activeAspectRatio, imageAspectRatio],
   );
+
+  const clampPanOffset = (x: number, y: number, scale = zoomScale) => {
+    const wrap = imageWrapRef.current;
+    if (!wrap || scale <= 1) {
+      return { x: 0, y: 0 };
+    }
+    const width = wrap.offsetWidth;
+    const height = wrap.offsetHeight;
+    const maxX = Math.max(0, ((scale - 1) * width) / 2);
+    const maxY = Math.max(0, ((scale - 1) * height) / 2);
+    return {
+      x: clamp(x, -maxX, maxX),
+      y: clamp(y, -maxY, maxY),
+    };
+  };
 
   useEffect(() => {
     if (!currentAsset) {
@@ -369,6 +398,10 @@ export const CreativeResizer = () => {
   }, []);
 
   useEffect(() => {
+    setPanOffset((prev) => clampPanOffset(prev.x, prev.y, zoomScale));
+  }, [zoomScale, currentAsset?.id]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!assets.length || isTextEntryTarget(event.target)) {
         return;
@@ -384,6 +417,44 @@ export const CreativeResizer = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [assets.length]);
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      const panDrag = panDragRef.current;
+      if (!panDrag) {
+        return;
+      }
+      if (event.pointerId !== panDrag.pointerId) {
+        return;
+      }
+      const dx = event.clientX - panDrag.startX;
+      const dy = event.clientY - panDrag.startY;
+      const next = clampPanOffset(panDrag.startPanX + dx, panDrag.startPanY + dy, zoomScale);
+      setPanOffset(next);
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      const panDrag = panDragRef.current;
+      if (!panDrag) {
+        return;
+      }
+      if (event.pointerId !== panDrag.pointerId) {
+        return;
+      }
+      panDragRef.current = null;
+      setIsPanning(false);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+  }, [zoomScale, currentAsset?.id]);
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -559,12 +630,12 @@ export const CreativeResizer = () => {
   };
 
   const handleStartDrag = (event: ReactPointerEvent<HTMLElement>, mode: DragMode) => {
-    if (!imageWrapRef.current) {
+    if (!zoomLayerRef.current) {
       return;
     }
     event.preventDefault();
     event.stopPropagation();
-    const bounds = imageWrapRef.current.getBoundingClientRect();
+    const bounds = zoomLayerRef.current.getBoundingClientRect();
     dragRef.current = {
       mode,
       pointerId: event.pointerId,
@@ -575,6 +646,32 @@ export const CreativeResizer = () => {
       boundsHeight: Math.max(1, bounds.height),
       aspectRatio: normalizedAspectRatio,
     };
+  };
+
+  const handleStartPan = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!currentAsset || isWorking || event.button !== 0 || zoomScale <= 1) {
+      return;
+    }
+    if (dragRef.current) {
+      return;
+    }
+    const target = event.target as HTMLElement;
+    if (
+      target.closest('.resizer-crop-box')
+      || target.closest('.resizer-handle')
+      || target.closest('.resizer-zoom-controls')
+    ) {
+      return;
+    }
+    event.preventDefault();
+    panDragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startPanX: panOffset.x,
+      startPanY: panOffset.y,
+    };
+    setIsPanning(true);
   };
 
   const applyResize = async () => {
@@ -632,6 +729,8 @@ export const CreativeResizer = () => {
     setAssets([]);
     setCurrentIndex(0);
     setCropRect({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 });
+    setZoomPercent(100);
+    setPanOffset({ x: 0, y: 0 });
   };
 
   const handleClearResults = () => {
@@ -693,6 +792,18 @@ export const CreativeResizer = () => {
     top: `${cropRect.y * 100}%`,
     width: `${cropRect.width * 100}%`,
     height: `${cropRect.height * 100}%`,
+  };
+  const zoomLayerStyle: CSSProperties = {
+    transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomScale})`,
+  };
+
+  const handleZoomStep = (direction: -1 | 1) => {
+    setZoomPercent((prev) => clamp(prev + direction * 10, 50, 400));
+  };
+
+  const handleZoomReset = () => {
+    setZoomPercent(100);
+    setPanOffset({ x: 0, y: 0 });
   };
 
   return (
@@ -896,29 +1007,60 @@ export const CreativeResizer = () => {
           </div>
         </div>
 
-        <div className="resizer-stage">
+        <div
+          className={`resizer-stage${isPanning ? ' is-panning' : ''}${zoomScale > 1 ? ' is-zoomed' : ''}`}
+          onPointerDown={handleStartPan}
+        >
           {currentAsset ? (
             <div className="resizer-image-wrap" ref={imageWrapRef}>
               <div className="resizer-stage-meta">
                 {`Image ${currentIndex + 1} / ${assets.length}: ${currentAsset.file.name}`}
               </div>
-              <img src={currentAsset.previewUrl} alt={currentAsset.file.name} className="resizer-image" />
-              <div className="resizer-overlay">
-                <div
-                  className="resizer-crop-box"
-                  style={cropStyle}
-                  onPointerDown={(event) => handleStartDrag(event, 'move')}
-                >
-                  <span className="resizer-handle resizer-handle-nw" onPointerDown={(event) => handleStartDrag(event, 'nw')} />
-                  <span className="resizer-handle resizer-handle-ne" onPointerDown={(event) => handleStartDrag(event, 'ne')} />
-                  <span className="resizer-handle resizer-handle-sw" onPointerDown={(event) => handleStartDrag(event, 'sw')} />
-                  <span className="resizer-handle resizer-handle-se" onPointerDown={(event) => handleStartDrag(event, 'se')} />
+              <div className="resizer-zoom-layer" ref={zoomLayerRef} style={zoomLayerStyle}>
+                <img src={currentAsset.previewUrl} alt={currentAsset.file.name} className="resizer-image" />
+                <div className="resizer-overlay">
+                  <div
+                    className="resizer-crop-box"
+                    style={cropStyle}
+                    onPointerDown={(event) => handleStartDrag(event, 'move')}
+                  >
+                    <span className="resizer-handle resizer-handle-nw" onPointerDown={(event) => handleStartDrag(event, 'nw')} />
+                    <span className="resizer-handle resizer-handle-ne" onPointerDown={(event) => handleStartDrag(event, 'ne')} />
+                    <span className="resizer-handle resizer-handle-sw" onPointerDown={(event) => handleStartDrag(event, 'sw')} />
+                    <span className="resizer-handle resizer-handle-se" onPointerDown={(event) => handleStartDrag(event, 'se')} />
+                  </div>
                 </div>
               </div>
             </div>
           ) : (
             <div className="resizer-empty">No image loaded.</div>
           )}
+          <div className="resizer-zoom-controls">
+            <button
+              type="button"
+              onClick={() => handleZoomStep(1)}
+              disabled={!currentAsset || isWorking}
+              aria-label="Zoom in"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              onClick={() => handleZoomStep(-1)}
+              disabled={!currentAsset || isWorking}
+              aria-label="Zoom out"
+            >
+              -
+            </button>
+            <button
+              type="button"
+              onClick={handleZoomReset}
+              disabled={!currentAsset || isWorking}
+              aria-label="Reset zoom"
+            >
+              100%
+            </button>
+          </div>
         </div>
       </section>
 
