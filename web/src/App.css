@@ -1745,6 +1745,30 @@ body::after {
   color: rgba(52, 80, 82, 0.74);
 }
 
+.resizer-ready-meta {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.resizer-ready-download {
+  border: none;
+  background: transparent;
+  color: rgba(52, 80, 82, 0.74);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  text-transform: lowercase;
+}
+
+.resizer-ready-download:hover:not(:disabled) {
+  color: rgba(52, 80, 82, 0.95);
+  text-decoration: underline;
+}
+
 .resizer-ready-remove {
   flex: 0 0 auto;
   width: 22px;

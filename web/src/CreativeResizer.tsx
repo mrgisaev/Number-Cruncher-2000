@@ -776,6 +776,15 @@ export const CreativeResizer = () => {
     setHoverPreview(null);
   };
 
+  const handleDownloadReadyItem = (item: ReadyItem) => {
+    const url = URL.createObjectURL(item.blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = item.name;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleRemoveReadyItem = (id: string) => {
     setReadyItems((prev) => {
       const target = prev.find((item) => item.id === id);
@@ -1153,7 +1162,17 @@ export const CreativeResizer = () => {
                 <span className="result-index">{index + 1}</span>
                 <div className="result-value">
                   <span className="resizer-ready-name">{item.name}</span>
-                  <span className="resizer-ready-size">{`${item.width}x${item.height}`}</span>
+                  <div className="resizer-ready-meta">
+                    <span className="resizer-ready-size">{`${item.width}x${item.height}`}</span>
+                    <button
+                      type="button"
+                      className="resizer-ready-download"
+                      aria-label="Download resized image"
+                      onClick={() => handleDownloadReadyItem(item)}
+                    >
+                      download
+                    </button>
+                  </div>
                 </div>
                 <button
                   type="button"
