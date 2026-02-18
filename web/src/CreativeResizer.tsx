@@ -69,6 +69,32 @@ const aspectOptions: Array<{ value: AspectPreset; label: string }> = [
   { value: 'custom', label: 'Custom' },
 ];
 
+const imageExtensions = new Set([
+  'png',
+  'jpg',
+  'jpeg',
+  'webp',
+  'gif',
+  'bmp',
+  'tif',
+  'tiff',
+  'svg',
+  'avif',
+]);
+
+const imageMimeByExtension: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  bmp: 'image/bmp',
+  tif: 'image/tiff',
+  tiff: 'image/tiff',
+  svg: 'image/svg+xml',
+  avif: 'image/avif',
+};
+
 const createId = () => Math.random().toString(36).slice(2, 10);
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
@@ -79,6 +105,14 @@ const getExtension = (name: string) => {
 };
 
 const getBaseName = (name: string) => name.replace(/\.[^.]+$/, '');
+
+const getLeafName = (path: string) => path.split('/').pop() ?? path;
+
+const isZipFile = (file: File) => file.name.toLowerCase().endsWith('.zip');
+
+const isImageName = (name: string) => imageExtensions.has(getExtension(name));
+
+const isImageFile = (file: File) => file.type.startsWith('image/') || isImageName(file.name);
 
 const getAspectRatioFromPreset = (
   preset: AspectPreset,
@@ -391,11 +425,46 @@ export const CreativeResizer = () => {
     if (!list) {
       return;
     }
-    const incoming = Array.from(list).filter((file) => file.type.startsWith('image/'));
+    const incoming = Array.from(list);
     if (!incoming.length) {
       return;
     }
-    const loaded = await Promise.all(incoming.map(async (file) => {
+
+    const directImages = incoming.filter((file) => !isZipFile(file) && isImageFile(file));
+    const zipFiles = incoming.filter(isZipFile);
+    const extractedImages: File[] = [];
+
+    for (const zipFile of zipFiles) {
+      try {
+        const zip = await JSZip.loadAsync(zipFile);
+        const entries = Object.values(zip.files);
+        for (const entry of entries) {
+          if (entry.dir) {
+            continue;
+          }
+          if (entry.name.startsWith('__MACOSX/')) {
+            continue;
+          }
+          if (!isImageName(entry.name)) {
+            continue;
+          }
+          const blob = await entry.async('blob');
+          const fileName = getLeafName(entry.name);
+          const extension = getExtension(fileName);
+          const type = imageMimeByExtension[extension] ?? blob.type ?? '';
+          extractedImages.push(new File([blob], fileName, { type }));
+        }
+      } catch {
+        // Skip broken archives and continue processing other files.
+      }
+    }
+
+    const imageFiles = [...directImages, ...extractedImages];
+    if (!imageFiles.length) {
+      return;
+    }
+
+    const loaded = await Promise.all(imageFiles.map(async (file) => {
       const meta = await loadImageMeta(file);
       if (!meta) {
         return null;
@@ -565,7 +634,7 @@ export const CreativeResizer = () => {
           </div>
           <div className="resizer-primary-actions">
             <button type="button" onClick={handleUploadClick}>
-              Upload images
+              Upload ZIPs or files
             </button>
             <button type="button" disabled>
               {assets.length} loaded
@@ -581,7 +650,7 @@ export const CreativeResizer = () => {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/*,.zip,application/zip,application/x-zip-compressed"
             multiple
             hidden
             onChange={(event) => {
@@ -600,7 +669,7 @@ export const CreativeResizer = () => {
           <p>
             {currentAsset
               ? `Image ${currentIndex + 1} / ${assets.length}: ${currentAsset.file.name}`
-              : 'Upload images to start cropping.'}
+              : 'Upload ZIPs or files to start cropping.'}
           </p>
         </header>
 
