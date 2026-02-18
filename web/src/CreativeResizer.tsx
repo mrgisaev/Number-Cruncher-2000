@@ -363,6 +363,10 @@ export const CreativeResizer = () => {
     ? (((assets.length - 1) / 2) - currentIndex) * deckStep
     : 0;
   const zoomScale = zoomPercent / 100;
+  const hasGifAsset = useMemo(
+    () => assets.some((asset) => asset.extension === 'gif' || asset.file.type === 'image/gif'),
+    [assets],
+  );
 
   const activeAspectRatio = useMemo(
     () => getAspectRatioFromPreset(aspectPreset, currentAsset, customAspectW, customAspectH),
@@ -772,6 +776,17 @@ export const CreativeResizer = () => {
     setHoverPreview(null);
   };
 
+  const handleRemoveReadyItem = (id: string) => {
+    setReadyItems((prev) => {
+      const target = prev.find((item) => item.id === id);
+      if (target) {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+      return prev.filter((item) => item.id !== id);
+    });
+    setHoverPreview((prev) => (prev ? null : prev));
+  };
+
   const handleStepAsset = (direction: -1 | 1) => {
     setCurrentIndex((prev) => clamp(prev + direction, 0, Math.max(assets.length - 1, 0)));
   };
@@ -879,6 +894,9 @@ export const CreativeResizer = () => {
               Clear
             </button>
           </div>
+          {hasGifAsset ? (
+            <p className="resizer-gif-warning">GIF animation is not preserved after editing.</p>
+          ) : null}
           <input
             ref={fileInputRef}
             type="file"
@@ -1137,6 +1155,14 @@ export const CreativeResizer = () => {
                   <span className="resizer-ready-name">{item.name}</span>
                   <span className="resizer-ready-size">{`${item.width}x${item.height}`}</span>
                 </div>
+                <button
+                  type="button"
+                  className="resizer-ready-remove"
+                  aria-label="Remove resized image"
+                  onClick={() => handleRemoveReadyItem(item.id)}
+                >
+                  x
+                </button>
               </div>
             ))
           ) : (
