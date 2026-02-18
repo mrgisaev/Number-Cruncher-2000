@@ -806,6 +806,21 @@ export const CreativeResizer = () => {
     setPanOffset({ x: 0, y: 0 });
   };
 
+  const handleAspectPresetChange = (nextPreset: AspectPreset) => {
+    const nextTargetAspectRatio = getAspectRatioFromPreset(
+      nextPreset,
+      currentAsset,
+      customAspectW,
+      customAspectH,
+    );
+    const nextNormalizedAspectRatio = getNormalizedAspectRatio(
+      nextTargetAspectRatio,
+      imageAspectRatio,
+    );
+    setAspectPreset(nextPreset);
+    setCropRect((prev) => fitRectToAspect(prev, nextNormalizedAspectRatio));
+  };
+
   return (
     <section className="creative-resizer">
       <header className="controls-wrapper">
@@ -813,7 +828,7 @@ export const CreativeResizer = () => {
           <div className="controls-heading">
             <h1 className="controls-heading-title">Creative Resizer</h1>
             <p className="controls-subtitle">
-              Upload many images, crop them one by one, and export a ZIP of ready creatives.
+              Upload many images, crop them one by one, and export a ZIP of ready creatives. Pick ratio, adjust crop frame, then resize current image.
             </p>
           </div>
           <div className="resizer-primary-actions">
@@ -850,70 +865,49 @@ export const CreativeResizer = () => {
           <div className="card-header-top">
             <h2>Preview</h2>
           </div>
-          <p>
-            {currentAsset
-              ? 'Pick ratio, adjust crop frame, then resize current image.'
-              : 'Upload ZIPs or files to start cropping.'}
-          </p>
         </header>
 
         <div className="resizer-controls-row">
           <div className="number-field number-field-mode resizer-aspect-field">
-            <label className="number-field-label">Aspect ratio</label>
-            <div className="number-field-input-wrapper">
-              <select
-                className="creative-output-select resizer-aspect-select"
-                value={aspectPreset}
-                onChange={(event) => {
-                  const nextPreset = event.target.value as AspectPreset;
-                  const nextTargetAspectRatio = getAspectRatioFromPreset(
-                    nextPreset,
-                    currentAsset,
-                    customAspectW,
-                    customAspectH,
-                  );
-                  const nextNormalizedAspectRatio = getNormalizedAspectRatio(
-                    nextTargetAspectRatio,
-                    imageAspectRatio,
-                  );
-                  setAspectPreset(nextPreset);
-                  setCropRect((prev) =>
-                    fitRectToAspect(prev, nextNormalizedAspectRatio),
-                  );
-                }}
-              >
+            <div className={`resizer-aspect-panel${aspectPreset === 'custom' ? ' is-custom' : ''}`}>
+              <div className="resizer-aspect-buttons" role="tablist" aria-label="Aspect ratio presets">
                 {aspectOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`resizer-aspect-button${aspectPreset === option.value ? ' is-active' : ''}`}
+                    onClick={() => handleAspectPresetChange(option.value)}
+                    role="tab"
+                    aria-selected={aspectPreset === option.value}
+                  >
                     {option.label}
-                  </option>
+                  </button>
                 ))}
-              </select>
-            </div>
-          </div>
-          {aspectPreset === 'custom' ? (
-            <div className="number-field number-field-mode resizer-custom-field">
-              <label className="number-field-label">Custom W:H</label>
-              <div className="resizer-ratio-inputs">
-                <div className="number-field-input-wrapper">
-                  <input
-                    type="text"
-                    value={customAspectW}
-                    onChange={(event) => setCustomAspectW(event.target.value)}
-                    placeholder="W"
-                  />
-                </div>
-                <div className="number-field-input-wrapper">
-                  <input
-                    type="text"
-                    value={customAspectH}
-                    onChange={(event) => setCustomAspectH(event.target.value)}
-                    placeholder="H"
-                  />
+              </div>
+              <div className={`resizer-custom-inline${aspectPreset === 'custom' ? ' is-visible' : ''}`}>
+                <div className="resizer-ratio-inputs">
+                  <div className="number-field-input-wrapper">
+                    <input
+                      type="text"
+                      value={customAspectW}
+                      onChange={(event) => setCustomAspectW(event.target.value)}
+                      placeholder="W"
+                      disabled={aspectPreset !== 'custom'}
+                    />
+                  </div>
+                  <div className="number-field-input-wrapper">
+                    <input
+                      type="text"
+                      value={customAspectH}
+                      onChange={(event) => setCustomAspectH(event.target.value)}
+                      placeholder="H"
+                      disabled={aspectPreset !== 'custom'}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-          ) : null}
-
+          </div>
         </div>
 
         <div className="number-field number-field-mode resizer-actions-field">
