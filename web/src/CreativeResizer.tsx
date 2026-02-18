@@ -49,13 +49,6 @@ type ReadyItem = {
   previewUrl: string;
 };
 
-type HistoryItem = {
-  readyId: string;
-  restoreIndex: number;
-  restoreCrop: CropRect;
-  assetId: string;
-};
-
 const aspectOptions: Array<{ value: AspectPreset; label: string }> = [
   { value: 'free', label: 'Free' },
   { value: 'original', label: 'Original' },
@@ -113,6 +106,13 @@ const isZipFile = (file: File) => file.name.toLowerCase().endsWith('.zip');
 const isImageName = (name: string) => imageExtensions.has(getExtension(name));
 
 const isImageFile = (file: File) => file.type.startsWith('image/') || isImageName(file.name);
+
+const isTextEntryTarget = (target: EventTarget | null) =>
+  target instanceof HTMLElement
+  && (target.isContentEditable
+    || target.tagName === 'INPUT'
+    || target.tagName === 'TEXTAREA'
+    || target.tagName === 'SELECT');
 
 const getAspectRatioFromPreset = (
   preset: AspectPreset,
@@ -260,11 +260,59 @@ const cropImageBlob = async (asset: ResizerAsset, rect: CropRect) => {
   return blob;
 };
 
+const rotateImageBlob = async (sourceUrl: string, mimeType: string, direction: -90 | 90) => {
+  const image = new Image();
+  await new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve();
+    image.onerror = () => reject(new Error('Image load failed.'));
+    image.src = sourceUrl;
+  });
+
+  const sourceW = image.naturalWidth || image.width;
+  const sourceH = image.naturalHeight || image.height;
+  const canvas = document.createElement('canvas');
+  canvas.width = sourceH;
+  canvas.height = sourceW;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    throw new Error('Canvas not supported.');
+  }
+
+  if (direction === 90) {
+    ctx.translate(canvas.width, 0);
+    ctx.rotate(Math.PI / 2);
+  } else {
+    ctx.translate(0, canvas.height);
+    ctx.rotate(-Math.PI / 2);
+  }
+  ctx.drawImage(image, 0, 0, sourceW, sourceH);
+
+  const rotated = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (result) => {
+        if (!result) {
+          reject(new Error('Rotate failed.'));
+          return;
+        }
+        resolve(result);
+      },
+      mimeType,
+      mimeType === 'image/jpeg' || mimeType === 'image/webp' ? 0.92 : undefined,
+    );
+  });
+
+  return {
+    blob: rotated,
+    width: canvas.width,
+    height: canvas.height,
+  };
+};
+
 export const CreativeResizer = () => {
   const [assets, setAssets] = useState<ResizerAsset[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [readyItems, setReadyItems] = useState<ReadyItem[]>([]);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [aspectPreset, setAspectPreset] = useState<AspectPreset>('free');
   const [customAspectW, setCustomAspectW] = useState('9');
   const [customAspectH, setCustomAspectH] = useState('16');
@@ -278,6 +326,10 @@ export const CreativeResizer = () => {
   const readyItemsRef = useRef<ReadyItem[]>([]);
 
   const currentAsset = assets[currentIndex] ?? null;
+  const deckStep = 52;
+  const deckOffset = assets.length > 0
+    ? (((assets.length - 1) / 2) - currentIndex) * deckStep
+    : 0;
 
   const activeAspectRatio = useMemo(
     () => getAspectRatioFromPreset(aspectPreset, currentAsset, customAspectW, customAspectH),
@@ -315,6 +367,23 @@ export const CreativeResizer = () => {
       readyItemsRef.current.forEach((item) => URL.revokeObjectURL(item.previewUrl));
     };
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!assets.length || isTextEntryTarget(event.target)) {
+        return;
+      }
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        setCurrentIndex((prev) => clamp(prev - 1, 0, Math.max(assets.length - 1, 0)));
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        setCurrentIndex((prev) => clamp(prev + 1, 0, Math.max(assets.length - 1, 0)));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [assets.length]);
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -508,13 +577,11 @@ export const CreativeResizer = () => {
     };
   };
 
-  const applyResize = async (goNext: boolean) => {
+  const applyResize = async () => {
     if (!currentAsset || isWorking) {
       return;
     }
     setIsWorking(true);
-    const restoreCrop = cropRect;
-    const restoreIndex = currentIndex;
     try {
       const blob = await cropImageBlob(currentAsset, cropRect);
       const nextCount = currentAsset.cropCount + 1;
@@ -536,51 +603,11 @@ export const CreativeResizer = () => {
             : asset,
         ),
       );
-      setHistory((prev) => [...prev, {
-        readyId,
-        restoreIndex,
-        restoreCrop,
-        assetId: currentAsset.id,
-      }]);
-
-      if (goNext) {
-        setCurrentIndex((prev) => clamp(prev + 1, 0, Math.max(assets.length - 1, 0)));
-      }
     } catch {
       // keep state unchanged on crop failure
     } finally {
       setIsWorking(false);
     }
-  };
-
-  const handleUndo = () => {
-    setHistory((prev) => {
-      if (!prev.length) {
-        return prev;
-      }
-      const nextHistory = [...prev];
-      const last = nextHistory.pop();
-      if (!last) {
-        return prev;
-      }
-      setReadyItems((items) => {
-        const target = items.find((item) => item.id === last.readyId);
-        if (target) {
-          URL.revokeObjectURL(target.previewUrl);
-        }
-        return items.filter((item) => item.id !== last.readyId);
-      });
-      setAssets((existing) =>
-        existing.map((asset) =>
-          asset.id === last.assetId
-            ? { ...asset, cropCount: Math.max(0, asset.cropCount - 1) }
-            : asset,
-        ),
-      );
-      setCurrentIndex(last.restoreIndex);
-      setCropRect(last.restoreCrop);
-      return nextHistory;
-    });
   };
 
   const handleDownloadZip = async () => {
@@ -605,14 +632,60 @@ export const CreativeResizer = () => {
     setAssets([]);
     setCurrentIndex(0);
     setCropRect({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 });
-    setHistory([]);
   };
 
   const handleClearResults = () => {
     readyItems.forEach((item) => URL.revokeObjectURL(item.previewUrl));
     setReadyItems([]);
-    setHistory([]);
     setHoverPreview(null);
+  };
+
+  const handleStepAsset = (direction: -1 | 1) => {
+    setCurrentIndex((prev) => clamp(prev + direction, 0, Math.max(assets.length - 1, 0)));
+  };
+
+  const handleRotateCurrentAsset = async (direction: -90 | 90) => {
+    if (!currentAsset || isWorking) {
+      return;
+    }
+    setIsWorking(true);
+    try {
+      const mimeType = currentAsset.file.type && currentAsset.file.type.startsWith('image/')
+        ? currentAsset.file.type
+        : 'image/png';
+      const rotated = await rotateImageBlob(currentAsset.previewUrl, mimeType, direction);
+      const rotatedFile = new File([rotated.blob], currentAsset.file.name, {
+        type: mimeType,
+        lastModified: Date.now(),
+      });
+      const nextPreviewUrl = URL.createObjectURL(rotated.blob);
+      const rotatedAsset: ResizerAsset = {
+        ...currentAsset,
+        file: rotatedFile,
+        previewUrl: nextPreviewUrl,
+        width: rotated.width,
+        height: rotated.height,
+      };
+      setAssets((prev) =>
+        prev.map((asset) => (asset.id === currentAsset.id ? rotatedAsset : asset)),
+      );
+      const nextTargetAspectRatio = getAspectRatioFromPreset(
+        aspectPreset,
+        rotatedAsset,
+        customAspectW,
+        customAspectH,
+      );
+      const nextNormalizedAspectRatio = getNormalizedAspectRatio(
+        nextTargetAspectRatio,
+        getImageAspectRatio(rotatedAsset),
+      );
+      setCropRect(buildDefaultRect(nextNormalizedAspectRatio));
+      URL.revokeObjectURL(currentAsset.previewUrl);
+    } catch {
+      // keep state unchanged on rotate failure
+    } finally {
+      setIsWorking(false);
+    }
   };
 
   const cropStyle: CSSProperties = {
@@ -668,13 +741,13 @@ export const CreativeResizer = () => {
           </div>
           <p>
             {currentAsset
-              ? `Image ${currentIndex + 1} / ${assets.length}: ${currentAsset.file.name}`
+              ? 'Pick ratio, adjust crop frame, then resize current image.'
               : 'Upload ZIPs or files to start cropping.'}
           </p>
         </header>
 
-        <div className={`resizer-preview-toolbar${aspectPreset === 'custom' ? ' is-custom' : ''}`}>
-          <div className="number-field number-field-mode">
+        <div className="resizer-controls-row">
+          <div className="number-field number-field-mode resizer-aspect-field">
             <label className="number-field-label">Aspect ratio</label>
             <div className="number-field-input-wrapper">
               <select
@@ -707,7 +780,7 @@ export const CreativeResizer = () => {
             </div>
           </div>
           {aspectPreset === 'custom' ? (
-            <div className="number-field number-field-mode">
+            <div className="number-field number-field-mode resizer-custom-field">
               <label className="number-field-label">Custom W:H</label>
               <div className="resizer-ratio-inputs">
                 <div className="number-field-input-wrapper">
@@ -729,44 +802,106 @@ export const CreativeResizer = () => {
               </div>
             </div>
           ) : null}
-          <div className="number-field number-field-mode resizer-actions-field">
-            <label className="number-field-label">Actions</label>
-            <div className="resizer-toolbar-actions">
-              <button
-                type="button"
-                className="resizer-toolbar-button"
-                onClick={handleUndo}
-                disabled={!history.length || isWorking}
-              >
-                Undo
-              </button>
-              <button
-                type="button"
-                className="resizer-toolbar-button"
-                onClick={() => {
-                  void applyResize(false);
-                }}
-                disabled={!currentAsset || isWorking}
-              >
-                Resize same image
-              </button>
-              <button
-                type="button"
-                className="resizer-toolbar-button resizer-toolbar-button-primary"
-                onClick={() => {
-                  void applyResize(true);
-                }}
-                disabled={!currentAsset || isWorking}
-              >
-                {assets.length <= 1 ? 'Resize image' : 'Next image'}
-              </button>
+
+        </div>
+
+        <div className="number-field number-field-mode resizer-actions-field">
+          <div className="resizer-deck-row">
+            <button
+              type="button"
+              className="resizer-nav-button"
+              onClick={() => handleStepAsset(-1)}
+              disabled={!currentAsset || currentIndex === 0 || isWorking}
+              aria-label="Previous image"
+            >
+              &lsaquo;
+            </button>
+            <div className="resizer-deck" role="listbox" aria-label="Loaded images">
+              {assets.length ? (
+                <div
+                  className="resizer-deck-track"
+                  style={{ '--deck-offset': `${deckOffset}px` } as CSSProperties}
+                >
+                  {assets.map((asset, index) => {
+                    const distance = index - currentIndex;
+                    const depth = Math.min(Math.abs(distance), 9);
+                    const deckStyle = {
+                      '--deck-y': `${depth * 2}px`,
+                      '--deck-opacity': `${Math.max(0.4, 1 - depth * 0.11)}`,
+                      '--deck-z': String(140 - depth),
+                    } as CSSProperties;
+                    return (
+                      <button
+                        key={asset.id}
+                        type="button"
+                        className={`resizer-deck-item${index === currentIndex ? ' is-active' : ''}`}
+                        onClick={() => setCurrentIndex(index)}
+                        role="option"
+                        aria-label={`Image ${index + 1}`}
+                        aria-selected={index === currentIndex}
+                        style={deckStyle}
+                      >
+                        <img src={asset.previewUrl} alt={asset.file.name} />
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="resizer-deck-empty">No images in deck.</div>
+              )}
             </div>
+            <button
+              type="button"
+              className="resizer-nav-button"
+              onClick={() => handleStepAsset(1)}
+              disabled={!currentAsset || currentIndex >= assets.length - 1 || isWorking}
+              aria-label="Next image"
+            >
+              &rsaquo;
+            </button>
+          </div>
+          <div className="resizer-action-row">
+            <button
+              type="button"
+              className="resizer-nav-button resizer-rotate-button"
+              onClick={() => {
+                void handleRotateCurrentAsset(-90);
+              }}
+              disabled={!currentAsset || isWorking}
+              aria-label="Rotate left"
+            >
+              ↺
+            </button>
+            <button
+              type="button"
+              className="resizer-toolbar-button resizer-toolbar-button-primary resizer-resize-button"
+              onClick={() => {
+                void applyResize();
+              }}
+              disabled={!currentAsset || isWorking}
+            >
+              Resize image
+            </button>
+            <button
+              type="button"
+              className="resizer-nav-button resizer-rotate-button"
+              onClick={() => {
+                void handleRotateCurrentAsset(90);
+              }}
+              disabled={!currentAsset || isWorking}
+              aria-label="Rotate right"
+            >
+              ↻
+            </button>
           </div>
         </div>
 
         <div className="resizer-stage">
           {currentAsset ? (
             <div className="resizer-image-wrap" ref={imageWrapRef}>
+              <div className="resizer-stage-meta">
+                {`Image ${currentIndex + 1} / ${assets.length}: ${currentAsset.file.name}`}
+              </div>
               <img src={currentAsset.previewUrl} alt={currentAsset.file.name} className="resizer-image" />
               <div className="resizer-overlay">
                 <div
