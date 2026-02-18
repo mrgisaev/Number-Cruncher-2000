@@ -867,6 +867,7 @@ function App() {
                       <h2>Input data</h2>
                       <button
                         type="button"
+                        className="clear-action-button"
                         onClick={() => setRawInput('')}
                         disabled={rawInput.trim().length === 0}
                       >

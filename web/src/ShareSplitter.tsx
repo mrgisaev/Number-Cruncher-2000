@@ -950,6 +950,7 @@ export const ShareSplitter = () => {
             <h2>Input data</h2>
             <button
               type="button"
+              className="clear-action-button"
               onClick={() => setRows(createInitialRows())}
               disabled={!rows.length}
             >

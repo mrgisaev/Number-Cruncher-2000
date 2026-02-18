@@ -527,7 +527,7 @@ export const UtmGenerator = () => {
         <header className="card-header split-grid-header-row">
           <div className="card-header-top">
             <h2>Input data</h2>
-            <button type="button" onClick={handleClearTree}>
+            <button type="button" className="clear-action-button" onClick={handleClearTree}>
               Clear field
             </button>
           </div>

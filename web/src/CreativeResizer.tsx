@@ -897,6 +897,7 @@ export const CreativeResizer = () => {
             </button>
             <button
               type="button"
+              className="clear-action-button"
               onClick={handleClearAssets}
               disabled={!assets.length}
             >
@@ -1133,7 +1134,7 @@ export const CreativeResizer = () => {
             <div className="split-result-actions">
               <button
                 type="button"
-                className="resizer-clear-result-button"
+                className="resizer-clear-result-button clear-action-button"
                 onClick={handleClearResults}
                 disabled={!readyItems.length || isWorking}
               >
