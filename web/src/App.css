@@ -1468,6 +1468,12 @@ body::after {
 }
 
 .resizer-deck-empty {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   color: rgba(63, 75, 85, 0.7);
   font-size: 0.92rem;
 }
