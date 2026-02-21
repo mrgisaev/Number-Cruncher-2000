@@ -1094,6 +1094,7 @@ export const CreativeResizer = () => {
                         style={deckStyle}
                       >
                         <img src={asset.previewUrl} alt={asset.file.name} />
+                        <span className="resizer-deck-item-size">{`${asset.width}x${asset.height}`}</span>
                       </button>
                     );
                   })}
