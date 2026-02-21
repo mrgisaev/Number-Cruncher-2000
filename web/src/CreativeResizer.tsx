@@ -1,4 +1,4 @@
-import {
+﻿import {
   type ClipboardEvent as ReactClipboardEvent,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
@@ -105,6 +105,17 @@ const imageMimeByExtension: Record<string, string> = {
   avif: 'image/avif',
 };
 
+const imageExtensionByMime: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+  'image/bmp': 'bmp',
+  'image/tiff': 'tif',
+  'image/svg+xml': 'svg',
+  'image/avif': 'avif',
+};
+
 const createId = () => Math.random().toString(36).slice(2, 10);
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
@@ -131,6 +142,20 @@ const isTextEntryTarget = (target: EventTarget | null) =>
     || target.tagName === 'TEXTAREA'
     || target.tagName === 'SELECT');
 
+const quantizePngData = (data: Uint8ClampedArray, quality: number) => {
+  const clamped = clamp(quality, 0.02, 1);
+  if (clamped >= 0.999) {
+    return;
+  }
+  const levels = Math.max(8, Math.round(8 + clamped * 248));
+  const step = Math.max(1, Math.round(256 / levels));
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = Math.round(data[i] / step) * step;
+    data[i + 1] = Math.round(data[i + 1] / step) * step;
+    data[i + 2] = Math.round(data[i + 2] / step) * step;
+  }
+};
+
 const parsePositiveInt = (value: string) => {
   const parsed = Number.parseInt(value.trim(), 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
@@ -138,10 +163,10 @@ const parsePositiveInt = (value: string) => {
 
 const parseAspectPair = (value: string): { width: string; height: string } | null => {
   const normalized = value
-    .replace(/[хХ×]/g, 'x')
+    .replace(/[С…РҐГ—]/g, 'x')
     .replace(/\u00A0/g, ' ')
     .trim();
-  const match = normalized.match(/(\d+)\s*(?:x|[:;,/\\|*_\-–—]|\s)\s*(\d+)/i);
+  const match = normalized.match(/(\d+)\s*(?:x|[:;,/\\|*_\-вЂ“вЂ”]|\s)\s*(\d+)/i);
   if (!match) {
     return null;
   }
@@ -268,6 +293,7 @@ const cropImageBlob = async (
   outputSize: OutputSize | null = null,
   quality = 0.92,
   maxBytes: number | null = null,
+  targetBytes: number | null = null,
 ) => {
   const image = new Image();
   await new Promise<void>((resolve, reject) => {
@@ -291,13 +317,22 @@ const cropImageBlob = async (
   }
   ctx.drawImage(image, sourceX, sourceY, sourceW, sourceH, 0, 0, outputW, outputH);
 
-  const mimeType = asset.file.type === 'image/jpeg'
-    || asset.file.type === 'image/webp'
-    || asset.file.type === 'image/png'
-    ? asset.file.type
+  const sourceMime = asset.file.type.toLowerCase();
+  const mimeType = sourceMime === 'image/jpeg'
+    || sourceMime === 'image/webp'
+    || sourceMime === 'image/png'
+    ? sourceMime
     : 'image/png';
+  const isLossyMime = mimeType === 'image/jpeg' || mimeType === 'image/webp';
+  const isPngMime = mimeType === 'image/png';
+  const sourcePixels = isPngMime ? ctx.getImageData(0, 0, outputW, outputH) : null;
   const encodeCanvas = (encodeQuality: number) =>
     new Promise<Blob>((resolve, reject) => {
+      if (isPngMime && sourcePixels) {
+        const copied = new Uint8ClampedArray(sourcePixels.data);
+        quantizePngData(copied, encodeQuality);
+        ctx.putImageData(new ImageData(copied, outputW, outputH), 0, 0);
+      }
       canvas.toBlob(
         (result) => {
           if (!result) {
@@ -307,34 +342,66 @@ const cropImageBlob = async (
           resolve(result);
         },
         mimeType,
-        mimeType === 'image/jpeg' || mimeType === 'image/webp'
-          ? clamp(encodeQuality, 0.1, 1)
+        isLossyMime
+          ? clamp(encodeQuality, 0.02, 1)
           : undefined,
       );
     });
 
   let blob = await encodeCanvas(quality);
-  if (maxBytes && maxBytes > 0 && blob.size > maxBytes && (mimeType === 'image/jpeg' || mimeType === 'image/webp')) {
-    let low = 0.1;
-    let high = clamp(quality, 0.1, 1);
-    let bestUnderLimit: Blob | null = null;
-    let smallest = blob;
+  if (isLossyMime) {
+    const hardLimit = maxBytes && maxBytes > 0 ? Math.floor(maxBytes) : null;
+    const requestedTarget = targetBytes && targetBytes > 0 ? Math.floor(targetBytes) : null;
+    const normalizedTarget = requestedTarget
+      ? Math.max(1, hardLimit ? Math.min(requestedTarget, hardLimit) : requestedTarget)
+      : hardLimit;
 
-    for (let iteration = 0; iteration < 8; iteration += 1) {
+    if (normalizedTarget) {
+      let low = 0.02;
+      let high = 1;
+      let bestUnderTarget: Blob | null = null;
+      let bestOverTarget: Blob | null = null;
+      let smallest = blob;
+
+      for (let iteration = 0; iteration < 9; iteration += 1) {
+        const probe = (low + high) / 2;
+        const candidate = await encodeCanvas(probe);
+        if (candidate.size < smallest.size) {
+          smallest = candidate;
+        }
+        if (candidate.size <= normalizedTarget) {
+          bestUnderTarget = candidate;
+          low = probe;
+        } else {
+          bestOverTarget = candidate;
+          high = probe;
+        }
+      }
+
+      blob = bestUnderTarget ?? bestOverTarget ?? smallest;
+      if (hardLimit && blob.size > hardLimit && smallest.size < blob.size) {
+        blob = smallest;
+      }
+    }
+  } else if (isPngMime && targetBytes && targetBytes > 0) {
+    const hardLimit = maxBytes && maxBytes > 0 ? Math.floor(maxBytes) : null;
+    const normalizedTarget = Math.max(1, hardLimit ? Math.min(Math.floor(targetBytes), hardLimit) : Math.floor(targetBytes));
+    let low = 0.02;
+    let high = clamp(quality, 0.02, 1);
+    let bestUnderTarget: Blob | null = blob.size <= normalizedTarget ? blob : null;
+    let bestOverTarget: Blob | null = blob.size > normalizedTarget ? blob : null;
+    for (let iteration = 0; iteration < 5; iteration += 1) {
       const probe = (low + high) / 2;
       const candidate = await encodeCanvas(probe);
-      if (candidate.size < smallest.size) {
-        smallest = candidate;
-      }
-      if (candidate.size <= maxBytes) {
-        bestUnderLimit = candidate;
+      if (candidate.size <= normalizedTarget) {
+        bestUnderTarget = candidate;
         low = probe;
       } else {
+        bestOverTarget = candidate;
         high = probe;
       }
     }
-
-    blob = bestUnderLimit ?? smallest;
+    blob = bestUnderTarget ?? bestOverTarget ?? blob;
   }
 
   return {
@@ -461,9 +528,9 @@ export const CreativeResizer = () => {
   const [isSendingToRenamer, setIsSendingToRenamer] = useState(false);
   const [sendError, setSendError] = useState('');
   const [zoomPercent, setZoomPercent] = useState(100);
-  const [qualityPercent, setQualityPercent] = useState(92);
+  const [qualityPercent, setQualityPercent] = useState(100);
   const [qualityPreviewUrl, setQualityPreviewUrl] = useState<string | null>(null);
-  const [qualityEstimatedSize, setQualityEstimatedSize] = useState('—');
+  const [qualityEstimatedSize, setQualityEstimatedSize] = useState('вЂ”');
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [hoverPreview, setHoverPreview] = useState<{ url: string; x: number; y: number } | null>(null);
@@ -525,6 +592,12 @@ export const CreativeResizer = () => {
     const areaRatio = clamp(cropRect.width * cropRect.height, 0.0001, 1);
     return Math.max(1, Math.floor(currentAsset.file.size * areaRatio));
   }, [currentAsset, cropRect.width, cropRect.height]);
+  const targetOutputBytes = useMemo<number | null>(() => {
+    if (!maxOutputBytes) {
+      return null;
+    }
+    return Math.max(1, Math.floor(maxOutputBytes * (qualityPercent / 100)));
+  }, [maxOutputBytes, qualityPercent]);
 
   const clampPanOffset = (x: number, y: number, scale = zoomScale) => {
     const wrap = imageWrapRef.current;
@@ -582,7 +655,7 @@ export const CreativeResizer = () => {
   useEffect(() => {
     qualityPreviewTaskRef.current += 1;
     if (!currentAsset) {
-      setQualityEstimatedSize('—');
+      setQualityEstimatedSize('-');
       setQualityPreviewUrl((prev) => {
         if (prev) {
           URL.revokeObjectURL(prev);
@@ -591,7 +664,18 @@ export const CreativeResizer = () => {
       });
       return undefined;
     }
-
+    setQualityEstimatedSize(
+      targetOutputBytes && targetOutputBytes > 0 ? formatSize(targetOutputBytes) : '-',
+    );
+    if (qualityPercent >= 100) {
+      setQualityPreviewUrl((prev) => {
+        if (prev) {
+          URL.revokeObjectURL(prev);
+        }
+        return null;
+      });
+      return undefined;
+    }
     const taskId = qualityPreviewTaskRef.current;
     const timer = window.setTimeout(() => {
       void (async () => {
@@ -601,19 +685,12 @@ export const CreativeResizer = () => {
             { x: 0, y: 0, width: 1, height: 1 },
             null,
             qualityValue,
-            currentAsset.file.size,
-          );
-          const outputPreview = await cropImageBlob(
-            currentAsset,
-            cropRect,
-            customOutputSize,
-            qualityValue,
-            maxOutputBytes,
+            null,
+            null,
           );
           if (qualityPreviewTaskRef.current !== taskId) {
             return;
           }
-          setQualityEstimatedSize(formatSize(outputPreview.blob.size));
           const nextUrl = URL.createObjectURL(stagePreview.blob);
           setQualityPreviewUrl((prev) => {
             if (prev) {
@@ -625,7 +702,6 @@ export const CreativeResizer = () => {
           if (qualityPreviewTaskRef.current !== taskId) {
             return;
           }
-          setQualityEstimatedSize('—');
           setQualityPreviewUrl((prev) => {
             if (prev) {
               URL.revokeObjectURL(prev);
@@ -634,12 +710,11 @@ export const CreativeResizer = () => {
           });
         }
       })();
-    }, 130);
-
+    }, 140);
     return () => {
       window.clearTimeout(timer);
     };
-  }, [currentAsset, cropRect, customOutputSize, qualityValue]);
+  }, [currentAsset, qualityValue, qualityPercent, targetOutputBytes]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -925,9 +1000,11 @@ export const CreativeResizer = () => {
         customOutputSize,
         qualityValue,
         maxOutputBytes,
+        targetOutputBytes,
       );
       const nextCount = currentAsset.cropCount + 1;
-      const name = `${currentAsset.nameBase}-crop-${String(nextCount).padStart(2, '0')}.${currentAsset.extension}`;
+      const outputExtension = imageExtensionByMime[cropped.blob.type] ?? currentAsset.extension;
+      const name = `${currentAsset.nameBase}-crop-${String(nextCount).padStart(2, '0')}.${outputExtension}`;
       const previewUrl = URL.createObjectURL(cropped.blob);
       const readyId = `ready-${createId()}`;
 
@@ -1578,4 +1655,6 @@ export const CreativeResizer = () => {
     </section>
   );
 };
+
+
 
