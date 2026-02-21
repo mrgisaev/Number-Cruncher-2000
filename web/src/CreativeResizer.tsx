@@ -1,4 +1,5 @@
 import {
+  type ClipboardEvent as ReactClipboardEvent,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
   useEffect,
@@ -133,6 +134,26 @@ const isTextEntryTarget = (target: EventTarget | null) =>
 const parsePositiveInt = (value: string) => {
   const parsed = Number.parseInt(value.trim(), 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+
+const parseAspectPair = (value: string): { width: string; height: string } | null => {
+  const normalized = value
+    .replace(/[хХ×]/g, 'x')
+    .replace(/\u00A0/g, ' ')
+    .trim();
+  const match = normalized.match(/(\d+)\s*(?:x|[:;,/\\|*_\-–—]|\s)\s*(\d+)/i);
+  if (!match) {
+    return null;
+  }
+  const width = parsePositiveInt(match[1]);
+  const height = parsePositiveInt(match[2]);
+  if (!width || !height) {
+    return null;
+  }
+  return {
+    width: String(width),
+    height: String(height),
+  };
 };
 
 const getAspectRatioFromPreset = (
@@ -904,6 +925,35 @@ export const CreativeResizer = () => {
     setCropRect((prev) => fitRectToAspect(prev, nextNormalizedAspectRatio));
   };
 
+  const applyAspectPairIfPresent = (raw: string) => {
+    const pair = parseAspectPair(raw);
+    if (!pair) {
+      return false;
+    }
+    setCustomAspectW(pair.width);
+    setCustomAspectH(pair.height);
+    return true;
+  };
+
+  const handleCustomAspectValueChange = (value: string, field: 'w' | 'h') => {
+    if (applyAspectPairIfPresent(value)) {
+      return;
+    }
+    if (field === 'w') {
+      setCustomAspectW(value);
+      return;
+    }
+    setCustomAspectH(value);
+  };
+
+  const handleCustomAspectPaste = (event: ReactClipboardEvent<HTMLInputElement>) => {
+    const text = event.clipboardData.getData('text');
+    if (!applyAspectPairIfPresent(text)) {
+      return;
+    }
+    event.preventDefault();
+  };
+
   return (
     <section className="creative-resizer">
       <header className="controls-wrapper">
@@ -977,7 +1027,8 @@ export const CreativeResizer = () => {
                     <input
                       type="text"
                       value={customAspectW}
-                      onChange={(event) => setCustomAspectW(event.target.value)}
+                      onChange={(event) => handleCustomAspectValueChange(event.target.value, 'w')}
+                      onPaste={handleCustomAspectPaste}
                       placeholder="W"
                       disabled={aspectPreset !== 'custom'}
                     />
@@ -986,7 +1037,8 @@ export const CreativeResizer = () => {
                     <input
                       type="text"
                       value={customAspectH}
-                      onChange={(event) => setCustomAspectH(event.target.value)}
+                      onChange={(event) => handleCustomAspectValueChange(event.target.value, 'h')}
+                      onPaste={handleCustomAspectPaste}
                       placeholder="H"
                       disabled={aspectPreset !== 'custom'}
                     />
