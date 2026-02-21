@@ -1,5 +1,6 @@
 ﻿import {
   type ClipboardEvent as ReactClipboardEvent,
+  type DragEvent as ReactDragEvent,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
   useEffect,
@@ -310,6 +311,21 @@ const cropImageBlob = async (
   const sourceH = Math.max(1, Math.round(rect.height * asset.height));
   const outputW = outputSize?.width ?? sourceW;
   const outputH = outputSize?.height ?? sourceH;
+  const isFullImageCrop = sourceX <= 0
+    && sourceY <= 0
+    && sourceW >= asset.width
+    && sourceH >= asset.height;
+  const keepsOriginalDimensions = outputW === asset.width && outputH === asset.height;
+  const keepsOriginalQuality = quality >= 0.999;
+
+  if (isFullImageCrop && keepsOriginalDimensions && keepsOriginalQuality) {
+    return {
+      blob: asset.file,
+      width: asset.width,
+      height: asset.height,
+    };
+  }
+
   const canvas = document.createElement('canvas');
   canvas.width = outputW;
   canvas.height = outputH;
@@ -533,6 +549,7 @@ export const CreativeResizer = () => {
   const [qualityPercent, setQualityPercent] = useState(100);
   const [qualityPreviewUrl, setQualityPreviewUrl] = useState<string | null>(null);
   const [qualityEstimatedSize, setQualityEstimatedSize] = useState('вЂ”');
+  const [isDeckDropActive, setIsDeckDropActive] = useState(false);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [hoverPreview, setHoverPreview] = useState<{ url: string; x: number; y: number } | null>(null);
@@ -546,7 +563,9 @@ export const CreativeResizer = () => {
   const readyItemsRef = useRef<ReadyItem[]>([]);
   const copiedReadyTimerRef = useRef<number | null>(null);
   const qualityPreviewTaskRef = useRef(0);
+  const qualityEstimateTaskRef = useRef(0);
   const qualityPreviewUrlRef = useRef<string | null>(null);
+  const deckDragDepthRef = useRef(0);
 
   const currentAsset = assets[currentIndex] ?? null;
   const deckStep = 52;
@@ -673,9 +692,6 @@ export const CreativeResizer = () => {
       });
       return undefined;
     }
-    setQualityEstimatedSize(
-      targetOutputBytes && targetOutputBytes > 0 ? formatSize(targetOutputBytes) : '-',
-    );
     if (qualityPercent >= 100) {
       setQualityPreviewUrl((prev) => {
         if (prev) {
@@ -724,6 +740,53 @@ export const CreativeResizer = () => {
       window.clearTimeout(timer);
     };
   }, [currentAsset, qualityValue, qualityPercent, targetOutputBytes]);
+
+  useEffect(() => {
+    qualityEstimateTaskRef.current += 1;
+    if (!currentAsset) {
+      setQualityEstimatedSize('-');
+      return undefined;
+    }
+
+    const taskId = qualityEstimateTaskRef.current;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const estimated = await cropImageBlob(
+            currentAsset,
+            cropRect,
+            customOutputSize,
+            qualityValue,
+            maxOutputBytes,
+            targetOutputBytes,
+          );
+          if (qualityEstimateTaskRef.current !== taskId) {
+            return;
+          }
+          setQualityEstimatedSize(formatSize(estimated.blob.size));
+        } catch {
+          if (qualityEstimateTaskRef.current !== taskId) {
+            return;
+          }
+          setQualityEstimatedSize('-');
+        }
+      })();
+    }, 130);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [
+    currentAsset,
+    cropRect.x,
+    cropRect.y,
+    cropRect.width,
+    cropRect.height,
+    customOutputSize,
+    qualityValue,
+    maxOutputBytes,
+    targetOutputBytes,
+  ]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -951,6 +1014,51 @@ export const CreativeResizer = () => {
       return;
     }
     setAssets((prev) => [...prev, ...nextAssets]);
+  };
+
+  const isFileDragEvent = (event: ReactDragEvent) =>
+    Array.from(event.dataTransfer?.types ?? []).includes('Files');
+
+  const handleDeckDragEnter = (event: ReactDragEvent<HTMLDivElement>) => {
+    if (!isFileDragEvent(event)) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    deckDragDepthRef.current += 1;
+    setIsDeckDropActive(true);
+  };
+
+  const handleDeckDragOver = (event: ReactDragEvent<HTMLDivElement>) => {
+    if (!isFileDragEvent(event)) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleDeckDragLeave = (event: ReactDragEvent<HTMLDivElement>) => {
+    if (!isFileDragEvent(event)) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    deckDragDepthRef.current = Math.max(0, deckDragDepthRef.current - 1);
+    if (deckDragDepthRef.current === 0) {
+      setIsDeckDropActive(false);
+    }
+  };
+
+  const handleDeckDrop = (event: ReactDragEvent<HTMLDivElement>) => {
+    if (!isFileDragEvent(event)) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    deckDragDepthRef.current = 0;
+    setIsDeckDropActive(false);
+    void handleFilesAdded(event.dataTransfer.files);
   };
 
   const handleStartDrag = (event: ReactPointerEvent<HTMLElement>, mode: DragMode) => {
@@ -1282,7 +1390,7 @@ export const CreativeResizer = () => {
           <div className="controls-heading">
             <h1 className="controls-heading-title">Creative Resizer</h1>
             <p className="controls-subtitle">
-              Upload many images, crop them one by one, and export a ZIP of ready creatives. Pick ratio, adjust crop frame, then resize current image.
+              Upload many images, crop them one by one, and export a ZIP of ready creatives. Use Upload ZIPs or files or drag and drop files into the deck. Pick ratio, adjust crop frame, then resize current image.
             </p>
           </div>
           <div className="resizer-primary-actions">
@@ -1379,7 +1487,13 @@ export const CreativeResizer = () => {
         </div>
 
         <div className="number-field number-field-mode resizer-actions-field">
-          <div className="resizer-deck-row">
+          <div
+            className={`resizer-deck-row${isDeckDropActive ? ' is-drop-active' : ''}`}
+            onDragEnter={handleDeckDragEnter}
+            onDragOver={handleDeckDragOver}
+            onDragLeave={handleDeckDragLeave}
+            onDrop={handleDeckDrop}
+          >
             <button
               type="button"
               className="resizer-nav-button"
@@ -1433,6 +1547,11 @@ export const CreativeResizer = () => {
             >
               &rsaquo;
             </button>
+            {isDeckDropActive ? (
+              <div className="resizer-deck-dropzone" aria-hidden="true">
+                <span>Drop ZIPs or image files here</span>
+              </div>
+            ) : null}
           </div>
                     <div className="resizer-action-row">
             <button
