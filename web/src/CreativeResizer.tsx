@@ -262,7 +262,13 @@ const loadImageMeta = (file: File) =>
     img.src = url;
   });
 
-const cropImageBlob = async (asset: ResizerAsset, rect: CropRect, outputSize: OutputSize | null = null) => {
+const cropImageBlob = async (
+  asset: ResizerAsset,
+  rect: CropRect,
+  outputSize: OutputSize | null = null,
+  quality = 0.92,
+  maxBytes: number | null = null,
+) => {
   const image = new Image();
   await new Promise<void>((resolve, reject) => {
     image.onload = () => resolve();
@@ -285,22 +291,52 @@ const cropImageBlob = async (asset: ResizerAsset, rect: CropRect, outputSize: Ou
   }
   ctx.drawImage(image, sourceX, sourceY, sourceW, sourceH, 0, 0, outputW, outputH);
 
-  const mimeType = asset.file.type && asset.file.type.startsWith('image/')
+  const mimeType = asset.file.type === 'image/jpeg'
+    || asset.file.type === 'image/webp'
+    || asset.file.type === 'image/png'
     ? asset.file.type
     : 'image/png';
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (result) => {
-        if (!result) {
-          reject(new Error('Crop failed.'));
-          return;
-        }
-        resolve(result);
-      },
-      mimeType,
-      mimeType === 'image/jpeg' || mimeType === 'image/webp' ? 0.92 : undefined,
-    );
-  });
+  const encodeCanvas = (encodeQuality: number) =>
+    new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (result) => {
+          if (!result) {
+            reject(new Error('Crop failed.'));
+            return;
+          }
+          resolve(result);
+        },
+        mimeType,
+        mimeType === 'image/jpeg' || mimeType === 'image/webp'
+          ? clamp(encodeQuality, 0.1, 1)
+          : undefined,
+      );
+    });
+
+  let blob = await encodeCanvas(quality);
+  if (maxBytes && maxBytes > 0 && blob.size > maxBytes && (mimeType === 'image/jpeg' || mimeType === 'image/webp')) {
+    let low = 0.1;
+    let high = clamp(quality, 0.1, 1);
+    let bestUnderLimit: Blob | null = null;
+    let smallest = blob;
+
+    for (let iteration = 0; iteration < 8; iteration += 1) {
+      const probe = (low + high) / 2;
+      const candidate = await encodeCanvas(probe);
+      if (candidate.size < smallest.size) {
+        smallest = candidate;
+      }
+      if (candidate.size <= maxBytes) {
+        bestUnderLimit = candidate;
+        low = probe;
+      } else {
+        high = probe;
+      }
+    }
+
+    blob = bestUnderLimit ?? smallest;
+  }
+
   return {
     blob,
     width: outputW,
@@ -399,6 +435,19 @@ const convertBlobToPng = async (blob: Blob) => {
   }
 };
 
+const formatSize = (bytes: number) => {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return '0 B';
+  }
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+};
+
 export const CreativeResizer = () => {
   const [assets, setAssets] = useState<ResizerAsset[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -412,6 +461,9 @@ export const CreativeResizer = () => {
   const [isSendingToRenamer, setIsSendingToRenamer] = useState(false);
   const [sendError, setSendError] = useState('');
   const [zoomPercent, setZoomPercent] = useState(100);
+  const [qualityPercent, setQualityPercent] = useState(92);
+  const [qualityPreviewUrl, setQualityPreviewUrl] = useState<string | null>(null);
+  const [qualityEstimatedSize, setQualityEstimatedSize] = useState('—');
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [hoverPreview, setHoverPreview] = useState<{ url: string; x: number; y: number } | null>(null);
@@ -424,6 +476,8 @@ export const CreativeResizer = () => {
   const assetsRef = useRef<ResizerAsset[]>([]);
   const readyItemsRef = useRef<ReadyItem[]>([]);
   const copiedReadyTimerRef = useRef<number | null>(null);
+  const qualityPreviewTaskRef = useRef(0);
+  const qualityPreviewUrlRef = useRef<string | null>(null);
 
   const currentAsset = assets[currentIndex] ?? null;
   const deckStep = 52;
@@ -431,6 +485,7 @@ export const CreativeResizer = () => {
     ? (((assets.length - 1) / 2) - currentIndex) * deckStep
     : 0;
   const zoomScale = zoomPercent / 100;
+  const qualityValue = clamp(qualityPercent / 100, 0.1, 1);
   const hasGifAsset = useMemo(
     () => assets.some((asset) => asset.extension === 'gif' || asset.file.type === 'image/gif'),
     [assets],
@@ -463,6 +518,14 @@ export const CreativeResizer = () => {
     return { width, height };
   }, [useCustomOutputSize, aspectPreset, customAspectW, customAspectH]);
 
+  const maxOutputBytes = useMemo<number | null>(() => {
+    if (!currentAsset) {
+      return null;
+    }
+    const areaRatio = clamp(cropRect.width * cropRect.height, 0.0001, 1);
+    return Math.max(1, Math.floor(currentAsset.file.size * areaRatio));
+  }, [currentAsset, cropRect.width, cropRect.height]);
+
   const clampPanOffset = (x: number, y: number, scale = zoomScale) => {
     const wrap = imageWrapRef.current;
     if (!wrap || scale <= 1) {
@@ -494,9 +557,17 @@ export const CreativeResizer = () => {
   }, [readyItems]);
 
   useEffect(() => {
+    qualityPreviewUrlRef.current = qualityPreviewUrl;
+  }, [qualityPreviewUrl]);
+
+  useEffect(() => {
     return () => {
       assetsRef.current.forEach((asset) => URL.revokeObjectURL(asset.previewUrl));
       readyItemsRef.current.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+      if (qualityPreviewUrlRef.current) {
+        URL.revokeObjectURL(qualityPreviewUrlRef.current);
+        qualityPreviewUrlRef.current = null;
+      }
       if (copiedReadyTimerRef.current) {
         window.clearTimeout(copiedReadyTimerRef.current);
         copiedReadyTimerRef.current = null;
@@ -507,6 +578,61 @@ export const CreativeResizer = () => {
   useEffect(() => {
     setPanOffset((prev) => clampPanOffset(prev.x, prev.y, zoomScale));
   }, [zoomScale, currentAsset?.id]);
+
+  useEffect(() => {
+    qualityPreviewTaskRef.current += 1;
+    if (!currentAsset) {
+      setQualityEstimatedSize('—');
+      setQualityPreviewUrl((prev) => {
+        if (prev) {
+          URL.revokeObjectURL(prev);
+        }
+        return null;
+      });
+      return undefined;
+    }
+
+    const taskId = qualityPreviewTaskRef.current;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const preview = await cropImageBlob(
+            currentAsset,
+            cropRect,
+            customOutputSize,
+            qualityValue,
+            maxOutputBytes,
+          );
+          if (qualityPreviewTaskRef.current !== taskId) {
+            return;
+          }
+          setQualityEstimatedSize(formatSize(preview.blob.size));
+          const nextUrl = URL.createObjectURL(preview.blob);
+          setQualityPreviewUrl((prev) => {
+            if (prev) {
+              URL.revokeObjectURL(prev);
+            }
+            return nextUrl;
+          });
+        } catch {
+          if (qualityPreviewTaskRef.current !== taskId) {
+            return;
+          }
+          setQualityEstimatedSize('—');
+          setQualityPreviewUrl((prev) => {
+            if (prev) {
+              URL.revokeObjectURL(prev);
+            }
+            return null;
+          });
+        }
+      })();
+    }, 130);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [currentAsset, cropRect, customOutputSize, qualityValue]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -786,7 +912,13 @@ export const CreativeResizer = () => {
     }
     setIsWorking(true);
     try {
-      const cropped = await cropImageBlob(currentAsset, cropRect, customOutputSize);
+      const cropped = await cropImageBlob(
+        currentAsset,
+        cropRect,
+        customOutputSize,
+        qualityValue,
+        maxOutputBytes,
+      );
       const nextCount = currentAsset.cropCount + 1;
       const name = `${currentAsset.nameBase}-crop-${String(nextCount).padStart(2, '0')}.${currentAsset.extension}`;
       const previewUrl = URL.createObjectURL(cropped.blob);
@@ -1276,6 +1408,21 @@ export const CreativeResizer = () => {
               100%
             </button>
           </div>
+          <div className="resizer-stage-quality" aria-label="Compression controls">
+            <span className="resizer-stage-zoom-label">Weight</span>
+            <input
+              type="range"
+              className="resizer-quality-slider"
+              min={10}
+              max={100}
+              step={1}
+              value={qualityPercent}
+              onChange={(event) => setQualityPercent(clamp(Number(event.target.value), 10, 100))}
+              disabled={!currentAsset || isWorking}
+              aria-label="Compression quality"
+            />
+            <span className="resizer-stage-size">{qualityEstimatedSize}</span>
+          </div>
         </div>
 
         <div
@@ -1303,6 +1450,12 @@ export const CreativeResizer = () => {
           ) : (
             <div className="resizer-empty">No image loaded.</div>
           )}
+          {qualityPreviewUrl ? (
+            <div className="resizer-quality-preview" aria-hidden="true">
+              <img src={qualityPreviewUrl} alt="" />
+              <span>{`Weight ${qualityPercent}%`}</span>
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -1352,6 +1505,7 @@ export const CreativeResizer = () => {
                   <span className="resizer-ready-name">{item.name}</span>
                   <div className="resizer-ready-meta">
                     <span className="resizer-ready-size">{`${item.width}x${item.height}`}</span>
+                    <span className="resizer-ready-weight">{formatSize(item.blob.size)}</span>
                     <button
                       type="button"
                       className="resizer-ready-icon-button"
