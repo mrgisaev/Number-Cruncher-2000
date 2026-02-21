@@ -1590,12 +1590,23 @@ body::after {
 .resizer-rotate-button {
   width: 43px;
   min-width: 43px;
-  font-size: 1.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
+  color: rgba(52, 80, 82, 0.78);
 }
 
 .resizer-rotate-button:hover:not(:disabled) {
   background: transparent;
+  color: rgba(35, 55, 60, 0.95);
+}
+
+.resizer-rotate-button svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  fill: currentColor;
 }
 
 .resizer-stage {
@@ -1877,7 +1888,10 @@ body::after {
   gap: 10px;
 }
 
-.resizer-ready-download {
+.resizer-ready-icon-button {
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
   border: none;
   background: transparent;
   color: rgba(52, 80, 82, 0.74);
@@ -1886,12 +1900,37 @@ body::after {
   line-height: 1;
   padding: 0;
   cursor: pointer;
-  text-transform: lowercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.resizer-ready-download:hover:not(:disabled) {
+.resizer-ready-icon-button svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+  display: block;
+}
+
+.resizer-ready-icon-button:hover:not(:disabled) {
   color: rgba(52, 80, 82, 0.95);
-  text-decoration: underline;
+}
+
+.resizer-ready-icon-button.is-copied {
+  color: #159a6e;
+  animation: resizer-copy-pop 0.32s ease;
+}
+
+@keyframes resizer-copy-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .resizer-ready-remove {

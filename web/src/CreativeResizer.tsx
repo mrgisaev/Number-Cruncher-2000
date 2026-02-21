@@ -357,6 +357,48 @@ const rotateImageBlob = async (sourceUrl: string, mimeType: string, direction: -
   };
 };
 
+const convertBlobToPng = async (blob: Blob) => {
+  if (blob.type === 'image/png') {
+    return blob;
+  }
+
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const image = new Image();
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error('Image load failed.'));
+      image.src = objectUrl;
+    });
+
+    const width = image.naturalWidth || image.width;
+    const height = image.naturalHeight || image.height;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      throw new Error('Canvas not supported.');
+    }
+    context.drawImage(image, 0, 0, width, height);
+
+    const pngBlob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((result) => {
+        if (!result) {
+          reject(new Error('PNG conversion failed.'));
+          return;
+        }
+        resolve(result);
+      }, 'image/png');
+    });
+
+    return pngBlob;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+};
+
 export const CreativeResizer = () => {
   const [assets, setAssets] = useState<ResizerAsset[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -373,6 +415,7 @@ export const CreativeResizer = () => {
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [hoverPreview, setHoverPreview] = useState<{ url: string; x: number; y: number } | null>(null);
+  const [copiedReadyItemId, setCopiedReadyItemId] = useState<string | null>(null);
   const imageWrapRef = useRef<HTMLDivElement | null>(null);
   const zoomLayerRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -380,6 +423,7 @@ export const CreativeResizer = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const assetsRef = useRef<ResizerAsset[]>([]);
   const readyItemsRef = useRef<ReadyItem[]>([]);
+  const copiedReadyTimerRef = useRef<number | null>(null);
 
   const currentAsset = assets[currentIndex] ?? null;
   const deckStep = 52;
@@ -453,6 +497,10 @@ export const CreativeResizer = () => {
     return () => {
       assetsRef.current.forEach((asset) => URL.revokeObjectURL(asset.previewUrl));
       readyItemsRef.current.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+      if (copiedReadyTimerRef.current) {
+        window.clearTimeout(copiedReadyTimerRef.current);
+        copiedReadyTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -831,6 +879,59 @@ export const CreativeResizer = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleSendReadyItemToDeck = (item: ReadyItem) => {
+    const extension = getExtension(item.name) || 'png';
+    const mimeType = item.blob.type || imageMimeByExtension[extension] || 'image/png';
+    const file = new File([item.blob], item.name, {
+      type: mimeType,
+      lastModified: Date.now(),
+    });
+    const previewUrl = URL.createObjectURL(item.blob);
+    const nextAsset: ResizerAsset = {
+      id: `asset-${createId()}`,
+      file,
+      nameBase: getBaseName(item.name),
+      extension,
+      previewUrl,
+      width: item.width,
+      height: item.height,
+      cropCount: 0,
+    };
+    const nextIndex = assets.length;
+    setAssets((prev) => [...prev, nextAsset]);
+    setCurrentIndex(nextIndex);
+    setAspectPreset('original');
+    setCropRect(buildDefaultRect(getImageAspectRatio(nextAsset)));
+    setZoomPercent(100);
+    setPanOffset({ x: 0, y: 0 });
+  };
+
+  const handleCopyReadyItem = async (item: ReadyItem) => {
+    try {
+      if (!('clipboard' in navigator) || typeof ClipboardItem === 'undefined') {
+        return;
+      }
+      if (!item.blob.type.startsWith('image/')) {
+        return;
+      }
+      const pngBlob = await convertBlobToPng(item.blob);
+      const clipboardItem = new ClipboardItem({
+        'image/png': pngBlob,
+      });
+      await navigator.clipboard.write([clipboardItem]);
+      if (copiedReadyTimerRef.current) {
+        window.clearTimeout(copiedReadyTimerRef.current);
+      }
+      setCopiedReadyItemId(item.id);
+      copiedReadyTimerRef.current = window.setTimeout(() => {
+        setCopiedReadyItemId(null);
+        copiedReadyTimerRef.current = null;
+      }, 950);
+    } catch {
+      // keep silent on clipboard permission or support errors
+    }
+  };
+
   const handleRemoveReadyItem = (id: string) => {
     setReadyItems((prev) => {
       const target = prev.find((item) => item.id === id);
@@ -1108,7 +1209,7 @@ export const CreativeResizer = () => {
               &rsaquo;
             </button>
           </div>
-          <div className="resizer-action-row">
+                    <div className="resizer-action-row">
             <button
               type="button"
               className="resizer-nav-button resizer-rotate-button"
@@ -1118,7 +1219,9 @@ export const CreativeResizer = () => {
               disabled={!currentAsset || isWorking}
               aria-label="Rotate left"
             >
-              ↺
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 5V2L8 6l4 4V7c2.76 0 5 2.24 5 5 0 1.38-.56 2.63-1.46 3.54l1.42 1.42A6.98 6.98 0 0 0 19 12c0-3.87-3.13-7-7-7z" />
+              </svg>
             </button>
             <button
               type="button"
@@ -1139,7 +1242,9 @@ export const CreativeResizer = () => {
               disabled={!currentAsset || isWorking}
               aria-label="Rotate right"
             >
-              ↻
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 5c-3.87 0-7 3.13-7 7 0 1.93.78 3.68 2.05 4.95l1.42-1.42A4.98 4.98 0 0 1 7 12c0-2.76 2.24-5 5-5v3l4-4-4-4v3z" />
+              </svg>
             </button>
           </div>
         </div>
@@ -1249,11 +1354,44 @@ export const CreativeResizer = () => {
                     <span className="resizer-ready-size">{`${item.width}x${item.height}`}</span>
                     <button
                       type="button"
-                      className="resizer-ready-download"
+                      className="resizer-ready-icon-button"
                       aria-label="Download resized image"
                       onClick={() => handleDownloadReadyItem(item)}
+                      title="Download"
                     >
-                      download
+                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M5 20h14v-2H5v2zM11 2h2v10.17l3.59-3.58L18 10l-6 6-6-6 1.41-1.41L11 12.17V2z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      className="resizer-ready-icon-button"
+                      aria-label="Send resized image back to deck"
+                      onClick={() => handleSendReadyItemToDeck(item)}
+                      title="Send to deck"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M12 5V1L6 7l6 6V9c3.31 0 6 2.69 6 6 0 1.31-.42 2.52-1.14 3.5l1.46 1.46A7.96 7.96 0 0 0 20 15c0-4.42-3.58-8-8-8z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      className={`resizer-ready-icon-button${copiedReadyItemId === item.id ? ' is-copied' : ''}`}
+                      aria-label="Copy resized image to clipboard"
+                      onClick={() => {
+                        void handleCopyReadyItem(item);
+                      }}
+                      title={copiedReadyItemId === item.id ? 'Copied' : 'Copy image'}
+                    >
+                      {copiedReadyItemId === item.id ? (
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                          <path d="M9 16.2l-3.5-3.5L4 14.2l5 5 11-11-1.5-1.5L9 16.2z" />
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                          <path d="M16 1H4C2.9 1 2 1.9 2 3v12h2V3h12V1zm3 4H8C6.9 5 6 5.9 6 7v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+                        </svg>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -1281,3 +1419,4 @@ export const CreativeResizer = () => {
     </section>
   );
 };
+
