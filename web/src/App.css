@@ -1429,12 +1429,14 @@ body::after {
 
 .resizer-deck-track {
   --deck-offset: 0px;
+  position: relative;
+  left: 50%;
   display: flex;
   align-items: flex-end;
   justify-content: flex-start;
   width: max-content;
-  margin: 0 auto;
-  transform: translateX(var(--deck-offset));
+  margin: 0;
+  transform: translateX(calc(-50% + var(--deck-offset)));
   transition: transform 0.24s ease;
 }
 
@@ -1477,6 +1479,41 @@ body::after {
   object-fit: cover;
   pointer-events: none;
   border-radius: 10px;
+}
+
+.resizer-deck-item-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(200, 45, 45, 0.88);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.9);
+  transition: opacity 0.16s ease, transform 0.16s ease, background 0.16s ease;
+  z-index: 2;
+}
+
+.resizer-deck-item:hover .resizer-deck-item-remove {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+
+.resizer-deck-item-remove:hover {
+  background: rgba(180, 28, 28, 0.96);
 }
 
 .resizer-deck-item-size {

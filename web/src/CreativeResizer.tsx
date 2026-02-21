@@ -232,7 +232,7 @@ const buildDefaultRect = (normalizedAspectRatio: number | null): CropRect => {
   if (!normalizedAspectRatio) {
     const width = 0.8;
     const height = 0.8;
-    return { x: 1 - width, y: 0, width, height };
+    return { x: 0, y: 0, width, height };
   }
   let width = 0.9;
   let height = width / normalizedAspectRatio;
@@ -240,7 +240,7 @@ const buildDefaultRect = (normalizedAspectRatio: number | null): CropRect => {
     height = 0.9;
     width = height * normalizedAspectRatio;
   }
-  const x = 1 - width;
+  const x = 0;
   const y = 0;
   return { x, y, width, height };
 };
@@ -640,7 +640,7 @@ export const CreativeResizer = () => {
       return;
     }
     setCropRect(buildDefaultRect(normalizedAspectRatio));
-  }, [currentAsset?.id, normalizedAspectRatio]);
+  }, [currentAsset?.id]);
 
   useEffect(() => {
     assetsRef.current = assets;
@@ -1196,6 +1196,35 @@ export const CreativeResizer = () => {
     setPanOffset({ x: 0, y: 0 });
   };
 
+  const handleRemoveAsset = (assetId: string) => {
+    setAssets((prev) => {
+      const removedIndex = prev.findIndex((asset) => asset.id === assetId);
+      if (removedIndex < 0) {
+        return prev;
+      }
+      const target = prev[removedIndex];
+      URL.revokeObjectURL(target.previewUrl);
+      const next = prev.filter((asset) => asset.id !== assetId);
+      setCurrentIndex((prevIndex) => {
+        if (!next.length) {
+          return 0;
+        }
+        if (removedIndex < prevIndex) {
+          return prevIndex - 1;
+        }
+        if (removedIndex === prevIndex) {
+          return Math.min(prevIndex, next.length - 1);
+        }
+        return prevIndex;
+      });
+      if (!next.length) {
+        setZoomPercent(100);
+        setPanOffset({ x: 0, y: 0 });
+      }
+      return next;
+    });
+  };
+
   const handleClearResults = () => {
     readyItems.forEach((item) => URL.revokeObjectURL(item.previewUrl));
     setReadyItems([]);
@@ -1533,6 +1562,28 @@ export const CreativeResizer = () => {
                         style={deckStyle}
                       >
                         <img src={asset.previewUrl} alt={asset.file.name} />
+                        <span
+                          className="resizer-deck-item-remove"
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Remove image ${index + 1}`}
+                          title="Remove from deck"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            handleRemoveAsset(asset.id);
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key !== 'Enter' && event.key !== ' ') {
+                              return;
+                            }
+                            event.preventDefault();
+                            event.stopPropagation();
+                            handleRemoveAsset(asset.id);
+                          }}
+                        >
+                          ×
+                        </span>
                         <span className="resizer-deck-item-size">{`${asset.width}x${asset.height}`}</span>
                       </button>
                     );
