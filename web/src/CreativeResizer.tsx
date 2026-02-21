@@ -718,7 +718,6 @@ export const CreativeResizer = () => {
     if (
       target.closest('.resizer-crop-box')
       || target.closest('.resizer-handle')
-      || target.closest('.resizer-zoom-controls')
     ) {
       return;
     }
@@ -899,10 +898,6 @@ export const CreativeResizer = () => {
   };
   const zoomLayerStyle: CSSProperties = {
     transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomScale})`,
-  };
-
-  const handleZoomStep = (direction: -1 | 1) => {
-    setZoomPercent((prev) => clamp(prev + direction * 10, 50, 400));
   };
 
   const handleZoomReset = () => {
@@ -1149,15 +1144,41 @@ export const CreativeResizer = () => {
           </div>
         </div>
 
+        <div className="resizer-stage-toolbar">
+          <div className="resizer-stage-title">
+            {currentAsset ? `Image ${currentIndex + 1} / ${assets.length}: ${currentAsset.file.name}` : 'No image loaded.'}
+          </div>
+          <div className="resizer-stage-zoom" aria-label="Zoom controls">
+            <span className="resizer-stage-zoom-label">Zoom</span>
+            <input
+              type="range"
+              className="resizer-zoom-slider"
+              min={50}
+              max={400}
+              step={10}
+              value={zoomPercent}
+              onChange={(event) => setZoomPercent(clamp(Number(event.target.value), 50, 400))}
+              disabled={!currentAsset || isWorking}
+              aria-label="Zoom level"
+            />
+            <button
+              type="button"
+              className="resizer-zoom-reset"
+              onClick={handleZoomReset}
+              disabled={!currentAsset || isWorking}
+              aria-label="Reset zoom"
+            >
+              100%
+            </button>
+          </div>
+        </div>
+
         <div
           className={`resizer-stage${isPanning ? ' is-panning' : ''}${zoomScale > 1 ? ' is-zoomed' : ''}`}
           onPointerDown={handleStartPan}
         >
           {currentAsset ? (
             <div className="resizer-image-wrap" ref={imageWrapRef}>
-              <div className="resizer-stage-meta">
-                {`Image ${currentIndex + 1} / ${assets.length}: ${currentAsset.file.name}`}
-              </div>
               <div className="resizer-zoom-layer" ref={zoomLayerRef} style={zoomLayerStyle}>
                 <img src={currentAsset.previewUrl} alt={currentAsset.file.name} className="resizer-image" />
                 <div className="resizer-overlay">
@@ -1177,32 +1198,6 @@ export const CreativeResizer = () => {
           ) : (
             <div className="resizer-empty">No image loaded.</div>
           )}
-          <div className="resizer-zoom-controls">
-            <button
-              type="button"
-              onClick={() => handleZoomStep(1)}
-              disabled={!currentAsset || isWorking}
-              aria-label="Zoom in"
-            >
-              +
-            </button>
-            <button
-              type="button"
-              onClick={() => handleZoomStep(-1)}
-              disabled={!currentAsset || isWorking}
-              aria-label="Zoom out"
-            >
-              -
-            </button>
-            <button
-              type="button"
-              onClick={handleZoomReset}
-              disabled={!currentAsset || isWorking}
-              aria-label="Reset zoom"
-            >
-              100%
-            </button>
-          </div>
         </div>
       </section>
 
