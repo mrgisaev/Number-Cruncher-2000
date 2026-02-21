@@ -1212,6 +1212,10 @@ export const CreativeResizer = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleOpenReadyItemInNewTab = (item: ReadyItem) => {
+    window.open(item.previewUrl, '_blank', 'noopener,noreferrer');
+  };
+
   const handleSendReadyItemToDeck = (item: ReadyItem) => {
     const extension = getExtension(item.name) || 'png';
     const mimeType = item.blob.type || imageMimeByExtension[extension] || 'image/png';
@@ -1712,7 +1716,14 @@ export const CreativeResizer = () => {
               >
                 <span className="result-index">{index + 1}</span>
                 <div className="result-value">
-                  <span className="resizer-ready-name">{item.name}</span>
+                  <button
+                    type="button"
+                    className="resizer-ready-name resizer-ready-name-link"
+                    onClick={() => handleOpenReadyItemInNewTab(item)}
+                    title="Open image in new tab"
+                  >
+                    {item.name}
+                  </button>
                   <div className="resizer-ready-meta">
                     <span className="resizer-ready-size">{`${item.width}x${item.height}`}</span>
                     <span className="resizer-ready-weight">{formatSize(item.blob.size)}</span>

@@ -1981,6 +1981,23 @@ body::after {
   white-space: nowrap;
 }
 
+.resizer-ready-name-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.resizer-ready-name-link:hover {
+  color: rgba(35, 55, 60, 0.95);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .resizer-ready-size {
   flex: 0 0 auto;
   font-size: 0.8rem;
