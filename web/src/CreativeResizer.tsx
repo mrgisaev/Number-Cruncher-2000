@@ -596,7 +596,14 @@ export const CreativeResizer = () => {
     const timer = window.setTimeout(() => {
       void (async () => {
         try {
-          const preview = await cropImageBlob(
+          const stagePreview = await cropImageBlob(
+            currentAsset,
+            { x: 0, y: 0, width: 1, height: 1 },
+            null,
+            qualityValue,
+            currentAsset.file.size,
+          );
+          const outputPreview = await cropImageBlob(
             currentAsset,
             cropRect,
             customOutputSize,
@@ -606,8 +613,8 @@ export const CreativeResizer = () => {
           if (qualityPreviewTaskRef.current !== taskId) {
             return;
           }
-          setQualityEstimatedSize(formatSize(preview.blob.size));
-          const nextUrl = URL.createObjectURL(preview.blob);
+          setQualityEstimatedSize(formatSize(outputPreview.blob.size));
+          const nextUrl = URL.createObjectURL(stagePreview.blob);
           setQualityPreviewUrl((prev) => {
             if (prev) {
               URL.revokeObjectURL(prev);
@@ -1432,7 +1439,11 @@ export const CreativeResizer = () => {
           {currentAsset ? (
             <div className="resizer-image-wrap" ref={imageWrapRef}>
               <div className="resizer-zoom-layer" ref={zoomLayerRef} style={zoomLayerStyle}>
-                <img src={currentAsset.previewUrl} alt={currentAsset.file.name} className="resizer-image" />
+                <img
+                  src={qualityPreviewUrl ?? currentAsset.previewUrl}
+                  alt={currentAsset.file.name}
+                  className="resizer-image"
+                />
                 <div className="resizer-overlay">
                   <div
                     className="resizer-crop-box"
@@ -1450,12 +1461,6 @@ export const CreativeResizer = () => {
           ) : (
             <div className="resizer-empty">No image loaded.</div>
           )}
-          {qualityPreviewUrl ? (
-            <div className="resizer-quality-preview" aria-hidden="true">
-              <img src={qualityPreviewUrl} alt="" />
-              <span>{`Weight ${qualityPercent}%`}</span>
-            </div>
-          ) : null}
         </div>
       </section>
 
