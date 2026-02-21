@@ -324,7 +324,8 @@ function App() {
   const isCreativeResizer =
     typeof window !== 'undefined' && window.location.pathname.includes('creative-resizer');
   const isUtmGenerator = typeof window !== 'undefined' && window.location.pathname.includes('utm-generator');
-  const latestReleaseDate = 'Feb 17, 2026';
+  const latestReleaseDate = 'Feb 21, 2026';
+  const feb17ReleaseDate = 'Feb 17, 2026';
   const feb15ReleaseDate = 'Feb 15, 2026';
   const jan18ReleaseDate = 'Jan 18, 2026';
   const shareSplitterReleaseDate = 'Jan 17, 2026';
@@ -664,6 +665,15 @@ function App() {
                 </header>
                 <div className="release-entry">
                   <p className="release-date">{latestReleaseDate}</p>
+                  <ul className="whats-new-list">
+                    <li>Released Creative Resizer for bulk image cropping with a fast one-by-one workflow.</li>
+                    <li>Added ratio presets plus custom W:H with smooth controls, zoom, pan, and rotate actions.</li>
+                    <li>Introduced a stacked preview deck, per-item download/copy actions, and ZIP export of ready images.</li>
+                    <li>Added direct handoff of resized assets to Asset Renamer for faster production flow.</li>
+                  </ul>
+                </div>
+                <div className="release-entry">
+                  <p className="release-date">{feb17ReleaseDate}</p>
                   <ul className="whats-new-list">
                     <li>Released Asset Renamer updates: broader file support, including documents and mixed asset batches.</li>
                     <li>Added better keyboard navigation in editable rows and improved Input data behavior for large trees.</li>

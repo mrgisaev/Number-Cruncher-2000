@@ -653,6 +653,13 @@ export const CreativeResizer = () => {
   }, [zoomScale, currentAsset?.id]);
 
   useEffect(() => {
+    if (!currentAsset) {
+      return;
+    }
+    setQualityPercent(100);
+  }, [currentAsset?.id]);
+
+  useEffect(() => {
     qualityPreviewTaskRef.current += 1;
     if (!currentAsset) {
       setQualityEstimatedSize('-');
