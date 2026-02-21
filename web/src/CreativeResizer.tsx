@@ -229,7 +229,9 @@ const getNormalizedAspectRatio = (targetAspectRatio: number | null, imageAspectR
 
 const buildDefaultRect = (normalizedAspectRatio: number | null): CropRect => {
   if (!normalizedAspectRatio) {
-    return { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
+    const width = 0.8;
+    const height = 0.8;
+    return { x: 1 - width, y: 0, width, height };
   }
   let width = 0.9;
   let height = width / normalizedAspectRatio;
@@ -237,8 +239,8 @@ const buildDefaultRect = (normalizedAspectRatio: number | null): CropRect => {
     height = 0.9;
     width = height * normalizedAspectRatio;
   }
-  const x = (1 - width) / 2;
-  const y = (1 - height) / 2;
+  const x = 1 - width;
+  const y = 0;
   return { x, y, width, height };
 };
 
