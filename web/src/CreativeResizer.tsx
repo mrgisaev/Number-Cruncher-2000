@@ -269,31 +269,22 @@ const buildDefaultRect = (normalizedAspectRatio: number | null): CropRect => {
   return { x, y, width, height };
 };
 
-const fitRectToAspect = (rect: CropRect, normalizedAspectRatio: number | null): CropRect => {
+const fitRectToAspectAtPosition = (
+  current: CropRect,
+  normalizedAspectRatio: number | null,
+): CropRect => {
   if (!normalizedAspectRatio) {
-    return rect;
+    return current;
   }
-  const centerX = rect.x + rect.width / 2;
-  const centerY = rect.y + rect.height / 2;
-  let width = rect.width;
-  let height = width / normalizedAspectRatio;
-  if (height > rect.height) {
-    height = rect.height;
-    width = height * normalizedAspectRatio;
-  }
-  if (width > 1) {
-    width = 1;
-    height = width / normalizedAspectRatio;
-  }
-  if (height > 1) {
-    height = 1;
-    width = height * normalizedAspectRatio;
-  }
-  let x = centerX - width / 2;
-  let y = centerY - height / 2;
-  x = clamp(x, 0, 1 - width);
-  y = clamp(y, 0, 1 - height);
-  return { x, y, width, height };
+  const seeded = buildDefaultRect(normalizedAspectRatio);
+  const x = clamp(current.x, 0, 1 - seeded.width);
+  const y = clamp(current.y, 0, 1 - seeded.height);
+  return {
+    x,
+    y,
+    width: seeded.width,
+    height: seeded.height,
+  };
 };
 
 const loadImageMeta = (file: File) =>
@@ -1420,7 +1411,7 @@ export const CreativeResizer = () => {
       imageAspectRatio,
     );
     setAspectPreset(nextPreset);
-    setCropRect((prev) => fitRectToAspect(prev, nextNormalizedAspectRatio));
+    setCropRect((prev) => fitRectToAspectAtPosition(prev, nextNormalizedAspectRatio));
   };
 
   const applyAspectPairIfPresent = (raw: string) => {
@@ -1466,7 +1457,7 @@ export const CreativeResizer = () => {
       nextTargetAspectRatio,
       imageAspectRatio,
     );
-    setCropRect((prev) => fitRectToAspect(prev, nextNormalizedAspectRatio));
+    setCropRect((prev) => fitRectToAspectAtPosition(prev, nextNormalizedAspectRatio));
   }, [aspectPreset, customAspectW, customAspectH, imageAspectRatio]);
 
   return (
