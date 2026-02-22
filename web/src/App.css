@@ -12,7 +12,7 @@ body {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 12;
+  z-index: 0;
   mix-blend-mode: screen;
   filter: saturate(140%) contrast(110%);
 }
