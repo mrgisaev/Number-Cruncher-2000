@@ -37,6 +37,7 @@ type TextLayer = {
   x: number;
   y: number;
   boxWidth: number;
+  boxHeight: number;
   size: number;
   fontFamily: string;
   align: 'left' | 'center' | 'right';
@@ -78,12 +79,14 @@ type ReadyItem = {
 type DragState = {
   layerId: string;
   mode: 'move' | 'resize';
+  resizeHandle?: 'nw' | 'ne' | 'sw' | 'se';
   pointerId: number;
   startClientX: number;
   startClientY: number;
   startX: number;
   startY: number;
   startWidth?: number;
+  startHeight?: number;
   bounds: DOMRect;
 };
 
@@ -95,11 +98,7 @@ const textDecorationFromFlags = (underline: boolean, strike: boolean) => {
   if (strike) return 'line-through';
   return 'none';
 };
-const fitTextEditorHeight = (element: HTMLTextAreaElement | null) => {
-  if (!element) return;
-  element.style.height = '0px';
-  element.style.height = `${element.scrollHeight}px`;
-};
+const getTextLayerHeight = (layer: TextLayer) => (Number.isFinite(layer.boxHeight) && layer.boxHeight > 0 ? layer.boxHeight : 22);
 
 const imageExt = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'svg', 'avif']);
 
@@ -233,6 +232,7 @@ export const CreativeEditor = () => {
   const [isWorking, setIsWorking] = useState(false);
 
   const [textSize, setTextSize] = useState(56);
+  const [textSizeInput, setTextSizeInput] = useState('56');
   const [textFont, setTextFont] = useState('Roboto');
   const [textAlign, setTextAlign] = useState<'left' | 'center' | 'right'>('center');
   const [textColor, setTextColor] = useState('#ffffff');
@@ -241,6 +241,7 @@ export const CreativeEditor = () => {
   const [textUnderline, setTextUnderline] = useState(false);
   const [textStrike, setTextStrike] = useState(false);
   const [textOpacity, setTextOpacity] = useState(100);
+  const [textOpacityInput, setTextOpacityInput] = useState('100');
   const [textBgMode, setTextBgMode] = useState<TextBgMode>('none');
   const [textBgA, setTextBgA] = useState('#000000aa');
   const [textBgB, setTextBgB] = useState('#0ea5e9aa');
@@ -258,8 +259,10 @@ export const CreativeEditor = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const stickerInputRef = useRef<HTMLInputElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
+  const colorControlRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const deckDragDepthRef = useRef(0);
+  const [isColorControlOpen, setIsColorControlOpen] = useState(false);
 
   const assetsRef = useRef<EditorAsset[]>([]);
   const stickersRef = useRef<StickerAsset[]>([]);
@@ -290,12 +293,23 @@ export const CreativeEditor = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      if (!colorControlRef.current) return;
+      if (colorControlRef.current.contains(event.target as Node)) return;
+      setIsColorControlOpen(false);
+    };
+    window.addEventListener('pointerdown', onPointerDown);
+    return () => window.removeEventListener('pointerdown', onPointerDown);
+  }, []);
+
   const currentAsset = assets[currentIndex] ?? null;
   const selectedLayer = layers.find((layer) => layer.id === selectedLayerId) ?? null;
 
   useEffect(() => {
     if (!selectedLayer || selectedLayer.type !== 'text') return;
     setTextSize(selectedLayer.size);
+    setTextSizeInput(String(selectedLayer.size));
     setTextFont(selectedLayer.fontFamily);
     setTextAlign(selectedLayer.align);
     setTextColor(selectedLayer.color);
@@ -304,6 +318,7 @@ export const CreativeEditor = () => {
     setTextUnderline(selectedLayer.underline);
     setTextStrike(selectedLayer.strike);
     setTextOpacity(selectedLayer.opacity);
+    setTextOpacityInput(String(selectedLayer.opacity));
     setTextBgMode(selectedLayer.bgMode);
     setTextBgA(selectedLayer.bgA);
     setTextBgB(selectedLayer.bgB);
@@ -425,7 +440,8 @@ export const CreativeEditor = () => {
     x: 8,
     y: 8,
     boxWidth: 38,
-    size: clamp(Math.round(textSize), 8, 300),
+    boxHeight: 22,
+    size: clamp(Math.round(textSize), 1, 300),
     fontFamily: textFont,
     align: textAlign,
     color: textColor,
@@ -481,11 +497,76 @@ export const CreativeEditor = () => {
     updateSelected((layer) => (layer.type === 'text' ? { ...layer, ...patch } : layer));
   };
 
+  const applyTextSize = (rawValue: number) => {
+    const size = clamp(Math.round(rawValue), 1, 300);
+    setTextSize(size);
+    setTextSizeInput(String(size));
+    updateSelectedTextLayer({ size });
+  };
+
+  const handleTextSizeInputChange = (rawValue: string) => {
+    setTextSizeInput(rawValue);
+    if (!rawValue.trim()) return;
+    const parsed = Number(rawValue);
+    if (!Number.isFinite(parsed)) return;
+    const size = clamp(Math.round(parsed), 1, 300);
+    setTextSize(size);
+    updateSelectedTextLayer({ size });
+  };
+
+  const commitTextSizeInput = () => {
+    if (!textSizeInput.trim()) {
+      setTextSizeInput(String(textSize));
+      return;
+    }
+    const parsed = Number(textSizeInput);
+    if (!Number.isFinite(parsed)) {
+      setTextSizeInput(String(textSize));
+      return;
+    }
+    applyTextSize(parsed);
+  };
+
+  const applyTextOpacity = (rawValue: number) => {
+    const opacity = clamp(Math.round(rawValue), 1, 100);
+    setTextOpacity(opacity);
+    setTextOpacityInput(String(opacity));
+    updateSelectedTextLayer({ opacity });
+  };
+
+  const handleTextOpacityInputChange = (rawValue: string) => {
+    setTextOpacityInput(rawValue);
+    if (!rawValue.trim()) return;
+    const parsed = Number(rawValue);
+    if (!Number.isFinite(parsed)) return;
+    const opacity = clamp(Math.round(parsed), 1, 100);
+    setTextOpacity(opacity);
+    updateSelectedTextLayer({ opacity });
+  };
+
+  const commitTextOpacityInput = () => {
+    if (!textOpacityInput.trim()) {
+      setTextOpacityInput(String(textOpacity));
+      return;
+    }
+    const parsed = Number(textOpacityInput);
+    if (!Number.isFinite(parsed)) {
+      setTextOpacityInput(String(textOpacity));
+      return;
+    }
+    applyTextOpacity(parsed);
+  };
+
   const handleTextLayerInput = (layerId: string, value: string) => {
     setLayers((prev) => prev.map((layer) => (layer.id === layerId && layer.type === 'text' ? { ...layer, text: value } : layer)));
   };
 
-  const layerPointerDown = (event: ReactPointerEvent<HTMLElement>, layerId: string, mode: 'move' | 'resize' = 'move') => {
+  const layerPointerDown = (
+    event: ReactPointerEvent<HTMLElement>,
+    layerId: string,
+    mode: 'move' | 'resize' = 'move',
+    resizeHandle: 'nw' | 'ne' | 'sw' | 'se' = 'se',
+  ) => {
     if (!overlayRef.current) return;
     event.preventDefault();
     event.stopPropagation();
@@ -499,7 +580,9 @@ export const CreativeEditor = () => {
       startX: target.x,
       startY: target.y,
       startWidth: target.type === 'text' ? target.boxWidth : undefined,
+      startHeight: target.type === 'text' ? getTextLayerHeight(target) : undefined,
       mode,
+      resizeHandle,
       bounds: overlayRef.current.getBoundingClientRect(),
     };
     setSelectedLayerId(layerId);
@@ -515,13 +598,43 @@ export const CreativeEditor = () => {
         prev.map((layer) => {
           if (layer.id !== drag.layerId) return layer;
           if (layer.type === 'text') {
+            const currentHeight = getTextLayerHeight(layer);
             if (drag.mode === 'resize') {
-              const deltaWidth = (dx / drag.bounds.width) * 100;
-              const nextWidth = clamp((drag.startWidth ?? layer.boxWidth) + deltaWidth, 10, 100 - layer.x);
-              return { ...layer, boxWidth: nextWidth };
+              const deltaX = (dx / drag.bounds.width) * 100;
+              const deltaY = (dy / drag.bounds.height) * 100;
+              const minWidth = 10;
+              const minHeight = 8;
+              const startLeft = drag.startX;
+              const startTop = drag.startY;
+              const startRight = startLeft + (drag.startWidth ?? layer.boxWidth);
+              const startBottom = startTop + (drag.startHeight ?? currentHeight);
+              const handle = drag.resizeHandle ?? 'se';
+
+              let nextLeft = startLeft;
+              let nextTop = startTop;
+              let nextRight = startRight;
+              let nextBottom = startBottom;
+
+              if (handle.includes('w')) nextLeft += deltaX;
+              if (handle.includes('e')) nextRight += deltaX;
+              if (handle.includes('n')) nextTop += deltaY;
+              if (handle.includes('s')) nextBottom += deltaY;
+
+              nextLeft = clamp(nextLeft, 0, 100 - minWidth);
+              nextTop = clamp(nextTop, 0, 100 - minHeight);
+              nextRight = clamp(nextRight, nextLeft + minWidth, 100);
+              nextBottom = clamp(nextBottom, nextTop + minHeight, 100);
+
+              return {
+                ...layer,
+                x: nextLeft,
+                y: nextTop,
+                boxWidth: nextRight - nextLeft,
+                boxHeight: nextBottom - nextTop,
+              };
             }
             const nextX = clamp(drag.startX + (dx / drag.bounds.width) * 100, 0, 100 - layer.boxWidth);
-            const nextY = clamp(drag.startY + (dy / drag.bounds.height) * 100, 0, 100);
+            const nextY = clamp(drag.startY + (dy / drag.bounds.height) * 100, 0, 100 - currentHeight);
             return { ...layer, x: nextX, y: nextY };
           }
           const nextX = clamp(drag.startX + (dx / drag.bounds.width) * 100, 0, 100);
@@ -563,7 +676,8 @@ export const CreativeEditor = () => {
         const x = (layer.x / 100) * asset.width;
         const y = (layer.y / 100) * asset.height;
         const boxWidth = Math.max(10, (layer.boxWidth / 100) * asset.width);
-        const fontSize = clamp(layer.size, 8, 300);
+        const boxHeight = Math.max(10, (getTextLayerHeight(layer) / 100) * asset.height);
+        const fontSize = clamp(layer.size, 1, 300);
         const lineHeight = fontSize * 1.24;
 
         ctx.save();
@@ -572,8 +686,9 @@ export const CreativeEditor = () => {
         ctx.textAlign = layer.align;
         ctx.textBaseline = 'top';
         const lines = wrapTextLines(ctx, layer.text || ' ', Math.max(12, boxWidth - layer.padding * 2));
-        const textHeight = lines.length * lineHeight;
-        const boxHeight = textHeight + layer.padding * 2;
+        const maxTextHeight = Math.max(lineHeight, boxHeight - layer.padding * 2);
+        const maxLines = Math.max(1, Math.floor(maxTextHeight / lineHeight));
+        const visibleLines = lines.slice(0, maxLines);
 
         if (layer.bgMode !== 'none') {
           const left = x;
@@ -600,7 +715,11 @@ export const CreativeEditor = () => {
           ctx.strokeStyle = layer.color;
           ctx.lineWidth = Math.max(1, fontSize * 0.06);
         }
-        lines.forEach((line, index) => {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x, y, boxWidth, boxHeight);
+        ctx.clip();
+        visibleLines.forEach((line, index) => {
           const lineY = y + layer.padding + lineHeight * index;
           ctx.fillText(line, anchorX, lineY);
           const lineWidth = ctx.measureText(line || ' ').width;
@@ -624,6 +743,7 @@ export const CreativeEditor = () => {
             ctx.stroke();
           }
         });
+        ctx.restore();
         ctx.restore();
         continue;
       }
@@ -837,6 +957,7 @@ export const CreativeEditor = () => {
             left: `${layer.x}%`,
             top: `${layer.y}%`,
             width: `${layer.boxWidth}%`,
+            height: `${getTextLayerHeight(layer)}%`,
             fontSize: `${layer.size}px`,
             fontFamily: `${layer.fontFamily}, Roboto, 'Segoe UI', sans-serif`,
             textAlign: layer.align,
@@ -851,37 +972,15 @@ export const CreativeEditor = () => {
             padding: layer.bgMode === 'none' ? '0' : `${layer.padding}px`,
             borderRadius: layer.bgMode === 'none' ? '0' : `${layer.radius}px`,
           }}
-          onPointerDown={(event) => {
-            event.stopPropagation();
-            setSelectedLayerId(layer.id);
-          }}
+          onPointerDown={(event) => layerPointerDown(event, layer.id, 'move')}
           title={`Text ${index + 1}`}
         >
-          <span
-            className="editor-layer-move-handle"
-            onPointerDown={(event) => layerPointerDown(event, layer.id, 'move')}
-            title="Move text layer"
-          >
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <circle cx="6" cy="5" r="1.4" />
-              <circle cx="6" cy="10" r="1.4" />
-              <circle cx="6" cy="15" r="1.4" />
-              <circle cx="14" cy="5" r="1.4" />
-              <circle cx="14" cy="10" r="1.4" />
-              <circle cx="14" cy="15" r="1.4" />
-            </svg>
-          </span>
           {isSelected ? (
             <textarea
               className="editor-layer-text-editor"
               value={layer.text}
-              onChange={(event) => {
-                handleTextLayerInput(layer.id, event.target.value);
-                fitTextEditorHeight(event.currentTarget);
-              }}
-              onInput={(event) => fitTextEditorHeight(event.currentTarget)}
+              onChange={(event) => handleTextLayerInput(layer.id, event.target.value)}
               onPointerDown={(event) => event.stopPropagation()}
-              ref={fitTextEditorHeight}
               rows={1}
               autoFocus
               style={{
@@ -894,11 +993,28 @@ export const CreativeEditor = () => {
             <div className="editor-layer-text-view">{layer.text}</div>
           )}
           {isSelected ? (
-            <span
-              className="editor-layer-resize-handle"
-              onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize')}
-              title="Resize text box"
-            />
+            <>
+              <span
+                className="editor-layer-resize-handle editor-layer-resize-handle-nw"
+                onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'nw')}
+                title="Resize text box"
+              />
+              <span
+                className="editor-layer-resize-handle editor-layer-resize-handle-ne"
+                onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'ne')}
+                title="Resize text box"
+              />
+              <span
+                className="editor-layer-resize-handle editor-layer-resize-handle-sw"
+                onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'sw')}
+                title="Resize text box"
+              />
+              <span
+                className="editor-layer-resize-handle editor-layer-resize-handle-se"
+                onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'se')}
+                title="Resize text box"
+              />
+            </>
           ) : null}
         </div>
       );
@@ -1158,7 +1274,7 @@ export const CreativeEditor = () => {
         <div className="editor-text-toolbar">
           <div className="editor-text-toolbar-row editor-text-toolbar-row-main">
             <div className="editor-text-field editor-text-field-font">
-              <label>Font</label>
+              <label className="editor-visually-hidden">Font</label>
               <select
                 value={textFont}
                 onChange={(event) => {
@@ -1175,47 +1291,78 @@ export const CreativeEditor = () => {
               </select>
             </div>
 
-            <div className="editor-text-field editor-text-field-size">
-              <label>Size</label>
-              <input
-                type="number"
-                min={8}
-                max={300}
-                value={textSize}
-                onChange={(event) => {
-                  const size = clamp(Number(event.target.value) || 8, 8, 300);
-                  setTextSize(size);
-                  updateSelectedTextLayer({ size });
-                }}
-              />
+            <div className="editor-text-field editor-text-field-size editor-text-field-compact">
+              <label className="editor-visually-hidden">Text size</label>
+              <div className="editor-size-inline">
+                <button type="button" onClick={() => applyTextSize(textSize - 1)} title="Decrease text size">
+                  -
+                </button>
+                <input
+                  type="number"
+                  min={1}
+                  max={300}
+                  value={textSizeInput}
+                  onChange={(event) => handleTextSizeInputChange(event.target.value)}
+                  onBlur={commitTextSizeInput}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.currentTarget.blur();
+                    }
+                  }}
+                />
+                <button type="button" onClick={() => applyTextSize(textSize + 1)} title="Increase text size">
+                  +
+                </button>
+              </div>
             </div>
 
-            <div className="editor-text-field editor-text-field-color">
-              <label>Color</label>
-              <input
-                type="color"
-                value={textColor}
-                onChange={(event) => {
-                  const color = event.target.value;
-                  setTextColor(color);
-                  updateSelectedTextLayer({ color });
-                }}
-              />
-            </div>
-
-            <div className="editor-text-field editor-text-field-opacity">
-              <label>Opacity</label>
-              <input
-                type="number"
-                min={1}
-                max={100}
-                value={textOpacity}
-                onChange={(event) => {
-                  const opacity = clamp(Number(event.target.value) || 1, 1, 100);
-                  setTextOpacity(opacity);
-                  updateSelectedTextLayer({ opacity });
-                }}
-              />
+            <div className="editor-text-field editor-text-field-color editor-text-field-compact">
+              <label className="editor-visually-hidden">Text color and opacity</label>
+              <div className="editor-color-control" ref={colorControlRef}>
+                <button
+                  type="button"
+                  className="editor-color-letter-button"
+                  style={{ '--editor-color': textColor } as CSSProperties}
+                  onClick={() => setIsColorControlOpen((prev) => !prev)}
+                  title="Text color settings"
+                >
+                  <span aria-hidden="true">A</span>
+                </button>
+                {isColorControlOpen ? (
+                  <div className="editor-color-popover" role="dialog" aria-label="Text color settings">
+                    <label className="editor-color-popover-row">
+                      <span>Color</span>
+                      <input
+                        type="color"
+                        value={textColor}
+                        onChange={(event) => {
+                          const color = event.target.value;
+                          setTextColor(color);
+                          updateSelectedTextLayer({ color });
+                        }}
+                        aria-label="Text color"
+                      />
+                    </label>
+                    <label className="editor-color-popover-row">
+                      <span>Opacity</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={textOpacityInput}
+                        onChange={(event) => handleTextOpacityInputChange(event.target.value)}
+                        onBlur={commitTextOpacityInput}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.currentTarget.blur();
+                          }
+                        }}
+                        aria-label="Text opacity"
+                      />
+                    </label>
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             <div className="editor-icon-group" aria-label="Text style">
@@ -1229,9 +1376,7 @@ export const CreativeEditor = () => {
                 }}
                 title="Bold"
               >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M7 4h6.2a4.3 4.3 0 0 1 2.8 7.6A4.6 4.6 0 0 1 13 20H7V4zm3 3v3h3a1.5 1.5 0 1 0 0-3h-3zm0 6v4h3.2a2 2 0 1 0 0-4H10z" />
-                </svg>
+                <span className="editor-style-letter" aria-hidden="true">B</span>
               </button>
               <button
                 type="button"
@@ -1243,9 +1388,7 @@ export const CreativeEditor = () => {
                 }}
                 title="Italic"
               >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M10 4v3h2.2l-3.4 10H6v3h8v-3h-2.2l3.4-10H18V4h-8z" />
-                </svg>
+                <span className="editor-style-letter is-italic" aria-hidden="true">I</span>
               </button>
               <button
                 type="button"
@@ -1257,9 +1400,7 @@ export const CreativeEditor = () => {
                 }}
                 title="Underline"
               >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M8 3v8a4 4 0 1 0 8 0V3h-2v8a2 2 0 1 1-4 0V3H8zm-2 16h12v2H6z" />
-                </svg>
+                <span className="editor-style-letter is-underlined" aria-hidden="true">U</span>
               </button>
               <button
                 type="button"
@@ -1271,9 +1412,7 @@ export const CreativeEditor = () => {
                 }}
                 title="Strikethrough"
               >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M6 11h12v2H6v-2zm5.5-7c2.9 0 4.8 1.3 5.5 3.6l-2.3.9c-.4-1.4-1.4-2-3.2-2-1.6 0-2.8.6-2.8 1.9 0 1.2 1.2 1.7 3.4 2.2l.9.2-.5 1.9-.9-.2C8.5 11.8 6 10.8 6 8.1 6 5.5 8.3 4 11.5 4zm-.1 16c-3 0-5.2-1.5-5.8-4l2.3-.8c.5 1.6 1.7 2.3 3.5 2.3 1.8 0 3-.7 3-2.1 0-1.1-.8-1.8-2.8-2.2l-1.2-.2.4-1.9 1 .2c3 .6 5 1.9 5 4.5 0 2.8-2.3 4.2-5.4 4.2z" />
-                </svg>
+                <span className="editor-style-letter is-strike" aria-hidden="true">S</span>
               </button>
             </div>
 
@@ -1318,11 +1457,8 @@ export const CreativeEditor = () => {
                 </svg>
               </button>
             </div>
-          </div>
-
-          <div className="editor-text-toolbar-row editor-text-toolbar-row-background">
-            <div className="editor-text-field editor-text-field-bg-mode">
-              <label>Background</label>
+            <div className="editor-text-field editor-text-field-bg-mode editor-text-field-compact">
+              <label className="editor-visually-hidden">Background mode</label>
               <select
                 value={textBgMode}
                 onChange={(event) => {
@@ -1337,82 +1473,54 @@ export const CreativeEditor = () => {
               </select>
             </div>
 
-            <div className="editor-text-field editor-text-field-bg-color">
-              <label className="editor-label-icon" title="Background color A" aria-label="Background color A">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 3c-3.2 4.1-5.2 6.8-5.2 9.6a5.2 5.2 0 1 0 10.4 0C17.2 9.8 15.2 7.1 12 3z" />
+            <div className="editor-gradient-color-controls" aria-label="Background colors">
+              <label
+                className={`editor-gradient-color-trigger${textBgMode === 'none' ? ' is-disabled' : ''}`}
+                style={{ '--editor-gradient-color': textBgA } as CSSProperties}
+              >
+                <span className="editor-visually-hidden">Background color A</span>
+                <svg className="editor-gradient-color-trigger-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M14.27 5.73 18.27 9.73 10 18H6v-4l8.27-8.27ZM13.56 3.61a1.5 1.5 0 0 1 2.12 0l2.71 2.71a1.5 1.5 0 0 1 0 2.12l-1.06 1.06-4.83-4.83 1.06-1.06Z" />
                 </svg>
+                <svg className="editor-gradient-color-trigger-caret" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M7 10l5 5 5-5z" />
+                </svg>
+                <input
+                  type="color"
+                  value={textBgA}
+                  onChange={(event) => {
+                    const bgA = event.target.value;
+                    setTextBgA(bgA);
+                    updateSelectedTextLayer({ bgA });
+                  }}
+                  disabled={textBgMode === 'none'}
+                />
               </label>
-              <input
-                type="color"
-                value={textBgA}
-                onChange={(event) => {
-                  const bgA = event.target.value;
-                  setTextBgA(bgA);
-                  updateSelectedTextLayer({ bgA });
-                }}
-                disabled={textBgMode === 'none'}
-              />
+
+              <label
+                className={`editor-gradient-color-trigger${textBgMode !== 'gradient' ? ' is-disabled' : ''}`}
+                style={{ '--editor-gradient-color': textBgB } as CSSProperties}
+              >
+                <span className="editor-visually-hidden">Background color B</span>
+                <svg className="editor-gradient-color-trigger-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M14.27 5.73 18.27 9.73 10 18H6v-4l8.27-8.27ZM13.56 3.61a1.5 1.5 0 0 1 2.12 0l2.71 2.71a1.5 1.5 0 0 1 0 2.12l-1.06 1.06-4.83-4.83 1.06-1.06Z" />
+                </svg>
+                <svg className="editor-gradient-color-trigger-caret" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M7 10l5 5 5-5z" />
+                </svg>
+                <input
+                  type="color"
+                  value={textBgB}
+                  onChange={(event) => {
+                    const bgB = event.target.value;
+                    setTextBgB(bgB);
+                    updateSelectedTextLayer({ bgB });
+                  }}
+                  disabled={textBgMode !== 'gradient'}
+                />
+              </label>
             </div>
 
-            <div className="editor-text-field editor-text-field-bg-color">
-              <label className="editor-label-icon" title="Background color B" aria-label="Background color B">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M5 6h14v12H5z" />
-                  <path d="M5 16l4-4 3 2 4-4 3 3v5H5z" />
-                </svg>
-              </label>
-              <input
-                type="color"
-                value={textBgB}
-                onChange={(event) => {
-                  const bgB = event.target.value;
-                  setTextBgB(bgB);
-                  updateSelectedTextLayer({ bgB });
-                }}
-                disabled={textBgMode !== 'gradient'}
-              />
-            </div>
-
-            <div className="editor-text-field editor-text-field-mini">
-              <label className="editor-label-icon" title="Padding" aria-label="Padding">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M4 4h16v16H4zM9 9h6v6H9z" />
-                </svg>
-              </label>
-              <input
-                type="number"
-                min={0}
-                max={80}
-                value={textPadding}
-                onChange={(event) => {
-                  const padding = clamp(Number(event.target.value) || 0, 0, 80);
-                  setTextPadding(padding);
-                  updateSelectedTextLayer({ padding });
-                }}
-                disabled={textBgMode === 'none'}
-              />
-            </div>
-
-            <div className="editor-text-field editor-text-field-mini">
-              <label className="editor-label-icon" title="Corner radius" aria-label="Corner radius">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M5 8a3 3 0 0 1 3-3h11v2H8a1 1 0 0 0-1 1v11H5V8zm6-3h8v8h-2V7h-6V5zm-4 9h12v5H7z" />
-                </svg>
-              </label>
-              <input
-                type="number"
-                min={0}
-                max={80}
-                value={textRadius}
-                onChange={(event) => {
-                  const radius = clamp(Number(event.target.value) || 0, 0, 80);
-                  setTextRadius(radius);
-                  updateSelectedTextLayer({ radius });
-                }}
-                disabled={textBgMode === 'none'}
-              />
-            </div>
           </div>
         </div>
       </section>
