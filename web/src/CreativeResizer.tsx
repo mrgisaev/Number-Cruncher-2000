@@ -1452,6 +1452,23 @@ export const CreativeResizer = () => {
     event.preventDefault();
   };
 
+  useEffect(() => {
+    if (aspectPreset !== 'custom') {
+      return;
+    }
+    const nextTargetAspectRatio = getAspectRatioFromPreset(
+      'custom',
+      null,
+      customAspectW,
+      customAspectH,
+    );
+    const nextNormalizedAspectRatio = getNormalizedAspectRatio(
+      nextTargetAspectRatio,
+      imageAspectRatio,
+    );
+    setCropRect((prev) => fitRectToAspect(prev, nextNormalizedAspectRatio));
+  }, [aspectPreset, customAspectW, customAspectH, imageAspectRatio]);
+
   return (
     <section className="creative-resizer">
       <header className="controls-wrapper">
