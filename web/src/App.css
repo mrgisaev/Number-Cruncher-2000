@@ -1449,23 +1449,29 @@ body::after {
 }
 
 .editor-gradient-color-controls {
-  --editor-gradient-slot: 24px;
-  --editor-gradient-gap: 4px;
   display: inline-flex;
   align-items: center;
-  gap: var(--editor-gradient-gap);
+  gap: 4px;
+}
+
+.editor-gradient-control-slot {
+  position: relative;
   width: 0;
-  overflow-x: hidden;
-  overflow-y: visible;
-  transition: width 0.24s ease;
+  min-width: 0;
+  height: 20px;
+  opacity: 0;
+  transform: translateX(-8px);
+  overflow: hidden;
+  pointer-events: none;
+  transition: width 0.24s ease, opacity 0.24s ease, transform 0.24s ease;
 }
 
-.editor-gradient-color-controls[data-mode='solid'] {
-  width: calc(var(--editor-gradient-slot) + var(--editor-gradient-slot) + var(--editor-gradient-gap));
-}
-
-.editor-gradient-color-controls[data-mode='gradient'] {
-  width: calc(var(--editor-gradient-slot) + var(--editor-gradient-slot) + var(--editor-gradient-slot) + var(--editor-gradient-gap) + var(--editor-gradient-gap));
+.editor-gradient-control-slot.is-visible {
+  width: 24px;
+  opacity: 1;
+  transform: translateX(0);
+  overflow: visible;
+  pointer-events: auto;
 }
 
 .editor-bg-opacity-control,
@@ -1480,28 +1486,16 @@ body::after {
   justify-content: flex-start;
   gap: 1px;
   color: rgba(52, 80, 82, 0.92);
+  transition: color 0.16s ease, opacity 0.16s ease;
+}
+
+.editor-gradient-color-trigger {
   cursor: pointer;
-  transform: translateX(-8px);
-  opacity: 0;
-  transition: transform 0.24s ease, opacity 0.24s ease, color 0.16s ease;
 }
 
-.editor-gradient-color-controls[data-mode='solid'] .editor-bg-opacity-control,
-.editor-gradient-color-controls[data-mode='solid'] .editor-gradient-color-trigger:first-of-type,
-.editor-gradient-color-controls[data-mode='gradient'] .editor-bg-opacity-control,
-.editor-gradient-color-controls[data-mode='gradient'] .editor-gradient-color-trigger {
-  transform: translateX(0);
-  opacity: 1;
-}
-
-.editor-gradient-color-controls[data-mode='none'] .editor-bg-opacity-control,
-.editor-gradient-color-controls[data-mode='none'] .editor-gradient-color-trigger,
-.editor-gradient-color-controls[data-mode='solid'] .editor-gradient-color-trigger:last-child {
-  pointer-events: none;
-}
-
-.editor-bg-opacity-control.is-disabled {
-  cursor: default;
+.editor-bg-opacity-button:hover:not(:disabled),
+.editor-gradient-color-trigger:hover:not(.is-disabled) {
+  color: rgba(35, 55, 60, 0.95);
 }
 
 .editor-bg-opacity-button {
@@ -1529,32 +1523,63 @@ body::after {
 
 .editor-bg-opacity-popover {
   position: absolute;
-  left: 0;
-  top: calc(100% + 8px);
+  left: -10px;
+  top: calc(100% + 10px);
   z-index: 32;
-  min-width: 128px;
+  min-width: 148px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 9px;
-  border-radius: 10px;
-  border: 1px solid rgba(197, 237, 242, 0.86);
+  gap: 10px;
+  padding: 10px 11px;
+  border-radius: 12px;
+  border: 1px solid rgba(204, 236, 245, 0.9);
   background: rgba(244, 252, 255, 0.98);
-  box-shadow: 0 8px 20px rgba(101, 157, 176, 0.24);
+  box-shadow: 0 12px 26px rgba(83, 142, 162, 0.24);
 }
 
 .editor-bg-opacity-popover input[type='range'] {
-  width: 90px;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(46, 139, 164, 0.95), rgba(134, 200, 216, 0.92));
   margin: 0;
-  accent-color: #2c8a9d;
+  outline: none;
+}
+
+.editor-bg-opacity-popover input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #f4fcff;
+  border: 1px solid rgba(46, 139, 164, 0.82);
+  box-shadow: 0 1px 4px rgba(46, 139, 164, 0.34);
+}
+
+.editor-bg-opacity-popover input[type='range']::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(46, 139, 164, 0.95), rgba(134, 200, 216, 0.92));
+}
+
+.editor-bg-opacity-popover input[type='range']::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #f4fcff;
+  border: 1px solid rgba(46, 139, 164, 0.82);
+  box-shadow: 0 1px 4px rgba(46, 139, 164, 0.34);
 }
 
 .editor-bg-opacity-popover span {
-  min-width: 34px;
+  min-width: 30px;
   text-align: right;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  color: rgba(45, 65, 74, 0.88);
+  color: rgba(45, 65, 74, 0.9);
 }
 
 .editor-gradient-color-trigger::after {
@@ -1586,10 +1611,6 @@ body::after {
   height: 11px;
   fill: currentColor;
   opacity: 0.76;
-}
-
-.editor-gradient-color-trigger:hover:not(.is-disabled) {
-  color: rgba(35, 55, 60, 0.95);
 }
 
 .editor-gradient-color-trigger.is-disabled {

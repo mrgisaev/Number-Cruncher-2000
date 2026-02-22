@@ -1284,86 +1284,89 @@ export const CreativeEditor = () => {
               </select>
             </div>
 
-            <div className="editor-gradient-color-controls" aria-label="Background colors" data-mode={textBgMode}>
-              <div
-                className={`editor-bg-opacity-control${textBgMode === 'none' ? ' is-disabled' : ''}`}
-                ref={bgOpacityControlRef}
-              >
-                <button
-                  type="button"
-                  className="editor-bg-opacity-button"
-                  onClick={() => {
-                    setIsColorControlOpen(false);
-                    setIsBgOpacityOpen((prev) => !prev);
-                  }}
-                  disabled={textBgMode === 'none'}
-                  title="Background opacity"
-                  aria-label="Background opacity"
-                  aria-expanded={isBgOpacityOpen}
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M12 2.5c-2.9 3.7-5.5 7-5.5 10a5.5 5.5 0 0 0 11 0c0-3-2.6-6.3-5.5-10Zm0 3.2c2.1 2.8 3.6 4.9 3.6 6.8A3.6 3.6 0 0 1 12 16.1V5.7Z" />
-                  </svg>
-                </button>
-                {isBgOpacityOpen && textBgMode !== 'none' ? (
-                  <div className="editor-bg-opacity-popover" role="dialog" aria-label="Background opacity">
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      value={textOpacity}
-                      onChange={(event) => applyTextOpacity(Number(event.target.value))}
-                    />
-                    <span>{textOpacity}%</span>
-                  </div>
-                ) : null}
+            <div className="editor-gradient-color-controls" aria-label="Background colors">
+              <div className={`editor-gradient-control-slot${textBgMode === 'none' ? '' : ' is-visible'}`}>
+                <div className="editor-bg-opacity-control" ref={bgOpacityControlRef}>
+                  <button
+                    type="button"
+                    className="editor-bg-opacity-button"
+                    onClick={() => {
+                      setIsColorControlOpen(false);
+                      setIsBgOpacityOpen((prev) => !prev);
+                    }}
+                    disabled={textBgMode === 'none'}
+                    title="Background opacity"
+                    aria-label="Background opacity"
+                    aria-expanded={isBgOpacityOpen}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 2.5c-2.9 3.7-5.5 7-5.5 10a5.5 5.5 0 0 0 11 0c0-3-2.6-6.3-5.5-10Zm0 3.2c2.1 2.8 3.6 4.9 3.6 6.8A3.6 3.6 0 0 1 12 16.1V5.7Z" />
+                    </svg>
+                  </button>
+                  {isBgOpacityOpen && textBgMode !== 'none' ? (
+                    <div className="editor-bg-opacity-popover" role="dialog" aria-label="Background opacity">
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={textOpacity}
+                        onChange={(event) => applyTextOpacity(Number(event.target.value))}
+                      />
+                      <span>{textOpacity}%</span>
+                    </div>
+                  ) : null}
+                </div>
               </div>
 
-              <label
-                className={`editor-gradient-color-trigger${textBgMode === 'none' ? ' is-disabled' : ''}`}
-                style={{ '--editor-gradient-color': textBgA } as CSSProperties}
-              >
-                <span className="editor-visually-hidden">Background color A</span>
-                <svg className="editor-gradient-color-trigger-icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M14.27 5.73 18.27 9.73 10 18H6v-4l8.27-8.27ZM13.56 3.61a1.5 1.5 0 0 1 2.12 0l2.71 2.71a1.5 1.5 0 0 1 0 2.12l-1.06 1.06-4.83-4.83 1.06-1.06Z" />
-                </svg>
-                <svg className="editor-gradient-color-trigger-caret" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M7 10l5 5 5-5z" />
-                </svg>
-                <input
-                  type="color"
-                  value={textBgA}
-                  onChange={(event) => {
-                    const bgA = event.target.value;
-                    setTextBgA(bgA);
-                    updateSelectedTextLayer({ bgA });
-                  }}
-                  disabled={textBgMode === 'none'}
-                />
-              </label>
+              <div className={`editor-gradient-control-slot${textBgMode === 'none' ? '' : ' is-visible'}`}>
+                <label
+                  className={`editor-gradient-color-trigger${textBgMode === 'none' ? ' is-disabled' : ''}`}
+                  style={{ '--editor-gradient-color': textBgA } as CSSProperties}
+                >
+                  <span className="editor-visually-hidden">Background color A</span>
+                  <svg className="editor-gradient-color-trigger-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M14.27 5.73 18.27 9.73 10 18H6v-4l8.27-8.27ZM13.56 3.61a1.5 1.5 0 0 1 2.12 0l2.71 2.71a1.5 1.5 0 0 1 0 2.12l-1.06 1.06-4.83-4.83 1.06-1.06Z" />
+                  </svg>
+                  <svg className="editor-gradient-color-trigger-caret" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M7 10l5 5 5-5z" />
+                  </svg>
+                  <input
+                    type="color"
+                    value={textBgA}
+                    onChange={(event) => {
+                      const bgA = event.target.value;
+                      setTextBgA(bgA);
+                      updateSelectedTextLayer({ bgA });
+                    }}
+                    disabled={textBgMode === 'none'}
+                  />
+                </label>
+              </div>
 
-              <label
-                className={`editor-gradient-color-trigger${textBgMode !== 'gradient' ? ' is-disabled' : ''}`}
-                style={{ '--editor-gradient-color': textBgB } as CSSProperties}
-              >
-                <span className="editor-visually-hidden">Background color B</span>
-                <svg className="editor-gradient-color-trigger-icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M14.27 5.73 18.27 9.73 10 18H6v-4l8.27-8.27ZM13.56 3.61a1.5 1.5 0 0 1 2.12 0l2.71 2.71a1.5 1.5 0 0 1 0 2.12l-1.06 1.06-4.83-4.83 1.06-1.06Z" />
-                </svg>
-                <svg className="editor-gradient-color-trigger-caret" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M7 10l5 5 5-5z" />
-                </svg>
-                <input
-                  type="color"
-                  value={textBgB}
-                  onChange={(event) => {
-                    const bgB = event.target.value;
-                    setTextBgB(bgB);
-                    updateSelectedTextLayer({ bgB });
-                  }}
-                  disabled={textBgMode !== 'gradient'}
-                />
-              </label>
+              <div className={`editor-gradient-control-slot${textBgMode === 'gradient' ? ' is-visible' : ''}`}>
+                <label
+                  className={`editor-gradient-color-trigger${textBgMode !== 'gradient' ? ' is-disabled' : ''}`}
+                  style={{ '--editor-gradient-color': textBgB } as CSSProperties}
+                >
+                  <span className="editor-visually-hidden">Background color B</span>
+                  <svg className="editor-gradient-color-trigger-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M14.27 5.73 18.27 9.73 10 18H6v-4l8.27-8.27ZM13.56 3.61a1.5 1.5 0 0 1 2.12 0l2.71 2.71a1.5 1.5 0 0 1 0 2.12l-1.06 1.06-4.83-4.83 1.06-1.06Z" />
+                  </svg>
+                  <svg className="editor-gradient-color-trigger-caret" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M7 10l5 5 5-5z" />
+                  </svg>
+                  <input
+                    type="color"
+                    value={textBgB}
+                    onChange={(event) => {
+                      const bgB = event.target.value;
+                      setTextBgB(bgB);
+                      updateSelectedTextLayer({ bgB });
+                    }}
+                    disabled={textBgMode !== 'gradient'}
+                  />
+                </label>
+              </div>
             </div>
 
             <div className="editor-text-field editor-text-field-font">
