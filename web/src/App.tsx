@@ -1,8 +1,4 @@
-import { type ChangeEvent, type CSSProperties, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { CreativeRenamer } from './CreativeRenamer';
-import { CreativeResizer } from './CreativeResizer';
-import { ShareSplitter } from './ShareSplitter';
-import { UtmGenerator } from './UtmGenerator';
+import { Suspense, lazy, type ChangeEvent, type CSSProperties, useEffect, useId, useMemo, useRef, useState } from 'react';
 import './App.css';
 
 const sampleColumn = '';
@@ -29,6 +25,19 @@ const loadAnalytics = () => {
   gtag('config', GA_ID, { anonymize_ip: true });
   anyWindow.__ncGaLoaded = true;
 };
+
+const CreativeRenamer = lazy(() =>
+  import('./CreativeRenamer').then((module) => ({ default: module.CreativeRenamer })),
+);
+const CreativeResizer = lazy(() =>
+  import('./CreativeResizer').then((module) => ({ default: module.CreativeResizer })),
+);
+const ShareSplitter = lazy(() =>
+  import('./ShareSplitter').then((module) => ({ default: module.ShareSplitter })),
+);
+const UtmGenerator = lazy(() =>
+  import('./UtmGenerator').then((module) => ({ default: module.UtmGenerator })),
+);
 
 const numberFormatter = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
@@ -519,32 +528,46 @@ function App() {
   };
 
   useEffect(() => {
+    let rafId = 0;
     const updateScrollCue = () => {
       const doc = document.documentElement;
       const scrollable = doc.scrollHeight > window.innerHeight + 4;
       setShowScrollCue(scrollable);
     };
+    const scheduleScrollCueUpdate = () => {
+      if (rafId !== 0) {
+        return;
+      }
+      rafId = window.requestAnimationFrame(() => {
+        rafId = 0;
+        updateScrollCue();
+      });
+    };
     updateScrollCue();
-    window.addEventListener('resize', updateScrollCue);
-    window.addEventListener('scroll', updateScrollCue, { passive: true });
+    window.addEventListener('resize', scheduleScrollCueUpdate);
+    window.addEventListener('scroll', scheduleScrollCueUpdate, { passive: true });
     let resizeObserver: ResizeObserver | null = null;
     if (typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(() => updateScrollCue());
+      resizeObserver = new ResizeObserver(() => scheduleScrollCueUpdate());
       if (document.body) {
         resizeObserver.observe(document.body);
       }
       resizeObserver.observe(document.documentElement);
     }
     return () => {
-      window.removeEventListener('resize', updateScrollCue);
-      window.removeEventListener('scroll', updateScrollCue);
+      window.removeEventListener('resize', scheduleScrollCueUpdate);
+      window.removeEventListener('scroll', scheduleScrollCueUpdate);
       if (resizeObserver) {
         resizeObserver.disconnect();
+      }
+      if (rafId !== 0) {
+        window.cancelAnimationFrame(rafId);
       }
     };
   }, []);
 
   useEffect(() => {
+    let rafId = 0;
     const updateMenuOverflow = () => {
       const el = menuScrollRef.current;
       if (!el) return;
@@ -555,16 +578,28 @@ function App() {
       setMenuFadeLeft(hasOverflow && leftVisible);
       setMenuFadeRight(hasOverflow && rightVisible);
     };
+    const scheduleMenuOverflowUpdate = () => {
+      if (rafId !== 0) {
+        return;
+      }
+      rafId = window.requestAnimationFrame(() => {
+        rafId = 0;
+        updateMenuOverflow();
+      });
+    };
     updateMenuOverflow();
-    window.addEventListener('resize', updateMenuOverflow);
+    window.addEventListener('resize', scheduleMenuOverflowUpdate);
     const el = menuScrollRef.current;
     if (el) {
-      el.addEventListener('scroll', updateMenuOverflow, { passive: true });
+      el.addEventListener('scroll', scheduleMenuOverflowUpdate, { passive: true });
     }
     return () => {
-      window.removeEventListener('resize', updateMenuOverflow);
+      window.removeEventListener('resize', scheduleMenuOverflowUpdate);
       if (el) {
-        el.removeEventListener('scroll', updateMenuOverflow);
+        el.removeEventListener('scroll', scheduleMenuOverflowUpdate);
+      }
+      if (rafId !== 0) {
+        window.cancelAnimationFrame(rafId);
       }
     };
   }, []);
@@ -725,14 +760,18 @@ function App() {
               </section>
             </main>
           </>
-        ) : isCreativeRenamer ? (
-          <CreativeRenamer />
-        ) : isCreativeResizer ? (
-          <CreativeResizer />
-        ) : isUtmGenerator ? (
-          <UtmGenerator />
-        ) : isShareSplitter ? (
-          <ShareSplitter />
+        ) : isCreativeRenamer || isCreativeResizer || isUtmGenerator || isShareSplitter ? (
+          <Suspense fallback={null}>
+            {isCreativeRenamer ? (
+              <CreativeRenamer />
+            ) : isCreativeResizer ? (
+              <CreativeResizer />
+            ) : isUtmGenerator ? (
+              <UtmGenerator />
+            ) : (
+              <ShareSplitter />
+            )}
+          </Suspense>
         ) : (
           <>
             <section className="controls-wrapper">

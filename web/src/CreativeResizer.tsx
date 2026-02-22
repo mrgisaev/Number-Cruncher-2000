@@ -130,6 +130,30 @@ const getBaseName = (name: string) => name.replace(/\.[^.]+$/, '');
 
 const getLeafName = (path: string) => path.split('/').pop() ?? path;
 
+const decodedImageCache = new Map<string, Promise<HTMLImageElement>>();
+
+const getDecodedImage = (src: string) => {
+  const cached = decodedImageCache.get(src);
+  if (cached) {
+    return cached;
+  }
+  const imagePromise = new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => {
+      decodedImageCache.delete(src);
+      reject(new Error('Image load failed.'));
+    };
+    image.src = src;
+  });
+  decodedImageCache.set(src, imagePromise);
+  return imagePromise;
+};
+
+const releaseDecodedImage = (src: string) => {
+  decodedImageCache.delete(src);
+};
+
 const isZipFile = (file: File) => file.name.toLowerCase().endsWith('.zip');
 
 const isImageName = (name: string) => imageExtensions.has(getExtension(name));
@@ -298,12 +322,7 @@ const cropImageBlob = async (
   maxBytes: number | null = null,
   targetBytes: number | null = null,
 ) => {
-  const image = new Image();
-  await new Promise<void>((resolve, reject) => {
-    image.onload = () => resolve();
-    image.onerror = () => reject(new Error('Image load failed.'));
-    image.src = asset.previewUrl;
-  });
+  const image = await getDecodedImage(asset.previewUrl);
 
   const sourceX = Math.round(rect.x * asset.width);
   const sourceY = Math.round(rect.y * asset.height);
@@ -552,6 +571,7 @@ export const CreativeResizer = () => {
   const [isDeckDropActive, setIsDeckDropActive] = useState(false);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
+  const [isCropInteracting, setIsCropInteracting] = useState(false);
   const [hoverPreview, setHoverPreview] = useState<{ url: string; x: number; y: number } | null>(null);
   const [copiedReadyItemId, setCopiedReadyItemId] = useState<string | null>(null);
   const imageWrapRef = useRef<HTMLDivElement | null>(null);
@@ -639,6 +659,7 @@ export const CreativeResizer = () => {
     if (!currentAsset) {
       return;
     }
+    setIsCropInteracting(false);
     setCropRect(buildDefaultRect(normalizedAspectRatio));
   }, [currentAsset?.id]);
 
@@ -656,7 +677,10 @@ export const CreativeResizer = () => {
 
   useEffect(() => {
     return () => {
-      assetsRef.current.forEach((asset) => URL.revokeObjectURL(asset.previewUrl));
+      assetsRef.current.forEach((asset) => {
+        releaseDecodedImage(asset.previewUrl);
+        URL.revokeObjectURL(asset.previewUrl);
+      });
       readyItemsRef.current.forEach((item) => URL.revokeObjectURL(item.previewUrl));
       if (qualityPreviewUrlRef.current) {
         URL.revokeObjectURL(qualityPreviewUrlRef.current);
@@ -747,6 +771,9 @@ export const CreativeResizer = () => {
       setQualityEstimatedSize('-');
       return undefined;
     }
+    if (isCropInteracting) {
+      return undefined;
+    }
 
     const taskId = qualityEstimateTaskRef.current;
     const timer = window.setTimeout(() => {
@@ -786,6 +813,7 @@ export const CreativeResizer = () => {
     qualityValue,
     maxOutputBytes,
     targetOutputBytes,
+    isCropInteracting,
   ]);
 
   useEffect(() => {
@@ -931,6 +959,7 @@ export const CreativeResizer = () => {
         return;
       }
       dragRef.current = null;
+      setIsCropInteracting(false);
     };
 
     window.addEventListener('pointermove', handlePointerMove);
@@ -1067,6 +1096,7 @@ export const CreativeResizer = () => {
     }
     event.preventDefault();
     event.stopPropagation();
+    setIsCropInteracting(true);
     const bounds = zoomLayerRef.current.getBoundingClientRect();
     dragRef.current = {
       mode,
@@ -1188,12 +1218,16 @@ export const CreativeResizer = () => {
   };
 
   const handleClearAssets = () => {
-    assets.forEach((asset) => URL.revokeObjectURL(asset.previewUrl));
+    assets.forEach((asset) => {
+      releaseDecodedImage(asset.previewUrl);
+      URL.revokeObjectURL(asset.previewUrl);
+    });
     setAssets([]);
     setCurrentIndex(0);
     setCropRect({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 });
     setZoomPercent(100);
     setPanOffset({ x: 0, y: 0 });
+    setIsCropInteracting(false);
   };
 
   const handleRemoveAsset = (assetId: string) => {
@@ -1203,6 +1237,7 @@ export const CreativeResizer = () => {
         return prev;
       }
       const target = prev[removedIndex];
+      releaseDecodedImage(target.previewUrl);
       URL.revokeObjectURL(target.previewUrl);
       const next = prev.filter((asset) => asset.id !== assetId);
       setCurrentIndex((prevIndex) => {
@@ -1220,6 +1255,7 @@ export const CreativeResizer = () => {
       if (!next.length) {
         setZoomPercent(100);
         setPanOffset({ x: 0, y: 0 });
+        setIsCropInteracting(false);
       }
       return next;
     });
