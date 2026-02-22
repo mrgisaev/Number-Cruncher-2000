@@ -1449,9 +1449,22 @@ body::after {
 }
 
 .editor-gradient-color-controls {
+  --editor-gradient-slot: 24px;
+  --editor-gradient-gap: 4px;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--editor-gradient-gap);
+  width: 0;
+  overflow: hidden;
+  transition: width 0.24s ease;
+}
+
+.editor-gradient-color-controls[data-mode='solid'] {
+  width: var(--editor-gradient-slot);
+}
+
+.editor-gradient-color-controls[data-mode='gradient'] {
+  width: calc(var(--editor-gradient-slot) + var(--editor-gradient-slot) + var(--editor-gradient-gap));
 }
 
 .editor-gradient-color-trigger {
@@ -1466,6 +1479,20 @@ body::after {
   gap: 1px;
   color: rgba(52, 80, 82, 0.92);
   cursor: pointer;
+  transform: translateX(-8px);
+  opacity: 0;
+  transition: transform 0.24s ease, opacity 0.24s ease, color 0.16s ease;
+}
+
+.editor-gradient-color-controls[data-mode='solid'] .editor-gradient-color-trigger:first-child,
+.editor-gradient-color-controls[data-mode='gradient'] .editor-gradient-color-trigger {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.editor-gradient-color-controls[data-mode='none'] .editor-gradient-color-trigger,
+.editor-gradient-color-controls[data-mode='solid'] .editor-gradient-color-trigger:last-child {
+  pointer-events: none;
 }
 
 .editor-gradient-color-trigger::after {
@@ -1588,6 +1615,38 @@ body::after {
   min-width: 150px;
 }
 
+.editor-text-toolbar-row-main .editor-text-field-font {
+  order: 1;
+}
+
+.editor-text-toolbar-row-main .editor-text-field-size {
+  order: 2;
+}
+
+.editor-text-toolbar-row-main .editor-text-field-color {
+  order: 3;
+}
+
+.editor-text-toolbar-row-main .editor-icon-group {
+  order: 4;
+}
+
+.editor-text-toolbar-row-main .editor-icon-group-align {
+  order: 5;
+}
+
+.editor-text-toolbar-row-main .editor-text-field-bg-mode {
+  order: 6;
+}
+
+.editor-text-toolbar-row-main .editor-gradient-color-controls {
+  order: 7;
+}
+
+.editor-text-toolbar-row-main .editor-text-field-opacity-inline {
+  order: 8;
+}
+
 .editor-text-field-size,
 .editor-text-field-color,
 .editor-text-field-opacity,
@@ -1609,6 +1668,11 @@ body::after {
 
 .editor-text-field-bg-mode select option {
   font-size: 0.9rem;
+}
+
+.editor-text-field-opacity-inline input {
+  width: 44px;
+  min-width: 44px;
 }
 
 .editor-icon-group-align {
