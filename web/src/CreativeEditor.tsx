@@ -38,6 +38,7 @@ type TextLayer = {
   y: number;
   boxWidth: number;
   boxHeight: number;
+  minBoxHeight: number;
   size: number;
   fontFamily: string;
   align: 'left' | 'center' | 'right';
@@ -99,6 +100,7 @@ const textDecorationFromFlags = (underline: boolean, strike: boolean) => {
   return 'none';
 };
 const getTextLayerHeight = (layer: TextLayer) => (Number.isFinite(layer.boxHeight) && layer.boxHeight > 0 ? layer.boxHeight : 22);
+const getTextLayerMinHeight = (layer: TextLayer) => (Number.isFinite(layer.minBoxHeight) && layer.minBoxHeight > 0 ? layer.minBoxHeight : 22);
 const getTextLayerBgOpacity = (layer: TextLayer) => (Number.isFinite(layer.opacity) ? clamp(Math.round(layer.opacity), 0, 100) : 100);
 
 const imageExt = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'svg', 'avif']);
@@ -261,6 +263,7 @@ export const CreativeEditor = () => {
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const colorControlRef = useRef<HTMLDivElement | null>(null);
   const bgOpacityControlRef = useRef<HTMLDivElement | null>(null);
+  const textMeasureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const deckDragDepthRef = useRef(0);
   const [isColorControlOpen, setIsColorControlOpen] = useState(false);
@@ -441,6 +444,42 @@ export const CreativeEditor = () => {
     setCurrentIndex((prev) => clamp(prev + direction, 0, assets.length - 1));
   };
 
+  const getTextMeasureContext = () => {
+    if (!textMeasureCanvasRef.current) {
+      textMeasureCanvasRef.current = document.createElement('canvas');
+    }
+    return textMeasureCanvasRef.current.getContext('2d');
+  };
+
+  const getTextLayerPadding = (layer: TextLayer) => (layer.bgMode === 'none' ? 0 : layer.padding);
+
+  const getTextLayerContentHeightPercent = (layer: TextLayer, bounds: DOMRect) => {
+    if (bounds.width <= 0 || bounds.height <= 0) return getTextLayerHeight(layer);
+    const ctx = getTextMeasureContext();
+    if (!ctx) return getTextLayerHeight(layer);
+    const fontSize = clamp(layer.size, 1, 300);
+    const padding = getTextLayerPadding(layer);
+    const boxWidthPx = Math.max(10, (layer.boxWidth / 100) * bounds.width);
+    const maxTextWidth = Math.max(12, boxWidthPx - padding * 2);
+    ctx.font = `${layer.italic ? 'italic ' : ''}${layer.bold ? 700 : 500} ${fontSize}px ${layer.fontFamily}, Roboto, 'Segoe UI', sans-serif`;
+    const lines = wrapTextLines(ctx, layer.text || ' ', maxTextWidth);
+    const lineHeight = fontSize * 1.24;
+    const contentHeightPx = Math.max(lineHeight + padding * 2, lines.length * lineHeight + padding * 2);
+    return (contentHeightPx / bounds.height) * 100;
+  };
+
+  const fitTextLayerHeight = (layer: TextLayer, bounds: DOMRect, minHeightOverride?: number): TextLayer => {
+    const minBoxHeight = clamp(minHeightOverride ?? getTextLayerMinHeight(layer), 8, 100);
+    const requiredHeight = clamp(getTextLayerContentHeightPercent(layer, bounds), 8, 100);
+    const maxHeight = Math.max(8, 100 - layer.y);
+    const boxHeight = clamp(Math.max(minBoxHeight, requiredHeight), 8, maxHeight);
+    return {
+      ...layer,
+      minBoxHeight,
+      boxHeight,
+    };
+  };
+
   const buildTextLayer = (text: string): TextLayer => ({
     id: `layer-${createId()}`,
     type: 'text',
@@ -449,6 +488,7 @@ export const CreativeEditor = () => {
     y: 8,
     boxWidth: 38,
     boxHeight: 22,
+    minBoxHeight: 22,
     size: clamp(Math.round(textSize), 1, 300),
     fontFamily: textFont,
     align: textAlign,
@@ -467,7 +507,9 @@ export const CreativeEditor = () => {
 
   const addTextLayer = () => {
     const text = 'Type text';
-    const next = buildTextLayer(text);
+    const baseLayer = buildTextLayer(text);
+    const bounds = overlayRef.current?.getBoundingClientRect();
+    const next = bounds ? fitTextLayerHeight(baseLayer, bounds) : baseLayer;
     setLayers((prev) => [...prev, next]);
     setSelectedLayerId(next.id);
   };
@@ -502,7 +544,13 @@ export const CreativeEditor = () => {
 
   const updateSelectedTextLayer = (patch: Partial<TextLayer>) => {
     if (!selectedLayer || selectedLayer.type !== 'text') return;
-    updateSelected((layer) => (layer.type === 'text' ? { ...layer, ...patch } : layer));
+    const bounds = overlayRef.current?.getBoundingClientRect();
+    updateSelected((layer) => {
+      if (layer.type !== 'text') return layer;
+      const nextLayer: TextLayer = { ...layer, ...patch };
+      if (!bounds) return nextLayer;
+      return fitTextLayerHeight(nextLayer, bounds);
+    });
   };
 
   const applyTextSize = (rawValue: number) => {
@@ -542,7 +590,15 @@ export const CreativeEditor = () => {
   };
 
   const handleTextLayerInput = (layerId: string, value: string) => {
-    setLayers((prev) => prev.map((layer) => (layer.id === layerId && layer.type === 'text' ? { ...layer, text: value } : layer)));
+    const bounds = overlayRef.current?.getBoundingClientRect();
+    setLayers((prev) =>
+      prev.map((layer) => {
+        if (layer.id !== layerId || layer.type !== 'text') return layer;
+        const nextLayer: TextLayer = { ...layer, text: value };
+        if (!bounds) return nextLayer;
+        return fitTextLayerHeight(nextLayer, bounds);
+      }),
+    );
   };
 
   const layerPointerDown = (
@@ -609,13 +665,15 @@ export const CreativeEditor = () => {
               nextRight = clamp(nextRight, nextLeft + minWidth, 100);
               nextBottom = clamp(nextBottom, nextTop + minHeight, 100);
 
-              return {
+              const resizedLayer: TextLayer = {
                 ...layer,
                 x: nextLeft,
                 y: nextTop,
                 boxWidth: nextRight - nextLeft,
                 boxHeight: nextBottom - nextTop,
+                minBoxHeight: nextBottom - nextTop,
               };
+              return fitTextLayerHeight(resizedLayer, drag.bounds, resizedLayer.minBoxHeight);
             }
             const nextX = clamp(drag.startX + (dx / drag.bounds.width) * 100, 0, 100 - layer.boxWidth);
             const nextY = clamp(drag.startY + (dy / drag.bounds.height) * 100, 0, 100 - currentHeight);
@@ -661,6 +719,7 @@ export const CreativeEditor = () => {
         const y = (layer.y / 100) * asset.height;
         const boxWidth = Math.max(10, (layer.boxWidth / 100) * asset.width);
         const boxHeight = Math.max(10, (getTextLayerHeight(layer) / 100) * asset.height);
+        const padding = getTextLayerPadding(layer);
         const fontSize = clamp(layer.size, 1, 300);
         const lineHeight = fontSize * 1.24;
 
@@ -668,8 +727,8 @@ export const CreativeEditor = () => {
         ctx.font = `${layer.italic ? 'italic ' : ''}${layer.bold ? 700 : 500} ${fontSize}px ${layer.fontFamily}, Roboto, 'Segoe UI', sans-serif`;
         ctx.textAlign = layer.align;
         ctx.textBaseline = 'top';
-        const lines = wrapTextLines(ctx, layer.text || ' ', Math.max(12, boxWidth - layer.padding * 2));
-        const maxTextHeight = Math.max(lineHeight, boxHeight - layer.padding * 2);
+        const lines = wrapTextLines(ctx, layer.text || ' ', Math.max(12, boxWidth - padding * 2));
+        const maxTextHeight = Math.max(lineHeight, boxHeight - padding * 2);
         const maxLines = Math.max(1, Math.floor(maxTextHeight / lineHeight));
         const visibleLines = lines.slice(0, maxLines);
 
@@ -693,9 +752,9 @@ export const CreativeEditor = () => {
 
         ctx.fillStyle = layer.color;
         const anchorX = layer.align === 'left'
-          ? x + layer.padding
+          ? x + padding
           : layer.align === 'right'
-            ? x + boxWidth - layer.padding
+            ? x + boxWidth - padding
             : x + boxWidth / 2;
         if (layer.underline || layer.strike) {
           ctx.strokeStyle = layer.color;
@@ -706,7 +765,7 @@ export const CreativeEditor = () => {
         ctx.rect(x, y, boxWidth, boxHeight);
         ctx.clip();
         visibleLines.forEach((line, index) => {
-          const lineY = y + layer.padding + lineHeight * index;
+          const lineY = y + padding + lineHeight * index;
           ctx.fillText(line, anchorX, lineY);
           const lineWidth = ctx.measureText(line || ' ').width;
           const lineStartX = layer.align === 'left'

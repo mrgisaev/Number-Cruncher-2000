@@ -1813,7 +1813,7 @@ body::after {
 .editor-layer-text {
   min-width: 60px;
   cursor: move;
-  overflow: hidden;
+  overflow: visible;
   box-sizing: border-box;
 }
 
@@ -1849,7 +1849,7 @@ body::after {
   resize: none;
   line-height: inherit;
   white-space: pre-wrap;
-  overflow: auto;
+  overflow: hidden;
   display: block;
   caret-color: currentColor;
   box-sizing: border-box;
@@ -1857,37 +1857,45 @@ body::after {
   z-index: 1;
 }
 
+.editor-layer-text-editor::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
 .editor-layer-resize-handle {
   position: absolute;
-  width: 11px;
-  height: 11px;
+  width: 13px;
+  height: 13px;
   border-radius: 999px;
   background: #bff5ff;
   border: 1px solid rgba(150, 233, 247, 0.95);
   box-shadow: 0 0 0 1px rgba(19, 166, 194, 0.24);
+  z-index: 4;
+  pointer-events: auto;
+  touch-action: none;
 }
 
 .editor-layer-resize-handle-nw {
-  left: -5px;
-  top: -5px;
+  left: -6px;
+  top: -6px;
   cursor: nwse-resize;
 }
 
 .editor-layer-resize-handle-ne {
-  right: -5px;
-  top: -5px;
+  right: -6px;
+  top: -6px;
   cursor: nesw-resize;
 }
 
 .editor-layer-resize-handle-sw {
-  left: -5px;
-  bottom: -5px;
+  left: -6px;
+  bottom: -6px;
   cursor: nesw-resize;
 }
 
 .editor-layer-resize-handle-se {
-  right: -5px;
-  bottom: -5px;
+  right: -6px;
+  bottom: -6px;
   cursor: nwse-resize;
 }
 
@@ -2216,6 +2224,7 @@ body::after {
     inset 0 1px 5px rgba(255, 255, 255, 0.48),
     0 3px 8px rgba(196, 246, 248, 0.32);
   box-sizing: border-box;
+  margin-bottom: 10px;
 }
 
 .resizer-deck-row.is-drop-active .resizer-deck,
