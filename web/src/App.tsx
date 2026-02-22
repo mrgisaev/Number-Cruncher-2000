@@ -32,6 +32,9 @@ const CreativeRenamer = lazy(() =>
 const CreativeResizer = lazy(() =>
   import('./CreativeResizer').then((module) => ({ default: module.CreativeResizer })),
 );
+const CreativeEditor = lazy(() =>
+  import('./CreativeEditor').then((module) => ({ default: module.CreativeEditor })),
+);
 const ShareSplitter = lazy(() =>
   import('./ShareSplitter').then((module) => ({ default: module.ShareSplitter })),
 );
@@ -332,6 +335,8 @@ function App() {
     typeof window !== 'undefined' && window.location.pathname.includes('creative-renamer');
   const isCreativeResizer =
     typeof window !== 'undefined' && window.location.pathname.includes('creative-resizer');
+  const isCreativeEditor =
+    typeof window !== 'undefined' && window.location.pathname.includes('creative-editor');
   const isUtmGenerator = typeof window !== 'undefined' && window.location.pathname.includes('utm-generator');
   const latestReleaseDate = 'Feb 21, 2026';
   const feb17ReleaseDate = 'Feb 17, 2026';
@@ -663,6 +668,11 @@ function App() {
               </a>
             </li>
             <li>
+              <a className="tool-link-button" href="/creative-editor.html">
+                Creative Editor
+              </a>
+            </li>
+            <li>
               <a className="tool-link-button" href="/creative-renamer.html">
                 Asset Renamer
               </a>
@@ -760,12 +770,14 @@ function App() {
               </section>
             </main>
           </>
-        ) : isCreativeRenamer || isCreativeResizer || isUtmGenerator || isShareSplitter ? (
+        ) : isCreativeRenamer || isCreativeResizer || isCreativeEditor || isUtmGenerator || isShareSplitter ? (
           <Suspense fallback={null}>
             {isCreativeRenamer ? (
               <CreativeRenamer />
             ) : isCreativeResizer ? (
               <CreativeResizer />
+            ) : isCreativeEditor ? (
+              <CreativeEditor />
             ) : isUtmGenerator ? (
               <UtmGenerator />
             ) : (

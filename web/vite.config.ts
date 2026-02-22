@@ -14,6 +14,7 @@ export default defineConfig({
         shareSplitter: resolve(__dirname, 'share-splitter.html'),
         creativeRenamer: resolve(__dirname, 'creative-renamer.html'),
         creativeResizer: resolve(__dirname, 'creative-resizer.html'),
+        creativeEditor: resolve(__dirname, 'creative-editor.html'),
         utmGenerator: resolve(__dirname, 'utm-generator.html'),
       },
     },
