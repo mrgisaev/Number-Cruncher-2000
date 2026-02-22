@@ -99,6 +99,7 @@ const textDecorationFromFlags = (underline: boolean, strike: boolean) => {
   return 'none';
 };
 const getTextLayerHeight = (layer: TextLayer) => (Number.isFinite(layer.boxHeight) && layer.boxHeight > 0 ? layer.boxHeight : 22);
+const getTextLayerBgOpacity = (layer: TextLayer) => (Number.isFinite(layer.opacity) ? clamp(Math.round(layer.opacity), 0, 100) : 100);
 
 const imageExt = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'svg', 'avif']);
 
@@ -241,7 +242,6 @@ export const CreativeEditor = () => {
   const [textUnderline, setTextUnderline] = useState(false);
   const [textStrike, setTextStrike] = useState(false);
   const [textOpacity, setTextOpacity] = useState(100);
-  const [textOpacityInput, setTextOpacityInput] = useState('100');
   const [textBgMode, setTextBgMode] = useState<TextBgMode>('none');
   const [textBgA, setTextBgA] = useState('#000000aa');
   const [textBgB, setTextBgB] = useState('#0ea5e9aa');
@@ -260,9 +260,11 @@ export const CreativeEditor = () => {
   const stickerInputRef = useRef<HTMLInputElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const colorControlRef = useRef<HTMLDivElement | null>(null);
+  const bgOpacityControlRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const deckDragDepthRef = useRef(0);
   const [isColorControlOpen, setIsColorControlOpen] = useState(false);
+  const [isBgOpacityOpen, setIsBgOpacityOpen] = useState(false);
 
   const assetsRef = useRef<EditorAsset[]>([]);
   const stickersRef = useRef<StickerAsset[]>([]);
@@ -295,13 +297,20 @@ export const CreativeEditor = () => {
 
   useEffect(() => {
     const onPointerDown = (event: PointerEvent) => {
-      if (!colorControlRef.current) return;
-      if (colorControlRef.current.contains(event.target as Node)) return;
+      const target = event.target as Node;
+      if (colorControlRef.current?.contains(target)) return;
+      if (bgOpacityControlRef.current?.contains(target)) return;
       setIsColorControlOpen(false);
+      setIsBgOpacityOpen(false);
     };
     window.addEventListener('pointerdown', onPointerDown);
     return () => window.removeEventListener('pointerdown', onPointerDown);
   }, []);
+
+  useEffect(() => {
+    if (textBgMode !== 'none') return;
+    setIsBgOpacityOpen(false);
+  }, [textBgMode]);
 
   const currentAsset = assets[currentIndex] ?? null;
   const selectedLayer = layers.find((layer) => layer.id === selectedLayerId) ?? null;
@@ -317,8 +326,7 @@ export const CreativeEditor = () => {
     setTextItalic(selectedLayer.italic);
     setTextUnderline(selectedLayer.underline);
     setTextStrike(selectedLayer.strike);
-    setTextOpacity(selectedLayer.opacity);
-    setTextOpacityInput(String(selectedLayer.opacity));
+    setTextOpacity(getTextLayerBgOpacity(selectedLayer));
     setTextBgMode(selectedLayer.bgMode);
     setTextBgA(selectedLayer.bgA);
     setTextBgB(selectedLayer.bgB);
@@ -449,7 +457,7 @@ export const CreativeEditor = () => {
     italic: textItalic,
     underline: textUnderline,
     strike: textStrike,
-    opacity: clamp(Math.round(textOpacity), 1, 100),
+    opacity: clamp(Math.round(textOpacity), 0, 100),
     bgMode: textBgMode,
     bgA: textBgA,
     bgB: textBgB,
@@ -528,33 +536,9 @@ export const CreativeEditor = () => {
   };
 
   const applyTextOpacity = (rawValue: number) => {
-    const opacity = clamp(Math.round(rawValue), 1, 100);
-    setTextOpacity(opacity);
-    setTextOpacityInput(String(opacity));
-    updateSelectedTextLayer({ opacity });
-  };
-
-  const handleTextOpacityInputChange = (rawValue: string) => {
-    setTextOpacityInput(rawValue);
-    if (!rawValue.trim()) return;
-    const parsed = Number(rawValue);
-    if (!Number.isFinite(parsed)) return;
-    const opacity = clamp(Math.round(parsed), 1, 100);
+    const opacity = clamp(Math.round(rawValue), 0, 100);
     setTextOpacity(opacity);
     updateSelectedTextLayer({ opacity });
-  };
-
-  const commitTextOpacityInput = () => {
-    if (!textOpacityInput.trim()) {
-      setTextOpacityInput(String(textOpacity));
-      return;
-    }
-    const parsed = Number(textOpacityInput);
-    if (!Number.isFinite(parsed)) {
-      setTextOpacityInput(String(textOpacity));
-      return;
-    }
-    applyTextOpacity(parsed);
   };
 
   const handleTextLayerInput = (layerId: string, value: string) => {
@@ -681,7 +665,6 @@ export const CreativeEditor = () => {
         const lineHeight = fontSize * 1.24;
 
         ctx.save();
-        ctx.globalAlpha = clamp(layer.opacity / 100, 0.01, 1);
         ctx.font = `${layer.italic ? 'italic ' : ''}${layer.bold ? 700 : 500} ${fontSize}px ${layer.fontFamily}, Roboto, 'Segoe UI', sans-serif`;
         ctx.textAlign = layer.align;
         ctx.textBaseline = 'top';
@@ -693,6 +676,8 @@ export const CreativeEditor = () => {
         if (layer.bgMode !== 'none') {
           const left = x;
           const top = y;
+          ctx.save();
+          ctx.globalAlpha = getTextLayerBgOpacity(layer) / 100;
           if (layer.bgMode === 'gradient') {
             const gradient = ctx.createLinearGradient(left, top, left + boxWidth, top + boxHeight);
             gradient.addColorStop(0, layer.bgA);
@@ -703,6 +688,7 @@ export const CreativeEditor = () => {
           }
           drawRoundRect(ctx, left, top, boxWidth, boxHeight, layer.radius);
           ctx.fill();
+          ctx.restore();
         }
 
         ctx.fillStyle = layer.color;
@@ -967,14 +953,23 @@ export const CreativeEditor = () => {
             textDecorationThickness: '0.08em',
             textUnderlineOffset: '0.14em',
             color: layer.color,
-            opacity: layer.opacity / 100,
-            background,
             padding: layer.bgMode === 'none' ? '0' : `${layer.padding}px`,
             borderRadius: layer.bgMode === 'none' ? '0' : `${layer.radius}px`,
           }}
           onPointerDown={(event) => layerPointerDown(event, layer.id, 'move')}
           title={`Text ${index + 1}`}
         >
+          {layer.bgMode !== 'none' ? (
+            <span
+              className="editor-layer-text-background"
+              aria-hidden="true"
+              style={{
+                background,
+                borderRadius: `${layer.radius}px`,
+                opacity: getTextLayerBgOpacity(layer) / 100,
+              }}
+            />
+          ) : null}
           {isSelected ? (
             <textarea
               className="editor-layer-text-editor"
@@ -1290,6 +1285,40 @@ export const CreativeEditor = () => {
             </div>
 
             <div className="editor-gradient-color-controls" aria-label="Background colors" data-mode={textBgMode}>
+              <div
+                className={`editor-bg-opacity-control${textBgMode === 'none' ? ' is-disabled' : ''}`}
+                ref={bgOpacityControlRef}
+              >
+                <button
+                  type="button"
+                  className="editor-bg-opacity-button"
+                  onClick={() => {
+                    setIsColorControlOpen(false);
+                    setIsBgOpacityOpen((prev) => !prev);
+                  }}
+                  disabled={textBgMode === 'none'}
+                  title="Background opacity"
+                  aria-label="Background opacity"
+                  aria-expanded={isBgOpacityOpen}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 2.5c-2.9 3.7-5.5 7-5.5 10a5.5 5.5 0 0 0 11 0c0-3-2.6-6.3-5.5-10Zm0 3.2c2.1 2.8 3.6 4.9 3.6 6.8A3.6 3.6 0 0 1 12 16.1V5.7Z" />
+                  </svg>
+                </button>
+                {isBgOpacityOpen && textBgMode !== 'none' ? (
+                  <div className="editor-bg-opacity-popover" role="dialog" aria-label="Background opacity">
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={textOpacity}
+                      onChange={(event) => applyTextOpacity(Number(event.target.value))}
+                    />
+                    <span>{textOpacity}%</span>
+                  </div>
+                ) : null}
+              </div>
+
               <label
                 className={`editor-gradient-color-trigger${textBgMode === 'none' ? ' is-disabled' : ''}`}
                 style={{ '--editor-gradient-color': textBgA } as CSSProperties}
@@ -1335,23 +1364,6 @@ export const CreativeEditor = () => {
                   disabled={textBgMode !== 'gradient'}
                 />
               </label>
-            </div>
-
-            <div className="editor-text-field editor-text-field-mini editor-text-field-compact editor-text-field-opacity-inline">
-              <label className="editor-visually-hidden">Text opacity</label>
-              <input
-                type="number"
-                min={1}
-                max={100}
-                value={textOpacityInput}
-                onChange={(event) => handleTextOpacityInputChange(event.target.value)}
-                onBlur={commitTextOpacityInput}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.currentTarget.blur();
-                  }
-                }}
-              />
             </div>
 
             <div className="editor-text-field editor-text-field-font">
@@ -1404,7 +1416,10 @@ export const CreativeEditor = () => {
                   type="button"
                   className="editor-color-letter-button"
                   style={{ '--editor-color': textColor } as CSSProperties}
-                  onClick={() => setIsColorControlOpen((prev) => !prev)}
+                  onClick={() => {
+                    setIsBgOpacityOpen(false);
+                    setIsColorControlOpen((prev) => !prev);
+                  }}
                   title="Text color"
                 >
                   <span aria-hidden="true">A</span>

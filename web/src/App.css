@@ -1455,18 +1455,20 @@ body::after {
   align-items: center;
   gap: var(--editor-gradient-gap);
   width: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: visible;
   transition: width 0.24s ease;
 }
 
 .editor-gradient-color-controls[data-mode='solid'] {
-  width: var(--editor-gradient-slot);
-}
-
-.editor-gradient-color-controls[data-mode='gradient'] {
   width: calc(var(--editor-gradient-slot) + var(--editor-gradient-slot) + var(--editor-gradient-gap));
 }
 
+.editor-gradient-color-controls[data-mode='gradient'] {
+  width: calc(var(--editor-gradient-slot) + var(--editor-gradient-slot) + var(--editor-gradient-slot) + var(--editor-gradient-gap) + var(--editor-gradient-gap));
+}
+
+.editor-bg-opacity-control,
 .editor-gradient-color-trigger {
   --editor-gradient-color: #000000;
   position: relative;
@@ -1484,15 +1486,75 @@ body::after {
   transition: transform 0.24s ease, opacity 0.24s ease, color 0.16s ease;
 }
 
-.editor-gradient-color-controls[data-mode='solid'] .editor-gradient-color-trigger:first-child,
+.editor-gradient-color-controls[data-mode='solid'] .editor-bg-opacity-control,
+.editor-gradient-color-controls[data-mode='solid'] .editor-gradient-color-trigger:first-of-type,
+.editor-gradient-color-controls[data-mode='gradient'] .editor-bg-opacity-control,
 .editor-gradient-color-controls[data-mode='gradient'] .editor-gradient-color-trigger {
   transform: translateX(0);
   opacity: 1;
 }
 
+.editor-gradient-color-controls[data-mode='none'] .editor-bg-opacity-control,
 .editor-gradient-color-controls[data-mode='none'] .editor-gradient-color-trigger,
 .editor-gradient-color-controls[data-mode='solid'] .editor-gradient-color-trigger:last-child {
   pointer-events: none;
+}
+
+.editor-bg-opacity-control.is-disabled {
+  cursor: default;
+}
+
+.editor-bg-opacity-button {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.editor-bg-opacity-button:disabled {
+  cursor: default;
+}
+
+.editor-bg-opacity-button svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.editor-bg-opacity-popover {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 8px);
+  z-index: 32;
+  min-width: 128px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 9px;
+  border-radius: 10px;
+  border: 1px solid rgba(197, 237, 242, 0.86);
+  background: rgba(244, 252, 255, 0.98);
+  box-shadow: 0 8px 20px rgba(101, 157, 176, 0.24);
+}
+
+.editor-bg-opacity-popover input[type='range'] {
+  width: 90px;
+  margin: 0;
+  accent-color: #2c8a9d;
+}
+
+.editor-bg-opacity-popover span {
+  min-width: 34px;
+  text-align: right;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: rgba(45, 65, 74, 0.88);
 }
 
 .editor-gradient-color-trigger::after {
@@ -1643,10 +1705,6 @@ body::after {
   order: 7;
 }
 
-.editor-text-toolbar-row-main .editor-text-field-opacity-inline {
-  order: 8;
-}
-
 .editor-text-field-size,
 .editor-text-field-color,
 .editor-text-field-opacity,
@@ -1668,11 +1726,6 @@ body::after {
 
 .editor-text-field-bg-mode select option {
   font-size: 0.9rem;
-}
-
-.editor-text-field-opacity-inline input {
-  width: 44px;
-  min-width: 44px;
 }
 
 .editor-icon-group-align {
@@ -1743,12 +1796,21 @@ body::after {
   box-sizing: border-box;
 }
 
+.editor-layer-text-background {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
 .editor-layer-text-view {
   white-space: pre-wrap;
   width: 100%;
   height: 100%;
   min-height: 0;
   overflow: hidden;
+  position: relative;
+  z-index: 1;
 }
 
 .editor-layer-text-editor {
@@ -1770,6 +1832,8 @@ body::after {
   display: block;
   caret-color: currentColor;
   box-sizing: border-box;
+  position: relative;
+  z-index: 1;
 }
 
 .editor-layer-resize-handle {
