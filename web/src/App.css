@@ -1607,6 +1607,7 @@ body::after {
 
 .editor-bg-opacity-control,
 .editor-bg-radius-control,
+.editor-bg-direction-control,
 .editor-gradient-color-trigger {
   --editor-gradient-color: #000000;
   position: relative;
@@ -1677,12 +1678,15 @@ body::after {
 
 .editor-bg-opacity-button:hover:not(:disabled),
 .editor-bg-radius-button:hover:not(:disabled),
+.editor-bg-direction-button:hover:not(:disabled),
 .editor-gradient-color-trigger:hover:not(.is-disabled) {
   color: rgba(35, 55, 60, 0.95);
 }
 
 .editor-bg-opacity-button,
-.editor-bg-radius-button {
+.editor-bg-radius-button,
+.editor-bg-direction-button {
+  position: relative;
   width: 100%;
   height: 100%;
   border: 0;
@@ -1696,17 +1700,94 @@ body::after {
 }
 
 .editor-bg-opacity-button:disabled,
-.editor-bg-radius-button:disabled {
+.editor-bg-radius-button:disabled,
+.editor-bg-direction-button:disabled {
   cursor: default;
 }
 
 .editor-bg-opacity-button svg,
-.editor-bg-radius-button svg {
+.editor-bg-radius-button svg,
+.editor-bg-direction-button svg {
   width: 17px;
   height: 17px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.editor-bg-direction-button.is-active {
+  color: rgba(16, 126, 96, 0.96);
+  text-shadow: 0 0 0.25px currentColor;
+}
+
+.editor-bg-control-badge {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  min-width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(244, 252, 255, 0.95);
+  color: rgba(52, 80, 82, 0.92);
+  font-size: 0.5rem;
+  font-weight: 800;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1px;
+  box-sizing: border-box;
+}
+
+.editor-bg-direction-popover {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 8px);
+  transform: translateX(-50%);
+  z-index: 33;
+  display: grid;
+  grid-template-columns: repeat(2, 26px);
+  gap: 4px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(204, 236, 245, 0.9);
+  background: rgba(244, 252, 255, 0.98);
+  box-shadow: 0 12px 26px rgba(83, 142, 162, 0.24);
+}
+
+.editor-bg-direction-option {
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(52, 80, 82, 0.92);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.editor-bg-direction-option:hover {
+  background: rgba(191, 245, 255, 0.32);
+  color: rgba(35, 55, 60, 0.95);
+}
+
+.editor-bg-direction-option.is-active {
+  background: rgba(16, 126, 96, 0.14);
+  color: rgba(16, 126, 96, 0.96);
+}
+
+.editor-bg-direction-option svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -1819,9 +1900,9 @@ body::after {
 .editor-gradient-color-trigger::after {
   content: '';
   position: absolute;
-  left: 6px;
-  bottom: 3px;
-  width: 16px;
+  left: 5px;
+  bottom: 2px;
+  width: 18px;
   height: 2.5px;
   border-radius: 999px;
   background: var(--editor-gradient-color);
@@ -1834,13 +1915,51 @@ body::after {
   cursor: pointer;
 }
 
-.editor-gradient-color-letter {
-  font-size: 0.9rem;
-  font-weight: 700;
+.editor-gradient-color-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  transform: translateY(-1px);
+}
+
+.editor-gradient-color-tool {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.editor-gradient-color-caret {
+  width: 8px;
+  height: 8px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.editor-gradient-color-badge {
+  position: absolute;
+  right: -2px;
+  top: -2px;
+  min-width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(244, 252, 255, 0.95);
+  color: rgba(52, 80, 82, 0.92);
+  font-size: 0.5rem;
+  font-weight: 800;
   line-height: 1;
-  letter-spacing: 0.01em;
-  color: currentColor;
-  transform: translateY(-2px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1px;
+  box-sizing: border-box;
 }
 
 .editor-gradient-color-trigger.is-disabled {
@@ -2174,6 +2293,10 @@ body::after {
   box-sizing: border-box;
 }
 
+.editor-layer-text.is-selected {
+  cursor: default;
+}
+
 .editor-layer-text-background {
   position: absolute;
   inset: 0;
@@ -2213,11 +2336,15 @@ body::after {
   box-sizing: border-box;
   position: relative;
   z-index: 1;
+  cursor: text;
+  user-select: text;
 }
 
 .editor-layer-text-editor-contenteditable {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  cursor: text;
+  user-select: text;
 }
 
 .editor-layer-text-editor::-webkit-scrollbar {
@@ -2291,20 +2418,24 @@ body::after {
 }
 
 .editor-layer-sticker {
-  width: 20%;
-  max-width: 70%;
+  min-width: 24px;
+  min-height: 24px;
   cursor: move;
+  overflow: visible;
+  box-sizing: border-box;
 }
 
 .editor-layer-sticker img {
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: contain;
   display: block;
   pointer-events: none;
 }
 
 .editor-layer-sticker.is-selected img {
-  border: 2px solid rgba(180, 245, 255, 0.95);
+  outline: 2px solid rgba(180, 245, 255, 0.95);
+  outline-offset: -2px;
   border-radius: 8px;
 }
 

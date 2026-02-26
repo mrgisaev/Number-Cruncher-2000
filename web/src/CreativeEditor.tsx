@@ -29,6 +29,7 @@ type StickerAsset = {
 };
 
 type TextBgMode = 'none' | 'solid' | 'gradient';
+type TextBgDirection = 'to-right' | 'to-bottom' | 'to-bottom-right' | 'to-bottom-left';
 type TextAlignMode = 'left' | 'center' | 'right' | 'justify';
 type TextVerticalAlignMode = 'top' | 'middle' | 'bottom';
 
@@ -53,8 +54,11 @@ type TextLayer = {
   strike: boolean;
   opacity: number;
   bgMode: TextBgMode;
+  bgDirection: TextBgDirection;
   bgA: string;
   bgB: string;
+  bgOpacityA: number;
+  bgOpacityB: number;
   paddingX: number;
   paddingY: number;
   padding?: number;
@@ -67,8 +71,8 @@ type StickerLayer = {
   stickerId: string;
   x: number;
   y: number;
-  scale: number;
-  rotation: number;
+  boxWidth: number;
+  boxHeight: number;
   opacity: number;
 };
 
@@ -108,8 +112,36 @@ const textDecorationFromFlags = (underline: boolean, strike: boolean) => {
 const getTextLayerHeight = (layer: TextLayer) => (Number.isFinite(layer.boxHeight) && layer.boxHeight > 0 ? layer.boxHeight : 8);
 const getTextLayerMinHeight = (layer: TextLayer) => (Number.isFinite(layer.minBoxHeight) && layer.minBoxHeight > 0 ? layer.minBoxHeight : 8);
 const getTextLayerBgOpacity = (layer: TextLayer) => (Number.isFinite(layer.opacity) ? clamp(Math.round(layer.opacity), 0, 100) : 100);
+const getTextLayerBgOpacityA = (layer: TextLayer) =>
+  (Number.isFinite(layer.bgOpacityA) ? clamp(Math.round(layer.bgOpacityA), 0, 100) : getTextLayerBgOpacity(layer));
+const getTextLayerBgOpacityB = (layer: TextLayer) =>
+  (Number.isFinite(layer.bgOpacityB) ? clamp(Math.round(layer.bgOpacityB), 0, 100) : getTextLayerBgOpacityA(layer));
+const getTextLayerBgDirection = (layer: TextLayer): TextBgDirection => {
+  const direction = layer.bgDirection;
+  if (direction === 'to-right' || direction === 'to-bottom' || direction === 'to-bottom-left' || direction === 'to-bottom-right') {
+    return direction;
+  }
+  return 'to-bottom-right';
+};
 const clampTextLineHeight = (value: number) => (Number.isFinite(value) ? clamp(value, 0.8, 2.5) : 1.24);
 const getTextLayerLineHeight = (layer: TextLayer) => clampTextLineHeight(layer.lineHeight);
+const getStickerLayerWidth = (layer: StickerLayer) =>
+  (Number.isFinite(layer.boxWidth) && layer.boxWidth > 0 ? layer.boxWidth : 20);
+const getStickerLayerHeight = (layer: StickerLayer) =>
+  (Number.isFinite(layer.boxHeight) && layer.boxHeight > 0 ? layer.boxHeight : 20);
+const getStickerPixelAspect = (sticker: StickerAsset | null | undefined) => {
+  if (!sticker || sticker.width <= 0 || sticker.height <= 0) return 1;
+  return sticker.width / sticker.height;
+};
+const getStickerPercentAspect = (
+  pixelAspect: number,
+  bounds: Pick<DOMRect, 'width' | 'height'> | null | undefined,
+) => {
+  const width = bounds?.width ?? 0;
+  const height = bounds?.height ?? 0;
+  if (width <= 0 || height <= 0) return Math.max(0.01, pixelAspect);
+  return Math.max(0.01, pixelAspect * (height / width));
+};
 const normalizeEditableText = (value: string) => value.replace(/\r/g, '').replace(/\u00a0/g, ' ').replace(/\n$/, '');
 const textLineHeightOptions = [1, 1.1, 1.25, 1.5, 1.75, 2] as const;
 const normalizeTextLineHeightOption = (value: number) => {
@@ -120,6 +152,7 @@ const normalizeTextLineHeightOption = (value: number) => {
 };
 
 const imageExt = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'svg', 'avif']);
+const stickerExt = new Set(['png', 'jpg', 'jpeg']);
 
 const getExt = (name: string) => {
   const match = name.match(/\.([^.]+)$/);
@@ -133,6 +166,11 @@ const getLeaf = (path: string) => path.split('/').pop() ?? path;
 const isImageName = (name: string) => imageExt.has(getExt(name));
 
 const isImageFile = (file: File) => file.type.startsWith('image/') || isImageName(file.name);
+const isStickerFile = (file: File) => {
+  const ext = getExt(file.name);
+  if (stickerExt.has(ext)) return true;
+  return file.type === 'image/png' || file.type === 'image/jpeg';
+};
 
 const isZipFile = (file: File) => file.name.toLowerCase().endsWith('.zip');
 
@@ -154,6 +192,12 @@ const textBgModeOptions: ReadonlyArray<{ value: TextBgMode; label: string }> = [
   { value: 'none', label: 'None' },
   { value: 'solid', label: 'Solid' },
   { value: 'gradient', label: 'Gradient' },
+];
+const textBgDirectionOptions: ReadonlyArray<{ value: TextBgDirection; label: string }> = [
+  { value: 'to-right', label: 'Left to right' },
+  { value: 'to-bottom', label: 'Top to bottom' },
+  { value: 'to-bottom-right', label: 'Diagonal down-right' },
+  { value: 'to-bottom-left', label: 'Diagonal down-left' },
 ];
 
 const formatSize = (bytes: number) => {
@@ -199,6 +243,40 @@ const loadImageMeta = (file: File) =>
     image.src = url;
   });
 
+const convertBlobToPng = async (blob: Blob) => {
+  if (blob.type === 'image/png') {
+    return blob;
+  }
+  const url = URL.createObjectURL(blob);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Image load failed'));
+      img.src = url;
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth || image.width;
+    canvas.height = image.naturalHeight || image.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('Canvas not supported');
+    }
+    ctx.drawImage(image, 0, 0);
+    return await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((nextBlob) => {
+        if (!nextBlob) {
+          reject(new Error('PNG conversion failed'));
+          return;
+        }
+        resolve(nextBlob);
+      }, 'image/png');
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+};
+
 const drawRoundRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
   const radius = Math.max(0, Math.min(r, Math.min(w, h) / 2));
   ctx.beginPath();
@@ -212,6 +290,68 @@ const drawRoundRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: n
   ctx.lineTo(x, y + radius);
   ctx.quadraticCurveTo(x, y, x + radius, y);
   ctx.closePath();
+};
+
+const parseHexRgb = (rawValue: string): { r: number; g: number; b: number } | null => {
+  const raw = rawValue.trim().replace('#', '').toLowerCase();
+  if (!raw) return null;
+  const base = raw.length === 3 || raw.length === 4
+    ? raw.slice(0, 3).split('').map((part) => `${part}${part}`).join('')
+    : raw.length === 6 || raw.length === 8
+      ? raw.slice(0, 6)
+      : '';
+  if (!/^[0-9a-f]{6}$/.test(base)) return null;
+  return {
+    r: Number.parseInt(base.slice(0, 2), 16),
+    g: Number.parseInt(base.slice(2, 4), 16),
+    b: Number.parseInt(base.slice(4, 6), 16),
+  };
+};
+
+const normalizeHexColor = (value: string, fallback: string) => {
+  const rgb = parseHexRgb(value) ?? parseHexRgb(fallback) ?? { r: 0, g: 0, b: 0 };
+  const toHex = (part: number) => part.toString(16).padStart(2, '0');
+  return `#${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`;
+};
+
+const rgbaFromHex = (value: string, opacity: number, fallback: string) => {
+  const rgb = parseHexRgb(value) ?? parseHexRgb(fallback) ?? { r: 0, g: 0, b: 0 };
+  const alpha = clamp(opacity, 0, 100) / 100;
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+};
+
+const getGradientCssDirection = (direction: TextBgDirection) => {
+  switch (direction) {
+    case 'to-right':
+      return 'to right';
+    case 'to-bottom':
+      return 'to bottom';
+    case 'to-bottom-left':
+      return 'to bottom left';
+    case 'to-bottom-right':
+    default:
+      return 'to bottom right';
+  }
+};
+
+const getCanvasGradientLine = (
+  direction: TextBgDirection,
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+) => {
+  switch (direction) {
+    case 'to-right':
+      return { x0: left, y0: top + height / 2, x1: left + width, y1: top + height / 2 };
+    case 'to-bottom':
+      return { x0: left + width / 2, y0: top, x1: left + width / 2, y1: top + height };
+    case 'to-bottom-left':
+      return { x0: left + width, y0: top, x1: left, y1: top + height };
+    case 'to-bottom-right':
+    default:
+      return { x0: left, y0: top, x1: left + width, y1: top + height };
+  }
 };
 
 const wrapTextLines = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number) => {
@@ -254,6 +394,7 @@ export const CreativeEditor = () => {
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [readyItems, setReadyItems] = useState<ReadyItem[]>([]);
   const [isWorking, setIsWorking] = useState(false);
+  const [copiedReadyItemId, setCopiedReadyItemId] = useState<string | null>(null);
 
   const [textSize, setTextSize] = useState(56);
   const [textSizeInput, setTextSizeInput] = useState('56');
@@ -267,9 +408,11 @@ export const CreativeEditor = () => {
   const [textUnderline, setTextUnderline] = useState(false);
   const [textStrike, setTextStrike] = useState(false);
   const [textOpacity, setTextOpacity] = useState(100);
+  const [textBgOpacityB, setTextBgOpacityB] = useState(100);
   const [textBgMode, setTextBgMode] = useState<TextBgMode>('none');
-  const [textBgA, setTextBgA] = useState('#000000aa');
-  const [textBgB, setTextBgB] = useState('#0ea5e9aa');
+  const [textBgDirection, setTextBgDirection] = useState<TextBgDirection>('to-bottom-right');
+  const [textBgA, setTextBgA] = useState('#000000');
+  const [textBgB, setTextBgB] = useState('#0ea5e9');
   const [textPaddingX, setTextPaddingX] = useState(0);
   const [textPaddingY, setTextPaddingY] = useState(0);
   const [textRadius, setTextRadius] = useState(12);
@@ -280,10 +423,13 @@ export const CreativeEditor = () => {
   const [overlayBounds, setOverlayBounds] = useState<DOMRect | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const stickerInputRef = useRef<HTMLInputElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const colorControlRef = useRef<HTMLDivElement | null>(null);
   const bgOpacityControlRef = useRef<HTMLDivElement | null>(null);
+  const bgOpacityBControlRef = useRef<HTMLDivElement | null>(null);
   const bgRadiusControlRef = useRef<HTMLDivElement | null>(null);
+  const bgDirectionControlRef = useRef<HTMLDivElement | null>(null);
   const paddingXControlRef = useRef<HTMLDivElement | null>(null);
   const paddingYControlRef = useRef<HTMLDivElement | null>(null);
   const lineHeightControlRef = useRef<HTMLDivElement | null>(null);
@@ -296,7 +442,9 @@ export const CreativeEditor = () => {
   const globalFileDragDepthRef = useRef(0);
   const [isColorControlOpen, setIsColorControlOpen] = useState(false);
   const [isBgOpacityOpen, setIsBgOpacityOpen] = useState(false);
+  const [isBgOpacityBOpen, setIsBgOpacityBOpen] = useState(false);
   const [isBgRadiusOpen, setIsBgRadiusOpen] = useState(false);
+  const [isBgDirectionOpen, setIsBgDirectionOpen] = useState(false);
   const [isPaddingXOpen, setIsPaddingXOpen] = useState(false);
   const [isPaddingYOpen, setIsPaddingYOpen] = useState(false);
   const [isLineHeightOpen, setIsLineHeightOpen] = useState(false);
@@ -307,6 +455,7 @@ export const CreativeEditor = () => {
   const stickersRef = useRef<StickerAsset[]>([]);
   const layersRef = useRef<Layer[]>([]);
   const readyItemsRef = useRef<ReadyItem[]>([]);
+  const copiedReadyTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     assetsRef.current = assets;
@@ -329,6 +478,10 @@ export const CreativeEditor = () => {
       assetsRef.current.forEach((asset) => URL.revokeObjectURL(asset.previewUrl));
       stickersRef.current.forEach((sticker) => URL.revokeObjectURL(sticker.previewUrl));
       readyItemsRef.current.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+      if (copiedReadyTimerRef.current) {
+        window.clearTimeout(copiedReadyTimerRef.current);
+        copiedReadyTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -337,7 +490,9 @@ export const CreativeEditor = () => {
       const target = event.target as Node;
       if (colorControlRef.current?.contains(target)) return;
       if (bgOpacityControlRef.current?.contains(target)) return;
+      if (bgOpacityBControlRef.current?.contains(target)) return;
       if (bgRadiusControlRef.current?.contains(target)) return;
+      if (bgDirectionControlRef.current?.contains(target)) return;
       if (paddingXControlRef.current?.contains(target)) return;
       if (paddingYControlRef.current?.contains(target)) return;
       if (lineHeightControlRef.current?.contains(target)) return;
@@ -345,7 +500,9 @@ export const CreativeEditor = () => {
       if (fontControlRef.current?.contains(target)) return;
       setIsColorControlOpen(false);
       setIsBgOpacityOpen(false);
+      setIsBgOpacityBOpen(false);
       setIsBgRadiusOpen(false);
+      setIsBgDirectionOpen(false);
       setIsPaddingXOpen(false);
       setIsPaddingYOpen(false);
       setIsLineHeightOpen(false);
@@ -357,9 +514,17 @@ export const CreativeEditor = () => {
   }, []);
 
   useEffect(() => {
-    if (textBgMode !== 'none') return;
-    setIsBgOpacityOpen(false);
-    setIsBgRadiusOpen(false);
+    if (textBgMode === 'none') {
+      setIsBgOpacityOpen(false);
+      setIsBgOpacityBOpen(false);
+      setIsBgRadiusOpen(false);
+      setIsBgDirectionOpen(false);
+      return;
+    }
+    if (textBgMode !== 'gradient') {
+      setIsBgOpacityBOpen(false);
+      setIsBgDirectionOpen(false);
+    }
   }, [textBgMode]);
 
   useEffect(() => {
@@ -450,10 +615,12 @@ export const CreativeEditor = () => {
     setTextItalic(selectedLayer.italic);
     setTextUnderline(selectedLayer.underline);
     setTextStrike(selectedLayer.strike);
-    setTextOpacity(getTextLayerBgOpacity(selectedLayer));
+    setTextOpacity(getTextLayerBgOpacityA(selectedLayer));
+    setTextBgOpacityB(getTextLayerBgOpacityB(selectedLayer));
     setTextBgMode(selectedLayer.bgMode);
-    setTextBgA(selectedLayer.bgA);
-    setTextBgB(selectedLayer.bgB);
+    setTextBgDirection(getTextLayerBgDirection(selectedLayer));
+    setTextBgA(normalizeHexColor(selectedLayer.bgA, '#000000'));
+    setTextBgB(normalizeHexColor(selectedLayer.bgB, '#0ea5e9'));
     const nextPaddingX = clamp(Math.round(selectedLayer.paddingX ?? selectedLayer.padding ?? 0), 0, 120);
     const nextPaddingY = clamp(Math.round(selectedLayer.paddingY ?? selectedLayer.padding ?? 0), 0, 120);
     setTextPaddingX(nextPaddingX);
@@ -486,6 +653,7 @@ export const CreativeEditor = () => {
   }, [selectedLayerId, selectedTextAlign]);
 
   const handleUploadClick = () => fileInputRef.current?.click();
+  const handleStickerUploadClick = () => stickerInputRef.current?.click();
 
   const isFileDragEvent = (event: ReactDragEvent) =>
     Array.from(event.dataTransfer?.types ?? []).includes('Files');
@@ -538,6 +706,62 @@ export const CreativeEditor = () => {
     const nextAssets = loaded.filter((item): item is EditorAsset => item !== null);
     if (!nextAssets.length) return;
     setAssets((prev) => [...prev, ...nextAssets]);
+  };
+
+  const buildStickerLayer = (sticker: StickerAsset, index: number, asset: EditorAsset | null): StickerLayer => {
+    const minWidth = 4;
+    const minHeight = 4;
+    let boxWidth = 22;
+    let boxHeight = 22;
+    if (asset) {
+      const ratio = sticker.width > 0 && sticker.height > 0 ? sticker.height / sticker.width : 1;
+      boxHeight = clamp(boxWidth * ratio * (asset.width / Math.max(1, asset.height)), minHeight, 60);
+      if (boxHeight >= 60) {
+        const reducedWidth = boxHeight > 0 ? boxWidth * (60 / boxHeight) : boxWidth;
+        boxWidth = clamp(reducedWidth, minWidth, 60);
+      }
+    }
+    const offset = (index % 6) * 2.5;
+    const x = clamp((100 - boxWidth) / 2 + offset, 0, 100 - boxWidth);
+    const y = clamp((100 - boxHeight) / 2 + offset, 0, 100 - boxHeight);
+    return {
+      id: `layer-${createId()}`,
+      type: 'sticker',
+      stickerId: sticker.id,
+      x,
+      y,
+      boxWidth,
+      boxHeight,
+      opacity: 100,
+    };
+  };
+
+  const handleStickerFilesAdded = async (list: FileList | null) => {
+    if (!list) return;
+    const incoming = Array.from(list).filter(isStickerFile);
+    if (!incoming.length) return;
+
+    const loaded = await Promise.all(incoming.map(async (file) => {
+      const meta = await loadImageMeta(file);
+      if (!meta) return null;
+      return {
+        id: `sticker-${createId()}`,
+        file,
+        previewUrl: meta.url,
+        width: meta.width,
+        height: meta.height,
+      } satisfies StickerAsset;
+    }));
+
+    const nextStickers = loaded.filter((item): item is StickerAsset => item !== null);
+    if (!nextStickers.length) return;
+    setStickers((prev) => [...prev, ...nextStickers]);
+
+    const stickerLayers = nextStickers.map((sticker, index) => buildStickerLayer(sticker, index, currentAsset));
+    if (stickerLayers.length) {
+      setLayers((prev) => [...prev, ...stickerLayers]);
+      setSelectedLayerId(stickerLayers[stickerLayers.length - 1]?.id ?? null);
+    }
   };
 
   const handleClearAssets = () => {
@@ -650,6 +874,16 @@ export const CreativeEditor = () => {
     return { top: available / 2, bottom: available / 2 };
   };
 
+  const getStickerLayerHeightForBounds = (layer: StickerLayer, bounds: DOMRect | null) => {
+    if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
+      return getStickerLayerHeight(layer);
+    }
+    const sticker = stickersRef.current.find((item) => item.id === layer.stickerId);
+    const width = getStickerLayerWidth(layer);
+    const aspectPercent = getStickerPercentAspect(getStickerPixelAspect(sticker), bounds);
+    return clamp(width / aspectPercent, 4, 100);
+  };
+
   const buildTextLayer = (text: string): TextLayer => ({
     id: `layer-${createId()}`,
     type: 'text',
@@ -671,8 +905,11 @@ export const CreativeEditor = () => {
     strike: textStrike,
     opacity: clamp(Math.round(textOpacity), 0, 100),
     bgMode: textBgMode,
-    bgA: textBgA,
-    bgB: textBgB,
+    bgDirection: textBgDirection,
+    bgA: normalizeHexColor(textBgA, '#000000'),
+    bgB: normalizeHexColor(textBgB, '#0ea5e9'),
+    bgOpacityA: clamp(Math.round(textOpacity), 0, 100),
+    bgOpacityB: clamp(Math.round(textBgOpacityB), 0, 100),
     paddingX: clamp(Math.round(textPaddingX), 0, 120),
     paddingY: clamp(Math.round(textPaddingY), 0, 120),
     padding: clamp(Math.round(textPaddingY), 0, 120),
@@ -755,7 +992,18 @@ export const CreativeEditor = () => {
   const applyTextOpacity = (rawValue: number) => {
     const opacity = clamp(Math.round(rawValue), 0, 100);
     setTextOpacity(opacity);
-    updateSelectedTextLayer({ opacity });
+    updateSelectedTextLayer({ opacity, bgOpacityA: opacity });
+  };
+
+  const applyTextOpacityB = (rawValue: number) => {
+    const opacity = clamp(Math.round(rawValue), 0, 100);
+    setTextBgOpacityB(opacity);
+    updateSelectedTextLayer({ bgOpacityB: opacity });
+  };
+
+  const applyTextBgDirection = (direction: TextBgDirection) => {
+    setTextBgDirection(direction);
+    updateSelectedTextLayer({ bgDirection: direction });
   };
 
   const applyTextRadius = (rawValue: number) => {
@@ -794,13 +1042,80 @@ export const CreativeEditor = () => {
       startClientY: event.clientY,
       startX: target.x,
       startY: target.y,
-      startWidth: target.type === 'text' ? target.boxWidth : undefined,
-      startHeight: target.type === 'text' ? getTextLayerHeight(target) : undefined,
+      startWidth: target.type === 'text' ? target.boxWidth : getStickerLayerWidth(target),
+      startHeight: target.type === 'text'
+        ? getTextLayerHeight(target)
+        : getStickerLayerHeightForBounds(target, overlayRef.current.getBoundingClientRect()),
       mode,
       resizeHandle,
       bounds: overlayRef.current.getBoundingClientRect(),
     };
     setSelectedLayerId(layerId);
+  };
+
+  const isPointerOnTextContent = (
+    event: ReactPointerEvent<HTMLElement>,
+    layer: TextLayer,
+  ) => {
+    const target = event.currentTarget;
+    const rect = target.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return true;
+    const localX = event.clientX - rect.left;
+    const localY = event.clientY - rect.top;
+    const paddingX = getTextLayerPaddingX(layer);
+    const paddingY = getTextLayerPaddingY(layer);
+    const fontSize = clamp(layer.size, 1, 300);
+    const lineHeight = fontSize * getTextLayerLineHeight(layer);
+    const contentMaxWidth = Math.max(12, rect.width - paddingX * 2);
+    const ctx = getTextMeasureContext();
+    if (!ctx) return true;
+    ctx.font = getTextLayerFont(layer);
+    const lines = wrapTextLines(ctx, layer.text || ' ', contentMaxWidth);
+    const maxTextHeight = Math.max(lineHeight, rect.height - paddingY * 2);
+    const maxLines = Math.max(1, Math.floor(maxTextHeight / lineHeight));
+    const visibleLines = lines.slice(0, maxLines);
+    const textBlockHeight = visibleLines.length * lineHeight;
+    const totalContentHeight = Math.max(lineHeight + paddingY * 2, textBlockHeight + paddingY * 2);
+    const verticalExtra = Math.max(0, rect.height - totalContentHeight);
+    const verticalAlign = getTextLayerVerticalAlign(layer);
+    const verticalOffset = verticalAlign === 'top' ? 0 : verticalAlign === 'bottom' ? verticalExtra : verticalExtra / 2;
+    const textTop = verticalOffset + paddingY;
+    const toleranceX = Math.max(2, fontSize * 0.06);
+    const toleranceY = Math.max(2, fontSize * 0.08);
+
+    return visibleLines.some((line, index) => {
+      const lineTop = textTop + lineHeight * index;
+      const lineBottom = lineTop + lineHeight;
+      if (localY < lineTop - toleranceY || localY > lineBottom + toleranceY) {
+        return false;
+      }
+      const words = line.trim().split(/\s+/).filter(Boolean);
+      const canJustify = layer.align === 'justify' && index < visibleLines.length - 1 && words.length > 1;
+      const lineWidth = canJustify ? contentMaxWidth : ctx.measureText(line || ' ').width;
+      const lineStartX = canJustify || layer.align === 'left' || layer.align === 'justify'
+        ? paddingX
+        : layer.align === 'right'
+          ? rect.width - paddingX - lineWidth
+          : rect.width / 2 - lineWidth / 2;
+      const lineEndX = lineStartX + lineWidth;
+      return localX >= lineStartX - toleranceX && localX <= lineEndX + toleranceX;
+    });
+  };
+
+  const handleTextEditorPointerDown = (event: ReactPointerEvent<HTMLElement>, layer: TextLayer) => {
+    if (!isPointerOnTextContent(event, layer)) {
+      layerPointerDown(event, layer.id, 'move');
+      return;
+    }
+    event.stopPropagation();
+  };
+
+  const handleTextEditorPointerMove = (event: ReactPointerEvent<HTMLElement>, layer: TextLayer) => {
+    event.currentTarget.style.cursor = isPointerOnTextContent(event, layer) ? 'text' : 'move';
+  };
+
+  const handleTextEditorPointerLeave = (event: ReactPointerEvent<HTMLElement>) => {
+    event.currentTarget.style.cursor = 'text';
   };
 
   useEffect(() => {
@@ -854,8 +1169,78 @@ export const CreativeEditor = () => {
             const nextY = clamp(drag.startY + (dy / drag.bounds.height) * 100, 0, 100 - currentHeight);
             return { ...layer, x: nextX, y: nextY };
           }
-          const nextX = clamp(drag.startX + (dx / drag.bounds.width) * 100, 0, 100);
-          const nextY = clamp(drag.startY + (dy / drag.bounds.height) * 100, 0, 100);
+          if (drag.mode === 'resize') {
+            const handle = drag.resizeHandle ?? 'se';
+            if (handle !== 'nw' && handle !== 'ne' && handle !== 'sw' && handle !== 'se') {
+              return layer;
+            }
+
+            const deltaX = (dx / drag.bounds.width) * 100;
+            const deltaY = (dy / drag.bounds.height) * 100;
+            const currentWidth = getStickerLayerWidth(layer);
+            const currentHeight = getStickerLayerHeight(layer);
+            const startWidth = Math.max(1, drag.startWidth ?? currentWidth);
+            const startHeight = Math.max(1, drag.startHeight ?? currentHeight);
+            const sticker = stickersRef.current.find((item) => item.id === layer.stickerId);
+            const fixedAspect = getStickerPercentAspect(getStickerPixelAspect(sticker), drag.bounds);
+            const minWidth = 4;
+            const minHeight = 4;
+            const startLeft = drag.startX;
+            const startTop = drag.startY;
+            const startRight = startLeft + startWidth;
+            const startBottom = startTop + startHeight;
+            const fromWest = handle.includes('w');
+            const fromNorth = handle.includes('n');
+            const anchorX = fromWest ? startRight : startLeft;
+            const anchorY = fromNorth ? startBottom : startTop;
+            const maxWidth = Math.max(minWidth, fromWest ? anchorX : 100 - anchorX);
+            const maxHeight = Math.max(minHeight, fromNorth ? anchorY : 100 - anchorY);
+            const deltaWidth = fromWest ? -deltaX : deltaX;
+            const deltaHeight = fromNorth ? -deltaY : deltaY;
+            let boxWidth = clamp(startWidth + deltaWidth, minWidth, maxWidth);
+            let boxHeight = clamp(startHeight + deltaHeight, minHeight, maxHeight);
+            const widthWeight = Math.abs(deltaWidth / Math.max(1, startWidth));
+            const heightWeight = Math.abs(deltaHeight / Math.max(1, startHeight));
+            if (widthWeight >= heightWeight) {
+              boxHeight = clamp(boxWidth / fixedAspect, minHeight, maxHeight);
+              boxWidth = clamp(boxHeight * fixedAspect, minWidth, maxWidth);
+            } else {
+              boxWidth = clamp(boxHeight * fixedAspect, minWidth, maxWidth);
+              boxHeight = clamp(boxWidth / fixedAspect, minHeight, maxHeight);
+            }
+            if (boxWidth > maxWidth) {
+              boxWidth = maxWidth;
+              boxHeight = boxWidth / fixedAspect;
+            }
+            if (boxHeight > maxHeight) {
+              boxHeight = maxHeight;
+              boxWidth = boxHeight * fixedAspect;
+            }
+            if (boxWidth < minWidth) {
+              boxWidth = minWidth;
+              boxHeight = boxWidth / fixedAspect;
+            }
+            if (boxHeight < minHeight) {
+              boxHeight = minHeight;
+              boxWidth = boxHeight * fixedAspect;
+            }
+
+            const nextX = fromWest ? anchorX - boxWidth : anchorX;
+            const nextY = fromNorth ? anchorY - boxHeight : anchorY;
+
+            return {
+              ...layer,
+              x: clamp(nextX, 0, 100 - boxWidth),
+              y: clamp(nextY, 0, 100 - boxHeight),
+              boxWidth,
+              boxHeight,
+            };
+          }
+
+          const currentWidth = getStickerLayerWidth(layer);
+          const currentHeight = getStickerLayerHeightForBounds(layer, drag.bounds);
+          const nextX = clamp(drag.startX + (dx / drag.bounds.width) * 100, 0, 100 - currentWidth);
+          const nextY = clamp(drag.startY + (dy / drag.bounds.height) * 100, 0, 100 - currentHeight);
           return { ...layer, x: nextX, y: nextY };
         }),
       );
@@ -918,19 +1303,19 @@ export const CreativeEditor = () => {
         if (layer.bgMode !== 'none') {
           const left = x;
           const top = y;
-          ctx.save();
-          ctx.globalAlpha = getTextLayerBgOpacity(layer) / 100;
+          const bgColorA = rgbaFromHex(layer.bgA, getTextLayerBgOpacityA(layer), '#000000');
+          const bgColorB = rgbaFromHex(layer.bgB, getTextLayerBgOpacityB(layer), '#0ea5e9');
           if (layer.bgMode === 'gradient') {
-            const gradient = ctx.createLinearGradient(left, top, left + boxWidth, top + boxHeight);
-            gradient.addColorStop(0, layer.bgA);
-            gradient.addColorStop(1, layer.bgB);
+            const line = getCanvasGradientLine(getTextLayerBgDirection(layer), left, top, boxWidth, boxHeight);
+            const gradient = ctx.createLinearGradient(line.x0, line.y0, line.x1, line.y1);
+            gradient.addColorStop(0, bgColorA);
+            gradient.addColorStop(1, bgColorB);
             ctx.fillStyle = gradient;
           } else {
-            ctx.fillStyle = layer.bgA;
+            ctx.fillStyle = bgColorA;
           }
           drawRoundRect(ctx, left, top, boxWidth, boxHeight, layer.radius);
           ctx.fill();
-          ctx.restore();
         }
 
         ctx.fillStyle = layer.color;
@@ -1003,17 +1388,14 @@ export const CreativeEditor = () => {
       const sticker = stickersRef.current.find((item) => item.id === layer.stickerId);
       if (!sticker) continue;
       const stickerImage = await getDecodedImage(sticker.previewUrl);
-      const centerX = (layer.x / 100) * asset.width;
-      const centerY = (layer.y / 100) * asset.height;
-      const drawWidth = (layer.scale / 100) * asset.width;
-      const ratio = sticker.height > 0 ? sticker.width / sticker.height : 1;
-      const drawHeight = drawWidth / ratio;
+      const drawX = (layer.x / 100) * asset.width;
+      const drawY = (layer.y / 100) * asset.height;
+      const drawWidth = Math.max(4, (getStickerLayerWidth(layer) / 100) * asset.width);
+      const drawHeight = Math.max(4, drawWidth / Math.max(0.01, getStickerPixelAspect(sticker)));
 
       ctx.save();
       ctx.globalAlpha = clamp(layer.opacity / 100, 0.01, 1);
-      ctx.translate(centerX, centerY);
-      ctx.rotate((layer.rotation * Math.PI) / 180);
-      ctx.drawImage(stickerImage, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+      ctx.drawImage(stickerImage, drawX, drawY, drawWidth, drawHeight);
       ctx.restore();
     }
 
@@ -1125,9 +1507,52 @@ export const CreativeEditor = () => {
     }
   };
 
-  const handleCopyResultNames = async () => {
-    if (!readyItems.length) return;
-    await navigator.clipboard.writeText(readyItems.map((item) => item.name).join('\n'));
+  const handleSendReadyItemToDeck = (item: ReadyItem) => {
+    const extension = getExt(item.name) || 'png';
+    const mimeType = item.blob.type || mimeByExt[extension] || 'image/png';
+    const file = new File([item.blob], item.name, {
+      type: mimeType,
+      lastModified: Date.now(),
+    });
+    const previewUrl = URL.createObjectURL(item.blob);
+    const nextAsset: EditorAsset = {
+      id: `asset-${createId()}`,
+      file,
+      previewUrl,
+      nameBase: getBase(item.name),
+      extension,
+      width: item.width,
+      height: item.height,
+    };
+    const nextIndex = assets.length;
+    setAssets((prev) => [...prev, nextAsset]);
+    setCurrentIndex(nextIndex);
+  };
+
+  const handleCopyReadyItem = async (item: ReadyItem) => {
+    try {
+      if (!('clipboard' in navigator) || typeof ClipboardItem === 'undefined') {
+        return;
+      }
+      if (!item.blob.type.startsWith('image/')) {
+        return;
+      }
+      const pngBlob = await convertBlobToPng(item.blob);
+      const clipboardItem = new ClipboardItem({
+        'image/png': pngBlob,
+      });
+      await navigator.clipboard.write([clipboardItem]);
+      if (copiedReadyTimerRef.current) {
+        window.clearTimeout(copiedReadyTimerRef.current);
+      }
+      setCopiedReadyItemId(item.id);
+      copiedReadyTimerRef.current = window.setTimeout(() => {
+        setCopiedReadyItemId(null);
+        copiedReadyTimerRef.current = null;
+      }, 950);
+    } catch {
+      // keep silent on clipboard permission or support errors
+    }
   };
 
   const handleClearLayers = () => {
@@ -1213,11 +1638,13 @@ export const CreativeEditor = () => {
       const paddingY = getTextLayerPaddingY(layer);
       const topInset = paddingY + verticalInsetsPx.top;
       const bottomInset = paddingY + verticalInsetsPx.bottom;
+      const bgColorA = rgbaFromHex(layer.bgA, getTextLayerBgOpacityA(layer), '#000000');
+      const bgColorB = rgbaFromHex(layer.bgB, getTextLayerBgOpacityB(layer), '#0ea5e9');
       const background = layer.bgMode === 'none'
         ? 'transparent'
         : layer.bgMode === 'gradient'
-          ? `linear-gradient(135deg, ${layer.bgA}, ${layer.bgB})`
-          : layer.bgA;
+          ? `linear-gradient(${getGradientCssDirection(getTextLayerBgDirection(layer))}, ${bgColorA}, ${bgColorB})`
+          : bgColorA;
 
       return (
         <div
@@ -1242,7 +1669,7 @@ export const CreativeEditor = () => {
             borderRadius: layer.bgMode === 'none' ? '0' : `${layer.radius}px`,
           }}
           onPointerDown={(event) => layerPointerDown(event, layer.id, 'move')}
-          title={`Text ${index + 1}`}
+          title={isSelected ? 'Drag empty area to move. Drag text to select.' : `Text ${index + 1}`}
         >
           {layer.bgMode !== 'none' ? (
             <span
@@ -1251,7 +1678,6 @@ export const CreativeEditor = () => {
               style={{
                 background,
                 borderRadius: `${layer.radius}px`,
-                opacity: getTextLayerBgOpacity(layer) / 100,
               }}
             />
           ) : null}
@@ -1263,7 +1689,9 @@ export const CreativeEditor = () => {
                 suppressContentEditableWarning
                 className="editor-layer-text-editor editor-layer-text-editor-contenteditable"
                 onInput={(event) => handleTextLayerInput(layer.id, normalizeEditableText(event.currentTarget.innerText))}
-                onPointerDown={(event) => event.stopPropagation()}
+                onPointerDown={(event) => handleTextEditorPointerDown(event, layer)}
+                onPointerMove={(event) => handleTextEditorPointerMove(event, layer)}
+                onPointerLeave={handleTextEditorPointerLeave}
                 style={{
                   textDecorationLine: textDecorationFromFlags(layer.underline, layer.strike),
                   textDecorationThickness: '0.08em',
@@ -1279,7 +1707,9 @@ export const CreativeEditor = () => {
                 className="editor-layer-text-editor"
                 value={layer.text}
                 onChange={(event) => handleTextLayerInput(layer.id, event.target.value)}
-                onPointerDown={(event) => event.stopPropagation()}
+                onPointerDown={(event) => handleTextEditorPointerDown(event, layer)}
+                onPointerMove={(event) => handleTextEditorPointerMove(event, layer)}
+                onPointerLeave={handleTextEditorPointerLeave}
                 rows={1}
                 autoFocus
                 style={{
@@ -1356,6 +1786,10 @@ export const CreativeEditor = () => {
 
     const sticker = stickers.find((item) => item.id === layer.stickerId);
     if (!sticker) return null;
+    const stickerWidth = getStickerLayerWidth(layer);
+    const stickerHeight = overlayBounds
+      ? clamp(stickerWidth / getStickerPercentAspect(getStickerPixelAspect(sticker), overlayBounds), 4, 100)
+      : getStickerLayerHeight(layer);
 
     return (
       <div
@@ -1364,14 +1798,34 @@ export const CreativeEditor = () => {
         style={{
           left: `${layer.x}%`,
           top: `${layer.y}%`,
-          width: `${layer.scale}%`,
-          transform: `translate(-50%, -50%) rotate(${layer.rotation}deg)`,
+          width: `${stickerWidth}%`,
+          height: `${stickerHeight}%`,
           opacity: layer.opacity / 100,
         }}
-        onPointerDown={(event) => layerPointerDown(event, layer.id)}
-        title={`Sticker ${index + 1}`}
+        onPointerDown={(event) => layerPointerDown(event, layer.id, 'move')}
+        title="Drag to move. Resize from corners."
       >
         <img src={sticker.previewUrl} alt="Sticker layer" />
+        {isSelected ? (
+          <>
+            <span
+              className="editor-layer-resize-handle editor-layer-resize-handle-nw"
+              onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'nw')}
+            />
+            <span
+              className="editor-layer-resize-handle editor-layer-resize-handle-ne"
+              onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'ne')}
+            />
+            <span
+              className="editor-layer-resize-handle editor-layer-resize-handle-sw"
+              onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'sw')}
+            />
+            <span
+              className="editor-layer-resize-handle editor-layer-resize-handle-se"
+              onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'se')}
+            />
+          </>
+        ) : null}
       </div>
     );
   };
@@ -1402,6 +1856,17 @@ export const CreativeEditor = () => {
           hidden
           onChange={(event) => {
             void handleFilesAdded(event.target.files);
+            event.currentTarget.value = '';
+          }}
+        />
+        <input
+          ref={stickerInputRef}
+          type="file"
+          accept="image/png,image/jpeg,.png,.jpg,.jpeg"
+          multiple
+          hidden
+          onChange={(event) => {
+            void handleStickerFilesAdded(event.target.files);
             event.currentTarget.value = '';
           }}
         />
@@ -1505,6 +1970,14 @@ export const CreativeEditor = () => {
           <div className="card-header-top">
             <h2>Text editor</h2>
             <div className="split-result-actions">
+              <button
+                type="button"
+                onClick={handleStickerUploadClick}
+                disabled={!assets.length || isWorking}
+                title="Upload sticker (JPG or PNG)."
+              >
+                Upload sticker
+              </button>
               <button type="button" onClick={addTextLayer} disabled={!assets.length}>
                 Add text layer
               </button>
@@ -1524,10 +1997,12 @@ export const CreativeEditor = () => {
                     onClick={() => {
                       setIsColorControlOpen(false);
                       setIsBgOpacityOpen(false);
+                      setIsBgOpacityBOpen(false);
                       setIsBgRadiusOpen(false);
                       setIsPaddingXOpen(false);
                       setIsPaddingYOpen(false);
                       setIsLineHeightOpen(false);
+                      setIsBgDirectionOpen(false);
                       setIsFontOpen(false);
                       setIsBgModeOpen((prev) => !prev);
                     }}
@@ -1573,9 +2048,11 @@ export const CreativeEditor = () => {
                       onClick={() => {
                         setIsColorControlOpen(false);
                         setIsBgOpacityOpen(false);
+                        setIsBgOpacityBOpen(false);
                         setIsPaddingXOpen(false);
                         setIsPaddingYOpen(false);
                         setIsLineHeightOpen(false);
+                        setIsBgDirectionOpen(false);
                         setIsBgModeOpen(false);
                         setIsFontOpen(false);
                         setIsBgRadiusOpen((prev) => !prev);
@@ -1613,6 +2090,73 @@ export const CreativeEditor = () => {
                   </div>
                 </div>
 
+                <div className={`editor-gradient-control-slot${textBgMode === 'gradient' ? ' is-visible' : ''}`}>
+                  <div className="editor-bg-direction-control" ref={bgDirectionControlRef}>
+                    <button
+                      type="button"
+                      className={`editor-bg-direction-button${isBgDirectionOpen ? ' is-active' : ''}`}
+                      onClick={() => {
+                        setIsColorControlOpen(false);
+                        setIsBgOpacityOpen(false);
+                        setIsBgOpacityBOpen(false);
+                        setIsPaddingXOpen(false);
+                        setIsPaddingYOpen(false);
+                        setIsLineHeightOpen(false);
+                        setIsBgRadiusOpen(false);
+                        setIsBgModeOpen(false);
+                        setIsFontOpen(false);
+                        setIsBgDirectionOpen((prev) => !prev);
+                      }}
+                      disabled={textBgMode !== 'gradient'}
+                      title="Gradient direction"
+                      aria-label="Gradient direction"
+                      aria-expanded={isBgDirectionOpen}
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        {textBgDirection === 'to-right' ? (
+                          <path d="M5 12h14m-4-4 4 4-4 4" />
+                        ) : textBgDirection === 'to-bottom' ? (
+                          <path d="M12 5v14m-4-4 4 4 4-4" />
+                        ) : textBgDirection === 'to-bottom-left' ? (
+                          <path d="M18 6 6 18m0-5v5h5" />
+                        ) : (
+                          <path d="M6 6l12 12m-5 0h5v-5" />
+                        )}
+                      </svg>
+                    </button>
+                    {isBgDirectionOpen && textBgMode === 'gradient' ? (
+                      <div className="editor-bg-direction-popover" role="listbox" aria-label="Gradient direction">
+                        {textBgDirectionOptions.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            className={`editor-bg-direction-option${textBgDirection === option.value ? ' is-active' : ''}`}
+                            aria-selected={textBgDirection === option.value}
+                            onClick={() => {
+                              applyTextBgDirection(option.value);
+                              setIsBgDirectionOpen(false);
+                            }}
+                            title={option.label}
+                          >
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                              {option.value === 'to-right' ? (
+                                <path d="M5 12h14m-4-4 4 4-4 4" />
+                              ) : option.value === 'to-bottom' ? (
+                                <path d="M12 5v14m-4-4 4 4 4-4" />
+                              ) : option.value === 'to-bottom-left' ? (
+                                <path d="M18 6 6 18m0-5v5h5" />
+                              ) : (
+                                <path d="M6 6l12 12m-5 0h5v-5" />
+                              )}
+                            </svg>
+                            <span className="editor-visually-hidden">{option.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
                 <div className={`editor-gradient-control-slot${textBgMode === 'none' ? '' : ' is-visible'}`}>
                   <div className="editor-bg-opacity-control" ref={bgOpacityControlRef}>
                     <button
@@ -1620,26 +2164,33 @@ export const CreativeEditor = () => {
                       className="editor-bg-opacity-button"
                       onClick={() => {
                         setIsColorControlOpen(false);
+                        setIsBgOpacityBOpen(false);
                         setIsPaddingXOpen(false);
                         setIsPaddingYOpen(false);
                         setIsLineHeightOpen(false);
                         setIsBgRadiusOpen(false);
+                        setIsBgDirectionOpen(false);
                         setIsBgModeOpen(false);
                         setIsFontOpen(false);
                         setIsBgOpacityOpen((prev) => !prev);
                       }}
                       disabled={textBgMode === 'none'}
-                      title="Background opacity"
-                      aria-label="Background opacity"
+                      title={textBgMode === 'gradient' ? 'Opacity for side A' : 'Background opacity'}
+                      aria-label={textBgMode === 'gradient' ? 'Opacity for side A' : 'Background opacity'}
                       aria-expanded={isBgOpacityOpen}
                     >
                       <svg viewBox="0 0 24 24" aria-hidden="true">
                         <circle cx="12" cy="12" r="7" />
                         <path d="M12 5a7 7 0 0 0 0 14V5Z" fill="currentColor" stroke="none" />
                       </svg>
+                      {textBgMode === 'gradient' ? <span className="editor-bg-control-badge" aria-hidden="true">A</span> : null}
                     </button>
                     {isBgOpacityOpen && textBgMode !== 'none' ? (
-                      <div className="editor-bg-opacity-popover" role="dialog" aria-label="Background opacity">
+                      <div
+                        className="editor-bg-opacity-popover"
+                        role="dialog"
+                        aria-label={textBgMode === 'gradient' ? 'Opacity for side A' : 'Background opacity'}
+                      >
                         <input
                           type="range"
                           min={0}
@@ -1666,12 +2217,21 @@ export const CreativeEditor = () => {
                     style={{ '--editor-gradient-color': textBgA } as CSSProperties}
                   >
                     <span className="editor-visually-hidden">Background color A</span>
-                    <span className="editor-gradient-color-letter" aria-hidden="true">A</span>
+                    <span className="editor-gradient-color-icon-wrap" aria-hidden="true">
+                      <svg className="editor-gradient-color-tool" viewBox="0 0 24 24">
+                        <path d="m14.8 4.8 4.4 4.4-2.2 2.2-4.4-4.4z" />
+                        <path d="m12.6 7 4.4 4.4-5.8 5.8H8.4V14.4z" />
+                        <path d="M6.5 18.5h3" />
+                      </svg>
+                      <svg className="editor-gradient-color-caret" viewBox="0 0 16 16">
+                        <path d="m4.5 6.5 3.5 3 3.5-3" />
+                      </svg>
+                    </span>
                     <input
                       type="color"
                       value={textBgA}
                       onChange={(event) => {
-                        const bgA = event.target.value;
+                        const bgA = normalizeHexColor(event.target.value, '#000000');
                         setTextBgA(bgA);
                         updateSelectedTextLayer({ bgA });
                       }}
@@ -1681,17 +2241,76 @@ export const CreativeEditor = () => {
                 </div>
 
                 <div className={`editor-gradient-control-slot${textBgMode === 'gradient' ? ' is-visible' : ''}`}>
+                  <div className="editor-bg-opacity-control" ref={bgOpacityBControlRef}>
+                    <button
+                      type="button"
+                      className="editor-bg-opacity-button"
+                      onClick={() => {
+                        setIsColorControlOpen(false);
+                        setIsBgOpacityOpen(false);
+                        setIsPaddingXOpen(false);
+                        setIsPaddingYOpen(false);
+                        setIsLineHeightOpen(false);
+                        setIsBgRadiusOpen(false);
+                        setIsBgDirectionOpen(false);
+                        setIsBgModeOpen(false);
+                        setIsFontOpen(false);
+                        setIsBgOpacityBOpen((prev) => !prev);
+                      }}
+                      disabled={textBgMode !== 'gradient'}
+                      title="Opacity for side B"
+                      aria-label="Opacity for side B"
+                      aria-expanded={isBgOpacityBOpen}
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="7" />
+                        <path d="M12 5a7 7 0 0 0 0 14V5Z" fill="currentColor" stroke="none" />
+                      </svg>
+                      <span className="editor-bg-control-badge" aria-hidden="true">B</span>
+                    </button>
+                    {isBgOpacityBOpen && textBgMode === 'gradient' ? (
+                      <div className="editor-bg-opacity-popover" role="dialog" aria-label="Opacity for side B">
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          value={textBgOpacityB}
+                          onChange={(event) => applyTextOpacityB(Number(event.target.value))}
+                        />
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={textBgOpacityB}
+                          onChange={(event) => applyTextOpacityB(Number(event.target.value))}
+                          aria-label="Opacity for side B value"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className={`editor-gradient-control-slot${textBgMode === 'gradient' ? ' is-visible' : ''}`}>
                   <label
                     className={`editor-gradient-color-trigger${textBgMode !== 'gradient' ? ' is-disabled' : ''}`}
                     style={{ '--editor-gradient-color': textBgB } as CSSProperties}
                   >
                     <span className="editor-visually-hidden">Background color B</span>
-                    <span className="editor-gradient-color-letter" aria-hidden="true">B</span>
+                    <span className="editor-gradient-color-icon-wrap" aria-hidden="true">
+                      <svg className="editor-gradient-color-tool" viewBox="0 0 24 24">
+                        <path d="m14.8 4.8 4.4 4.4-2.2 2.2-4.4-4.4z" />
+                        <path d="m12.6 7 4.4 4.4-5.8 5.8H8.4V14.4z" />
+                        <path d="M6.5 18.5h3" />
+                      </svg>
+                      <svg className="editor-gradient-color-caret" viewBox="0 0 16 16">
+                        <path d="m4.5 6.5 3.5 3 3.5-3" />
+                      </svg>
+                    </span>
                     <input
                       type="color"
                       value={textBgB}
                       onChange={(event) => {
-                        const bgB = event.target.value;
+                        const bgB = normalizeHexColor(event.target.value, '#0ea5e9');
                         setTextBgB(bgB);
                         updateSelectedTextLayer({ bgB });
                       }}
@@ -1713,10 +2332,12 @@ export const CreativeEditor = () => {
                   onClick={() => {
                     setIsColorControlOpen(false);
                     setIsBgOpacityOpen(false);
+                    setIsBgOpacityBOpen(false);
                     setIsBgRadiusOpen(false);
                     setIsPaddingXOpen(false);
                     setIsPaddingYOpen(false);
                     setIsLineHeightOpen(false);
+                    setIsBgDirectionOpen(false);
                     setIsBgModeOpen(false);
                     setIsFontOpen((prev) => !prev);
                   }}
@@ -1785,10 +2406,12 @@ export const CreativeEditor = () => {
                   style={{ '--editor-color': textColor } as CSSProperties}
                   onClick={() => {
                     setIsBgOpacityOpen(false);
+                    setIsBgOpacityBOpen(false);
                     setIsBgRadiusOpen(false);
                     setIsPaddingXOpen(false);
                     setIsPaddingYOpen(false);
                     setIsLineHeightOpen(false);
+                    setIsBgDirectionOpen(false);
                     setIsBgModeOpen(false);
                     setIsFontOpen(false);
                     setIsColorControlOpen((prev) => !prev);
@@ -1928,9 +2551,11 @@ export const CreativeEditor = () => {
                   onClick={() => {
                     setIsColorControlOpen(false);
                     setIsBgOpacityOpen(false);
+                    setIsBgOpacityBOpen(false);
                     setIsBgRadiusOpen(false);
                     setIsPaddingXOpen(false);
                     setIsPaddingYOpen(false);
+                    setIsBgDirectionOpen(false);
                     setIsBgModeOpen(false);
                     setIsFontOpen(false);
                     setIsLineHeightOpen((prev) => !prev);
@@ -2014,8 +2639,10 @@ export const CreativeEditor = () => {
                   onClick={() => {
                     setIsColorControlOpen(false);
                     setIsBgOpacityOpen(false);
+                    setIsBgOpacityBOpen(false);
                     setIsBgRadiusOpen(false);
                     setIsLineHeightOpen(false);
+                    setIsBgDirectionOpen(false);
                     setIsBgModeOpen(false);
                     setIsFontOpen(false);
                     setIsPaddingYOpen(false);
@@ -2057,8 +2684,10 @@ export const CreativeEditor = () => {
                   onClick={() => {
                     setIsColorControlOpen(false);
                     setIsBgOpacityOpen(false);
+                    setIsBgOpacityBOpen(false);
                     setIsBgRadiusOpen(false);
                     setIsLineHeightOpen(false);
+                    setIsBgDirectionOpen(false);
                     setIsBgModeOpen(false);
                     setIsFontOpen(false);
                     setIsPaddingXOpen(false);
@@ -2105,9 +2734,6 @@ export const CreativeEditor = () => {
               <button type="button" className="clear-action-button" onClick={handleClearReady} disabled={!readyItems.length || isWorking}>
                 Clear result
               </button>
-              <button type="button" onClick={() => { void handleCopyResultNames(); }} disabled={!readyItems.length || isWorking}>
-                Copy names
-              </button>
               <button type="button" onClick={() => { void handleDownloadZip(); }} disabled={!readyItems.length || isWorking}>
                 Download ZIP
               </button>
@@ -2142,14 +2768,50 @@ export const CreativeEditor = () => {
                       className="resizer-ready-icon-button"
                       onClick={() => handleDownloadReady(item)}
                       title="Download"
+                      aria-label="Download edited image"
                     >
                       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path d="M5 20h14v-2H5v2zM11 2h2v10.17l3.59-3.58L18 10l-6 6-6-6 1.41-1.41L11 12.17V2z" />
                       </svg>
                     </button>
+                    <button
+                      type="button"
+                      className="resizer-ready-icon-button"
+                      onClick={() => handleSendReadyItemToDeck(item)}
+                      title="Send to deck"
+                      aria-label="Send edited image back to deck"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M12 5V1L6 7l6 6V9c3.31 0 6 2.69 6 6 0 1.31-.42 2.52-1.14 3.5l1.46 1.46A7.96 7.96 0 0 0 20 15c0-4.42-3.58-8-8-8z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      className={`resizer-ready-icon-button${copiedReadyItemId === item.id ? ' is-copied' : ''}`}
+                      onClick={() => {
+                        void handleCopyReadyItem(item);
+                      }}
+                      title={copiedReadyItemId === item.id ? 'Copied' : 'Copy image'}
+                      aria-label="Copy edited image to clipboard"
+                    >
+                      {copiedReadyItemId === item.id ? (
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                          <path d="M9 16.2l-3.5-3.5L4 14.2l5 5 11-11-1.5-1.5L9 16.2z" />
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                          <path d="M16 1H4C2.9 1 2 1.9 2 3v12h2V3h12V1zm3 4H8C6.9 5 6 5.9 6 7v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+                        </svg>
+                      )}
+                    </button>
                   </div>
                 </div>
-                <button type="button" className="resizer-ready-remove" onClick={() => handleRemoveReady(item.id)}>
+                <button
+                  type="button"
+                  className="resizer-ready-remove"
+                  onClick={() => handleRemoveReady(item.id)}
+                  aria-label="Remove edited image"
+                >
                   x
                 </button>
               </div>
