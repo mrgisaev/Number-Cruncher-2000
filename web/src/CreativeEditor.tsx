@@ -456,6 +456,9 @@ export const CreativeEditor = () => {
 
   const handleUploadClick = () => fileInputRef.current?.click();
 
+  const isFileDragEvent = (event: ReactDragEvent) =>
+    Array.from(event.dataTransfer?.types ?? []).includes('Files');
+
   const handleFilesAdded = async (list: FileList | null) => {
     if (!list) return;
     const incoming = Array.from(list);
@@ -1078,6 +1081,9 @@ export const CreativeEditor = () => {
   };
 
   const handleDeckDragEnter = (event: ReactDragEvent<HTMLDivElement>) => {
+    if (!isFileDragEvent(event)) {
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     deckDragDepthRef.current += 1;
@@ -1085,12 +1091,18 @@ export const CreativeEditor = () => {
   };
 
   const handleDeckDragOver = (event: ReactDragEvent<HTMLDivElement>) => {
+    if (!isFileDragEvent(event)) {
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     event.dataTransfer.dropEffect = 'copy';
   };
 
   const handleDeckDragLeave = (event: ReactDragEvent<HTMLDivElement>) => {
+    if (!isFileDragEvent(event)) {
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     deckDragDepthRef.current = Math.max(0, deckDragDepthRef.current - 1);
@@ -1100,6 +1112,9 @@ export const CreativeEditor = () => {
   };
 
   const handleDeckDrop = (event: ReactDragEvent<HTMLDivElement>) => {
+    if (!isFileDragEvent(event)) {
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     deckDragDepthRef.current = 0;
@@ -1342,11 +1357,6 @@ export const CreativeEditor = () => {
             ‹
           </button>
           <div className="resizer-deck">
-            {isDeckDropVisualActive ? (
-              <div className="resizer-deck-dropzone">
-                <span>Drop files here</span>
-              </div>
-            ) : null}
             {assets.length ? (
               <div className="resizer-deck-track" style={deckTrackStyle}>
                 {assets.map((asset, index) => (
@@ -1393,6 +1403,11 @@ export const CreativeEditor = () => {
           >
             ›
           </button>
+          {isDeckDropVisualActive ? (
+            <div className="resizer-deck-dropzone" aria-hidden="true">
+              <span>Drop ZIPs or image files here</span>
+            </div>
+          ) : null}
         </div>
 
         <div className="editor-stage">
