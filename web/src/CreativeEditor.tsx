@@ -37,6 +37,7 @@ type TextLayer = {
   id: string;
   type: 'text';
   text: string;
+  richText: string;
   x: number;
   y: number;
   boxWidth: number;
@@ -74,6 +75,7 @@ type StickerLayer = {
   boxWidth: number;
   boxHeight: number;
   opacity: number;
+  rotation: number;
 };
 
 type Layer = TextLayer | StickerLayer;
@@ -89,7 +91,7 @@ type ReadyItem = {
 
 type DragState = {
   layerId: string;
-  mode: 'move' | 'resize';
+  mode: 'move' | 'resize' | 'rotate';
   resizeHandle?: 'nw' | 'ne' | 'sw' | 'se' | 'n' | 'e' | 's' | 'w';
   pointerId: number;
   startClientX: number;
@@ -98,6 +100,8 @@ type DragState = {
   startY: number;
   startWidth?: number;
   startHeight?: number;
+  startRotation?: number;
+  startPointerAngle?: number;
   bounds: DOMRect;
 };
 
@@ -129,20 +133,31 @@ const getStickerLayerWidth = (layer: StickerLayer) =>
   (Number.isFinite(layer.boxWidth) && layer.boxWidth > 0 ? layer.boxWidth : 20);
 const getStickerLayerHeight = (layer: StickerLayer) =>
   (Number.isFinite(layer.boxHeight) && layer.boxHeight > 0 ? layer.boxHeight : 20);
-const getStickerPixelAspect = (sticker: StickerAsset | null | undefined) => {
-  if (!sticker || sticker.width <= 0 || sticker.height <= 0) return 1;
-  return sticker.width / sticker.height;
-};
-const getStickerPercentAspect = (
-  pixelAspect: number,
-  bounds: Pick<DOMRect, 'width' | 'height'> | null | undefined,
-) => {
-  const width = bounds?.width ?? 0;
-  const height = bounds?.height ?? 0;
-  if (width <= 0 || height <= 0) return Math.max(0.01, pixelAspect);
-  return Math.max(0.01, pixelAspect * (height / width));
-};
+const getStickerLayerRotation = (layer: StickerLayer) => (Number.isFinite(layer.rotation) ? layer.rotation : 0);
 const normalizeEditableText = (value: string) => value.replace(/\r/g, '').replace(/\u00a0/g, ' ').replace(/\n$/, '');
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+const plainTextToRichText = (value: string) => escapeHtml(value).replace(/\n/g, '<br>');
+const normalizeEditableHtml = (value: string) => {
+  const normalized = value
+    .replace(/\r/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/<div><br><\/div>/gi, '<br>')
+    .trim();
+  if (!normalized || normalized === '<br>') return '';
+  return normalized;
+};
+const getTextLayerRichText = (layer: TextLayer) => {
+  const normalized = normalizeEditableHtml(layer.richText ?? '');
+  if (normalized) return normalized;
+  const fallback = plainTextToRichText(layer.text ?? '');
+  return fallback || '<br>';
+};
 const textLineHeightOptions = [1, 1.1, 1.25, 1.5, 1.75, 2] as const;
 const normalizeTextLineHeightOption = (value: number) => {
   const normalized = clampTextLineHeight(value);
@@ -435,8 +450,9 @@ export const CreativeEditor = () => {
   const lineHeightControlRef = useRef<HTMLDivElement | null>(null);
   const bgModeControlRef = useRef<HTMLDivElement | null>(null);
   const fontControlRef = useRef<HTMLDivElement | null>(null);
-  const justifyEditorRef = useRef<HTMLDivElement | null>(null);
+  const textEditorRef = useRef<HTMLDivElement | null>(null);
   const textMeasureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const savedEditorRangeRef = useRef<Range | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const deckDragDepthRef = useRef(0);
   const globalFileDragDepthRef = useRef(0);
@@ -599,10 +615,10 @@ export const CreativeEditor = () => {
 
   const currentAsset = assets[currentIndex] ?? null;
   const selectedLayer = layers.find((layer) => layer.id === selectedLayerId) ?? null;
-  const selectedTextAlign = selectedLayer?.type === 'text' ? selectedLayer.align : null;
 
   useEffect(() => {
     if (!selectedLayer || selectedLayer.type !== 'text') return;
+    const isEditingSelectedText = document.activeElement === textEditorRef.current;
     setTextSize(selectedLayer.size);
     setTextSizeInput(String(selectedLayer.size));
     setTextFont(selectedLayer.fontFamily);
@@ -610,11 +626,13 @@ export const CreativeEditor = () => {
     setTextVerticalAlign(selectedLayer.verticalAlign ?? 'middle');
     const nextLineHeight = normalizeTextLineHeightOption(getTextLayerLineHeight(selectedLayer));
     setTextLineHeight(nextLineHeight);
-    setTextColor(selectedLayer.color);
-    setTextBold(selectedLayer.bold);
-    setTextItalic(selectedLayer.italic);
-    setTextUnderline(selectedLayer.underline);
-    setTextStrike(selectedLayer.strike);
+    if (!isEditingSelectedText) {
+      setTextColor(selectedLayer.color);
+      setTextBold(selectedLayer.bold);
+      setTextItalic(selectedLayer.italic);
+      setTextUnderline(selectedLayer.underline);
+      setTextStrike(selectedLayer.strike);
+    }
     setTextOpacity(getTextLayerBgOpacityA(selectedLayer));
     setTextBgOpacityB(getTextLayerBgOpacityB(selectedLayer));
     setTextBgMode(selectedLayer.bgMode);
@@ -629,18 +647,20 @@ export const CreativeEditor = () => {
   }, [selectedLayerId, selectedLayer]);
 
   useEffect(() => {
-    if (!selectedLayer || selectedLayer.type !== 'text' || selectedLayer.align !== 'justify') return;
-    const editor = justifyEditorRef.current;
+    if (!selectedLayer || selectedLayer.type !== 'text') return;
+    const editor = textEditorRef.current;
     if (!editor) return;
+    const nextRichText = getTextLayerRichText(selectedLayer);
     const currentText = normalizeEditableText(editor.innerText);
-    if (currentText !== selectedLayer.text) {
-      editor.innerText = selectedLayer.text;
+    const currentRichText = normalizeEditableHtml(editor.innerHTML);
+    if (currentText !== selectedLayer.text || currentRichText !== nextRichText) {
+      editor.innerHTML = nextRichText;
     }
   }, [selectedLayerId, selectedLayer]);
 
   useEffect(() => {
-    if (!selectedLayer || selectedLayer.type !== 'text' || selectedLayer.align !== 'justify') return;
-    const editor = justifyEditorRef.current;
+    if (!selectedLayer || selectedLayer.type !== 'text') return;
+    const editor = textEditorRef.current;
     if (!editor || document.activeElement === editor) return;
     editor.focus();
     const selection = window.getSelection();
@@ -650,7 +670,12 @@ export const CreativeEditor = () => {
     range.collapse(false);
     selection.removeAllRanges();
     selection.addRange(range);
-  }, [selectedLayerId, selectedTextAlign]);
+  }, [selectedLayerId]);
+
+  useEffect(() => {
+    if (selectedLayer && selectedLayer.type === 'text') return;
+    savedEditorRangeRef.current = null;
+  }, [selectedLayerId, selectedLayer]);
 
   const handleUploadClick = () => fileInputRef.current?.click();
   const handleStickerUploadClick = () => stickerInputRef.current?.click();
@@ -733,6 +758,7 @@ export const CreativeEditor = () => {
       boxWidth,
       boxHeight,
       opacity: 100,
+      rotation: 0,
     };
   };
 
@@ -874,20 +900,11 @@ export const CreativeEditor = () => {
     return { top: available / 2, bottom: available / 2 };
   };
 
-  const getStickerLayerHeightForBounds = (layer: StickerLayer, bounds: DOMRect | null) => {
-    if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
-      return getStickerLayerHeight(layer);
-    }
-    const sticker = stickersRef.current.find((item) => item.id === layer.stickerId);
-    const width = getStickerLayerWidth(layer);
-    const aspectPercent = getStickerPercentAspect(getStickerPixelAspect(sticker), bounds);
-    return clamp(width / aspectPercent, 4, 100);
-  };
-
   const buildTextLayer = (text: string): TextLayer => ({
     id: `layer-${createId()}`,
     type: 'text',
     text,
+    richText: plainTextToRichText(text),
     x: 8,
     y: 8,
     boxWidth: 10,
@@ -1012,22 +1029,116 @@ export const CreativeEditor = () => {
     updateSelectedTextLayer({ radius });
   };
 
-  const handleTextLayerInput = (layerId: string, value: string) => {
+  const isSelectionInsideEditor = () => {
+    const editor = textEditorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection || selection.rangeCount < 1) return false;
+    const range = selection.getRangeAt(0);
+    return editor.contains(range.commonAncestorContainer);
+  };
+
+  const hasExpandedSelectionInsideEditor = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount < 1 || selection.isCollapsed) return false;
+    return isSelectionInsideEditor();
+  };
+
+  const storeEditorSelectionRange = () => {
+    const editor = textEditorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection || selection.rangeCount < 1 || selection.isCollapsed) return;
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.commonAncestorContainer)) return;
+    savedEditorRangeRef.current = range.cloneRange();
+  };
+
+  const restoreEditorSelectionRange = () => {
+    const editor = textEditorRef.current;
+    const selection = window.getSelection();
+    const savedRange = savedEditorRangeRef.current;
+    if (!editor || !selection || !savedRange) return false;
+    if (!editor.contains(savedRange.commonAncestorContainer)) return false;
+    try {
+      selection.removeAllRanges();
+      selection.addRange(savedRange);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const syncToolbarStyleFromEditorSelection = () => {
+    if (!selectedLayer || selectedLayer.type !== 'text') return;
+    if (!isSelectionInsideEditor()) {
+      setTextBold(selectedLayer.bold);
+      setTextItalic(selectedLayer.italic);
+      setTextUnderline(selectedLayer.underline);
+      setTextStrike(selectedLayer.strike);
+      return;
+    }
+    storeEditorSelectionRange();
+    setTextBold(document.queryCommandState('bold'));
+    setTextItalic(document.queryCommandState('italic'));
+    setTextUnderline(document.queryCommandState('underline'));
+    setTextStrike(document.queryCommandState('strikeThrough'));
+  };
+
+  const executeInlineTextCommand = (command: string, value?: string) => {
+    if (!selectedLayer || selectedLayer.type !== 'text') return false;
+    const editor = textEditorRef.current;
+    if (!editor) return false;
+    if (!hasExpandedSelectionInsideEditor()) {
+      restoreEditorSelectionRange();
+    }
+    if (!hasExpandedSelectionInsideEditor()) return false;
+    editor.focus();
+    document.execCommand('styleWithCSS', false, 'true');
+    const applied = document.execCommand(command, false, value);
+    if (!applied) return false;
+    const nextText = normalizeEditableText(editor.innerText);
+    const nextRichText = normalizeEditableHtml(editor.innerHTML);
+    handleTextLayerInput(selectedLayer.id, nextText, nextRichText);
+    syncToolbarStyleFromEditorSelection();
+    return true;
+  };
+
+  const preserveEditorSelectionOnToolbarPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
+    if (!hasExpandedSelectionInsideEditor()) return;
+    event.preventDefault();
+  };
+
+  const handleTextLayerInput = (layerId: string, value: string, richText?: string) => {
     const bounds = overlayRef.current?.getBoundingClientRect();
+    const normalizedRichText = normalizeEditableHtml(richText ?? '');
     setLayers((prev) =>
       prev.map((layer) => {
         if (layer.id !== layerId || layer.type !== 'text') return layer;
-        const nextLayer: TextLayer = { ...layer, text: value };
+        const nextLayer: TextLayer = {
+          ...layer,
+          text: value,
+          richText: normalizedRichText || plainTextToRichText(value),
+        };
         if (!bounds) return nextLayer;
         return fitTextLayerToContent(nextLayer, bounds);
       }),
     );
   };
 
+  useEffect(() => {
+    if (!selectedLayer || selectedLayer.type !== 'text') return;
+    const onSelectionChange = () => {
+      const editor = textEditorRef.current;
+      if (!editor || document.activeElement !== editor) return;
+      syncToolbarStyleFromEditorSelection();
+    };
+    document.addEventListener('selectionchange', onSelectionChange);
+    return () => document.removeEventListener('selectionchange', onSelectionChange);
+  }, [selectedLayerId, selectedLayer]);
+
   const layerPointerDown = (
     event: ReactPointerEvent<HTMLElement>,
     layerId: string,
-    mode: 'move' | 'resize' = 'move',
+    mode: 'move' | 'resize' | 'rotate' = 'move',
     resizeHandle: 'nw' | 'ne' | 'sw' | 'se' | 'n' | 'e' | 's' | 'w' = 'se',
   ) => {
     if (!overlayRef.current) return;
@@ -1035,6 +1146,18 @@ export const CreativeEditor = () => {
     event.stopPropagation();
     const target = layers.find((layer) => layer.id === layerId);
     if (!target) return;
+    const bounds = overlayRef.current.getBoundingClientRect();
+    const startWidth = target.type === 'text' ? target.boxWidth : getStickerLayerWidth(target);
+    const startHeight = target.type === 'text' ? getTextLayerHeight(target) : getStickerLayerHeight(target);
+    let startRotation: number | undefined;
+    let startPointerAngle: number | undefined;
+    if (mode === 'rotate' && target.type === 'sticker') {
+      const centerX = bounds.left + ((target.x + startWidth / 2) / 100) * bounds.width;
+      const centerY = bounds.top + ((target.y + startHeight / 2) / 100) * bounds.height;
+      startRotation = getStickerLayerRotation(target);
+      startPointerAngle = Math.atan2(event.clientY - centerY, event.clientX - centerX);
+    }
+
     dragRef.current = {
       layerId,
       pointerId: event.pointerId,
@@ -1042,13 +1165,13 @@ export const CreativeEditor = () => {
       startClientY: event.clientY,
       startX: target.x,
       startY: target.y,
-      startWidth: target.type === 'text' ? target.boxWidth : getStickerLayerWidth(target),
-      startHeight: target.type === 'text'
-        ? getTextLayerHeight(target)
-        : getStickerLayerHeightForBounds(target, overlayRef.current.getBoundingClientRect()),
+      startWidth,
+      startHeight,
+      startRotation,
+      startPointerAngle,
       mode,
       resizeHandle,
-      bounds: overlayRef.current.getBoundingClientRect(),
+      bounds,
     };
     setSelectedLayerId(layerId);
   };
@@ -1169,9 +1292,28 @@ export const CreativeEditor = () => {
             const nextY = clamp(drag.startY + (dy / drag.bounds.height) * 100, 0, 100 - currentHeight);
             return { ...layer, x: nextX, y: nextY };
           }
+          if (drag.mode === 'rotate') {
+            const startPointerAngle = drag.startPointerAngle;
+            const startRotation = drag.startRotation;
+            if (startPointerAngle === undefined || startRotation === undefined) {
+              return layer;
+            }
+            const startWidth = Math.max(1, drag.startWidth ?? getStickerLayerWidth(layer));
+            const startHeight = Math.max(1, drag.startHeight ?? getStickerLayerHeight(layer));
+            const centerX = drag.bounds.left + ((drag.startX + startWidth / 2) / 100) * drag.bounds.width;
+            const centerY = drag.bounds.top + ((drag.startY + startHeight / 2) / 100) * drag.bounds.height;
+            const pointerAngle = Math.atan2(event.clientY - centerY, event.clientX - centerX);
+            const deltaAngle = pointerAngle - startPointerAngle;
+            const rotation = startRotation + (deltaAngle * 180) / Math.PI;
+            return {
+              ...layer,
+              rotation,
+            };
+          }
+
           if (drag.mode === 'resize') {
             const handle = drag.resizeHandle ?? 'se';
-            if (handle !== 'nw' && handle !== 'ne' && handle !== 'sw' && handle !== 'se') {
+            if (!['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].includes(handle)) {
               return layer;
             }
 
@@ -1181,64 +1323,104 @@ export const CreativeEditor = () => {
             const currentHeight = getStickerLayerHeight(layer);
             const startWidth = Math.max(1, drag.startWidth ?? currentWidth);
             const startHeight = Math.max(1, drag.startHeight ?? currentHeight);
-            const sticker = stickersRef.current.find((item) => item.id === layer.stickerId);
-            const fixedAspect = getStickerPercentAspect(getStickerPixelAspect(sticker), drag.bounds);
             const minWidth = 4;
             const minHeight = 4;
             const startLeft = drag.startX;
             const startTop = drag.startY;
             const startRight = startLeft + startWidth;
             const startBottom = startTop + startHeight;
+            const startCenterX = startLeft + startWidth / 2;
+            const startCenterY = startTop + startHeight / 2;
             const fromWest = handle.includes('w');
+            const fromEast = handle.includes('e');
             const fromNorth = handle.includes('n');
-            const anchorX = fromWest ? startRight : startLeft;
-            const anchorY = fromNorth ? startBottom : startTop;
-            const maxWidth = Math.max(minWidth, fromWest ? anchorX : 100 - anchorX);
-            const maxHeight = Math.max(minHeight, fromNorth ? anchorY : 100 - anchorY);
-            const deltaWidth = fromWest ? -deltaX : deltaX;
-            const deltaHeight = fromNorth ? -deltaY : deltaY;
-            let boxWidth = clamp(startWidth + deltaWidth, minWidth, maxWidth);
-            let boxHeight = clamp(startHeight + deltaHeight, minHeight, maxHeight);
-            const widthWeight = Math.abs(deltaWidth / Math.max(1, startWidth));
-            const heightWeight = Math.abs(deltaHeight / Math.max(1, startHeight));
-            if (widthWeight >= heightWeight) {
-              boxHeight = clamp(boxWidth / fixedAspect, minHeight, maxHeight);
-              boxWidth = clamp(boxHeight * fixedAspect, minWidth, maxWidth);
-            } else {
-              boxWidth = clamp(boxHeight * fixedAspect, minWidth, maxWidth);
-              boxHeight = clamp(boxWidth / fixedAspect, minHeight, maxHeight);
-            }
-            if (boxWidth > maxWidth) {
-              boxWidth = maxWidth;
-              boxHeight = boxWidth / fixedAspect;
-            }
-            if (boxHeight > maxHeight) {
-              boxHeight = maxHeight;
-              boxWidth = boxHeight * fixedAspect;
-            }
-            if (boxWidth < minWidth) {
-              boxWidth = minWidth;
-              boxHeight = boxWidth / fixedAspect;
-            }
-            if (boxHeight < minHeight) {
-              boxHeight = minHeight;
-              boxWidth = boxHeight * fixedAspect;
+            const fromSouth = handle.includes('s');
+            let nextLeft = startLeft;
+            let nextTop = startTop;
+            let nextRight = startRight;
+            let nextBottom = startBottom;
+
+            if (fromWest) nextLeft += deltaX;
+            if (fromEast) nextRight += deltaX;
+            if (fromNorth) nextTop += deltaY;
+            if (fromSouth) nextBottom += deltaY;
+
+            if (event.shiftKey) {
+              const rawWidth = clamp(nextRight - nextLeft, minWidth, 100);
+              const rawHeight = clamp(nextBottom - nextTop, minHeight, 100);
+              const scaleX = rawWidth / startWidth;
+              const scaleY = rawHeight / startHeight;
+              const isHorizontalOnly = (fromWest || fromEast) && !fromNorth && !fromSouth;
+              const isVerticalOnly = (fromNorth || fromSouth) && !fromWest && !fromEast;
+              let targetScale = isHorizontalOnly
+                ? scaleX
+                : isVerticalOnly
+                  ? scaleY
+                  : Math.abs(scaleX - 1) >= Math.abs(scaleY - 1)
+                    ? scaleX
+                    : scaleY;
+
+              const maxWidthByBounds = fromWest && !fromEast
+                ? startRight
+                : fromEast && !fromWest
+                  ? 100 - startLeft
+                  : Math.min(startCenterX, 100 - startCenterX) * 2;
+              const maxHeightByBounds = fromNorth && !fromSouth
+                ? startBottom
+                : fromSouth && !fromNorth
+                  ? 100 - startTop
+                  : Math.min(startCenterY, 100 - startCenterY) * 2;
+              const minScale = Math.max(minWidth / startWidth, minHeight / startHeight);
+              const maxScale = Math.max(
+                minScale,
+                Math.min(
+                  Math.max(minWidth, maxWidthByBounds) / startWidth,
+                  Math.max(minHeight, maxHeightByBounds) / startHeight,
+                ),
+              );
+              targetScale = clamp(targetScale, minScale, maxScale);
+              const targetWidth = clamp(startWidth * targetScale, minWidth, 100);
+              const targetHeight = clamp(startHeight * targetScale, minHeight, 100);
+
+              if (fromWest && !fromEast) {
+                nextRight = startRight;
+                nextLeft = nextRight - targetWidth;
+              } else if (fromEast && !fromWest) {
+                nextLeft = startLeft;
+                nextRight = nextLeft + targetWidth;
+              } else {
+                nextLeft = startCenterX - targetWidth / 2;
+                nextRight = nextLeft + targetWidth;
+              }
+
+              if (fromNorth && !fromSouth) {
+                nextBottom = startBottom;
+                nextTop = nextBottom - targetHeight;
+              } else if (fromSouth && !fromNorth) {
+                nextTop = startTop;
+                nextBottom = nextTop + targetHeight;
+              } else {
+                nextTop = startCenterY - targetHeight / 2;
+                nextBottom = nextTop + targetHeight;
+              }
             }
 
-            const nextX = fromWest ? anchorX - boxWidth : anchorX;
-            const nextY = fromNorth ? anchorY - boxHeight : anchorY;
+            nextLeft = clamp(nextLeft, 0, 100 - minWidth);
+            nextTop = clamp(nextTop, 0, 100 - minHeight);
+            nextRight = clamp(nextRight, nextLeft + minWidth, 100);
+            nextBottom = clamp(nextBottom, nextTop + minHeight, 100);
 
             return {
               ...layer,
-              x: clamp(nextX, 0, 100 - boxWidth),
-              y: clamp(nextY, 0, 100 - boxHeight),
-              boxWidth,
-              boxHeight,
+              x: nextLeft,
+              y: nextTop,
+              boxWidth: nextRight - nextLeft,
+              boxHeight: nextBottom - nextTop,
             };
           }
 
           const currentWidth = getStickerLayerWidth(layer);
-          const currentHeight = getStickerLayerHeightForBounds(layer, drag.bounds);
+          const currentHeight = getStickerLayerHeight(layer);
           const nextX = clamp(drag.startX + (dx / drag.bounds.width) * 100, 0, 100 - currentWidth);
           const nextY = clamp(drag.startY + (dy / drag.bounds.height) * 100, 0, 100 - currentHeight);
           return { ...layer, x: nextX, y: nextY };
@@ -1263,7 +1445,62 @@ export const CreativeEditor = () => {
     };
   }, []);
 
-  const renderOne = async (asset: EditorAsset, layerList: Layer[]) => {
+  const renderRichTextToCanvas = async (
+    ctx: CanvasRenderingContext2D,
+    layer: TextLayer,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    fontSize: number,
+    fontWeight: number,
+    fontStyle: 'italic' | 'normal',
+  ) => {
+    const renderWidth = Math.max(1, Math.ceil(width));
+    const renderHeight = Math.max(1, Math.ceil(height));
+    const richText = getTextLayerRichText(layer);
+    const fontFamily = layer.fontFamily.replace(/"/g, '');
+    const decoration = textDecorationFromFlags(layer.underline, layer.strike);
+    const alignCss = layer.align === 'justify' ? 'justify' : layer.align;
+    const style = [
+      'margin:0',
+      'padding:0',
+      `width:${renderWidth}px`,
+      `min-height:${renderHeight}px`,
+      `font-family:"${fontFamily}", Roboto, "Segoe UI", sans-serif`,
+      `font-size:${fontSize}px`,
+      `line-height:${getTextLayerLineHeight(layer)}`,
+      `font-weight:${fontWeight}`,
+      `font-style:${fontStyle}`,
+      `text-decoration:${decoration}`,
+      `text-align:${alignCss}`,
+      `color:${layer.color}`,
+      'white-space:pre-wrap',
+      'overflow-wrap:anywhere',
+      'word-break:break-word',
+    ].join(';');
+    const svgMarkup =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${renderWidth}" height="${renderHeight}" viewBox="0 0 ${renderWidth} ${renderHeight}">` +
+      `<foreignObject x="0" y="0" width="${renderWidth}" height="${renderHeight}">` +
+      `<div xmlns="http://www.w3.org/1999/xhtml" style='${style}'>${richText}</div>` +
+      '</foreignObject>' +
+      '</svg>';
+    const svgBlob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
+    const svgUrl = URL.createObjectURL(svgBlob);
+    try {
+      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Rich text render failed.'));
+        img.src = svgUrl;
+      });
+      ctx.drawImage(image, x, y, renderWidth, renderHeight);
+    } finally {
+      URL.revokeObjectURL(svgUrl);
+    }
+  };
+
+  const renderOne = async (asset: EditorAsset, layerList: Layer[], useRichTextExport = true) => {
     const base = await getDecodedImage(asset.previewUrl);
     const canvas = document.createElement('canvas');
     canvas.width = asset.width;
@@ -1273,20 +1510,37 @@ export const CreativeEditor = () => {
 
     ctx.drawImage(base, 0, 0, asset.width, asset.height);
 
+    const textRenderScale = (() => {
+      if (!overlayBounds || overlayBounds.width <= 0 || overlayBounds.height <= 0) {
+        return 1;
+      }
+      if (!currentAsset) {
+        return asset.width / overlayBounds.width;
+      }
+      if (asset.id === currentAsset.id) {
+        const scaleX = asset.width / overlayBounds.width;
+        const scaleY = asset.height / overlayBounds.height;
+        return (scaleX + scaleY) / 2;
+      }
+      return currentAsset.width / overlayBounds.width;
+    })();
+
     for (const layer of layerList) {
       if (layer.type === 'text') {
         const x = (layer.x / 100) * asset.width;
         const y = (layer.y / 100) * asset.height;
         const boxWidth = Math.max(10, (layer.boxWidth / 100) * asset.width);
         const boxHeight = Math.max(10, (getTextLayerHeight(layer) / 100) * asset.height);
-        const paddingX = getTextLayerPaddingX(layer);
-        const paddingY = getTextLayerPaddingY(layer);
-        const fontSize = clamp(layer.size, 1, 300);
+        const paddingX = getTextLayerPaddingX(layer) * textRenderScale;
+        const paddingY = getTextLayerPaddingY(layer) * textRenderScale;
+        const fontSize = clamp(layer.size * textRenderScale, 1, 3000);
         const lineHeight = fontSize * getTextLayerLineHeight(layer);
+        const fontWeight = layer.bold ? 700 : 500;
+        const fontStyle = layer.italic ? 'italic' : 'normal';
         const contentMaxWidth = Math.max(12, boxWidth - paddingX * 2);
 
         ctx.save();
-        ctx.font = `${layer.italic ? 'italic ' : ''}${layer.bold ? 700 : 500} ${fontSize}px ${layer.fontFamily}, Roboto, 'Segoe UI', sans-serif`;
+        ctx.font = `${fontStyle === 'italic' ? 'italic ' : ''}${fontWeight} ${fontSize}px ${layer.fontFamily}, Roboto, 'Segoe UI', sans-serif`;
         const alignForCanvas = layer.align === 'justify' ? 'left' : layer.align;
         ctx.textAlign = alignForCanvas;
         ctx.textBaseline = 'top';
@@ -1314,8 +1568,31 @@ export const CreativeEditor = () => {
           } else {
             ctx.fillStyle = bgColorA;
           }
-          drawRoundRect(ctx, left, top, boxWidth, boxHeight, layer.radius);
+          drawRoundRect(ctx, left, top, boxWidth, boxHeight, layer.radius * textRenderScale);
           ctx.fill();
+        }
+
+        const richTextMarkup = normalizeEditableHtml(layer.richText ?? '');
+        const hasInlineRichStyles = /<(span|font|b|strong|i|em|u|s|strike)\b/i.test(richTextMarkup);
+        if (useRichTextExport && hasInlineRichStyles) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(x, y, boxWidth, boxHeight);
+          ctx.clip();
+          await renderRichTextToCanvas(
+            ctx,
+            layer,
+            x + paddingX,
+            y + verticalOffset + paddingY,
+            contentMaxWidth,
+            maxTextHeight,
+            fontSize,
+            fontWeight,
+            fontStyle,
+          );
+          ctx.restore();
+          ctx.restore();
+          continue;
         }
 
         ctx.fillStyle = layer.color;
@@ -1391,11 +1668,18 @@ export const CreativeEditor = () => {
       const drawX = (layer.x / 100) * asset.width;
       const drawY = (layer.y / 100) * asset.height;
       const drawWidth = Math.max(4, (getStickerLayerWidth(layer) / 100) * asset.width);
-      const drawHeight = Math.max(4, drawWidth / Math.max(0.01, getStickerPixelAspect(sticker)));
+      const drawHeight = Math.max(4, (getStickerLayerHeight(layer) / 100) * asset.height);
+      const rotationRadians = (getStickerLayerRotation(layer) * Math.PI) / 180;
 
       ctx.save();
       ctx.globalAlpha = clamp(layer.opacity / 100, 0.01, 1);
-      ctx.drawImage(stickerImage, drawX, drawY, drawWidth, drawHeight);
+      if (Math.abs(rotationRadians) > 0.0001) {
+        ctx.translate(drawX + drawWidth / 2, drawY + drawHeight / 2);
+        ctx.rotate(rotationRadians);
+        ctx.drawImage(stickerImage, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+      } else {
+        ctx.drawImage(stickerImage, drawX, drawY, drawWidth, drawHeight);
+      }
       ctx.restore();
     }
 
@@ -1416,11 +1700,19 @@ export const CreativeEditor = () => {
     return { blob, width: canvas.width, height: canvas.height, ext };
   };
 
+  const renderOneSafe = async (asset: EditorAsset, layerList: Layer[]) => {
+    try {
+      return await renderOne(asset, layerList, true);
+    } catch {
+      return renderOne(asset, layerList, false);
+    }
+  };
+
   const renderCurrent = async () => {
     if (!currentAsset || isWorking) return;
     setIsWorking(true);
     try {
-      const out = await renderOne(currentAsset, layersRef.current);
+      const out = await renderOneSafe(currentAsset, layersRef.current);
       const name = `${currentAsset.nameBase}-edited.${out.ext}`;
       const previewUrl = URL.createObjectURL(out.blob);
       setReadyItems((prev) => [...prev, {
@@ -1442,7 +1734,7 @@ export const CreativeEditor = () => {
     try {
       const generated: ReadyItem[] = [];
       for (const asset of assetsRef.current) {
-        const out = await renderOne(asset, layersRef.current);
+        const out = await renderOneSafe(asset, layersRef.current);
         const name = `${asset.nameBase}-edited.${out.ext}`;
         generated.push({
           id: `ready-${createId()}`,
@@ -1560,6 +1852,50 @@ export const CreativeEditor = () => {
     setSelectedLayerId(null);
   };
 
+  const handleDeleteLayer = (layerId: string) => {
+    setLayers((prev) => prev.filter((layer) => layer.id !== layerId));
+    setSelectedLayerId((prev) => (prev === layerId ? null : prev));
+  };
+
+  const handleDeleteSelectedLayer = () => {
+    if (!selectedLayerId) return;
+    handleDeleteLayer(selectedLayerId);
+  };
+
+  const handleResetStickerLayerSize = (layerId: string) => {
+    if (!currentAsset) return;
+    const assetWidth = Math.max(1, currentAsset.width);
+    const assetHeight = Math.max(1, currentAsset.height);
+    setLayers((prev) =>
+      prev.map((layer) => {
+        if (layer.id !== layerId || layer.type !== 'sticker') {
+          return layer;
+        }
+        const sticker = stickersRef.current.find((item) => item.id === layer.stickerId);
+        if (!sticker) {
+          return layer;
+        }
+        const minWidth = 4;
+        const minHeight = 4;
+        const targetWidth = clamp((sticker.width / assetWidth) * 100, minWidth, 100);
+        const targetHeight = clamp((sticker.height / assetHeight) * 100, minHeight, 100);
+        const currentWidth = getStickerLayerWidth(layer);
+        const currentHeight = getStickerLayerHeight(layer);
+        const centerX = layer.x + currentWidth / 2;
+        const centerY = layer.y + currentHeight / 2;
+        const nextX = clamp(centerX - targetWidth / 2, 0, 100 - targetWidth);
+        const nextY = clamp(centerY - targetHeight / 2, 0, 100 - targetHeight);
+        return {
+          ...layer,
+          x: nextX,
+          y: nextY,
+          boxWidth: targetWidth,
+          boxHeight: targetHeight,
+        };
+      }),
+    );
+  };
+
   const handleClearAll = () => {
     handleClearAssets();
     setStickers((prev) => {
@@ -1569,6 +1905,24 @@ export const CreativeEditor = () => {
     handleClearLayers();
     handleClearReady();
   };
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Delete' || !selectedLayerId) return;
+      const target = event.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        const isFormField = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+        if (isFormField || target.isContentEditable) {
+          return;
+        }
+      }
+      event.preventDefault();
+      handleDeleteSelectedLayer();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedLayerId]);
 
   const handleDeckDragEnter = (event: ReactDragEvent<HTMLDivElement>) => {
     if (!isFileDragEvent(event)) {
@@ -1681,48 +2035,44 @@ export const CreativeEditor = () => {
               }}
             />
           ) : null}
+          <button
+            type="button"
+            className="editor-layer-delete-button"
+            title="Delete layer"
+            aria-label="Delete layer"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onClick={() => handleDeleteLayer(layer.id)}
+          >
+            ×
+          </button>
           {isSelected ? (
-            layer.align === 'justify' ? (
-              <div
-                ref={justifyEditorRef}
-                contentEditable
-                suppressContentEditableWarning
-                className="editor-layer-text-editor editor-layer-text-editor-contenteditable"
-                onInput={(event) => handleTextLayerInput(layer.id, normalizeEditableText(event.currentTarget.innerText))}
-                onPointerDown={(event) => handleTextEditorPointerDown(event, layer)}
-                onPointerMove={(event) => handleTextEditorPointerMove(event, layer)}
-                onPointerLeave={handleTextEditorPointerLeave}
-                style={{
-                  textDecorationLine: textDecorationFromFlags(layer.underline, layer.strike),
-                  textDecorationThickness: '0.08em',
-                  textUnderlineOffset: '0.14em',
-                  paddingTop: `${topInset}px`,
-                  paddingBottom: `${bottomInset}px`,
-                  paddingLeft: `${paddingX}px`,
-                  paddingRight: `${paddingX}px`,
-                }}
-              />
-            ) : (
-              <textarea
-                className="editor-layer-text-editor"
-                value={layer.text}
-                onChange={(event) => handleTextLayerInput(layer.id, event.target.value)}
-                onPointerDown={(event) => handleTextEditorPointerDown(event, layer)}
-                onPointerMove={(event) => handleTextEditorPointerMove(event, layer)}
-                onPointerLeave={handleTextEditorPointerLeave}
-                rows={1}
-                autoFocus
-                style={{
-                  textDecorationLine: textDecorationFromFlags(layer.underline, layer.strike),
-                  textDecorationThickness: '0.08em',
-                  textUnderlineOffset: '0.14em',
-                  paddingTop: `${topInset}px`,
-                  paddingBottom: `${bottomInset}px`,
-                  paddingLeft: `${paddingX}px`,
-                  paddingRight: `${paddingX}px`,
-                }}
-              />
-            )
+            <div
+              ref={textEditorRef}
+              contentEditable
+              suppressContentEditableWarning
+              className="editor-layer-text-editor editor-layer-text-editor-contenteditable"
+              onInput={(event) =>
+                handleTextLayerInput(
+                  layer.id,
+                  normalizeEditableText(event.currentTarget.innerText),
+                  normalizeEditableHtml(event.currentTarget.innerHTML),
+                )}
+              onPointerDown={(event) => handleTextEditorPointerDown(event, layer)}
+              onPointerMove={(event) => handleTextEditorPointerMove(event, layer)}
+              onPointerLeave={handleTextEditorPointerLeave}
+              style={{
+                textDecorationLine: textDecorationFromFlags(layer.underline, layer.strike),
+                textDecorationThickness: '0.08em',
+                textUnderlineOffset: '0.14em',
+                paddingTop: `${topInset}px`,
+                paddingBottom: `${bottomInset}px`,
+                paddingLeft: `${paddingX}px`,
+                paddingRight: `${paddingX}px`,
+              }}
+            />
           ) : (
             <div
               className="editor-layer-text-view"
@@ -1732,9 +2082,8 @@ export const CreativeEditor = () => {
                 paddingLeft: `${paddingX}px`,
                 paddingRight: `${paddingX}px`,
               }}
-            >
-              {layer.text}
-            </div>
+              dangerouslySetInnerHTML={{ __html: getTextLayerRichText(layer) }}
+            />
           )}
           {isSelected ? (
             <>
@@ -1787,9 +2136,7 @@ export const CreativeEditor = () => {
     const sticker = stickers.find((item) => item.id === layer.stickerId);
     if (!sticker) return null;
     const stickerWidth = getStickerLayerWidth(layer);
-    const stickerHeight = overlayBounds
-      ? clamp(stickerWidth / getStickerPercentAspect(getStickerPixelAspect(sticker), overlayBounds), 4, 100)
-      : getStickerLayerHeight(layer);
+    const stickerHeight = getStickerLayerHeight(layer);
 
     return (
       <div
@@ -1803,9 +2150,68 @@ export const CreativeEditor = () => {
           opacity: layer.opacity / 100,
         }}
         onPointerDown={(event) => layerPointerDown(event, layer.id, 'move')}
-        title="Drag to move. Resize from corners."
+        title="Drag to move. Resize from corners and sides. Hold Shift to keep proportions. Drag outside edge to rotate."
       >
-        <img src={sticker.previewUrl} alt="Sticker layer" />
+        {isSelected ? (
+          <>
+            <span
+              className="editor-layer-rotate-zone editor-layer-rotate-zone-top"
+              onPointerDown={(event) => layerPointerDown(event, layer.id, 'rotate')}
+              title="Rotate sticker"
+            />
+            <span
+              className="editor-layer-rotate-zone editor-layer-rotate-zone-right"
+              onPointerDown={(event) => layerPointerDown(event, layer.id, 'rotate')}
+              title="Rotate sticker"
+            />
+            <span
+              className="editor-layer-rotate-zone editor-layer-rotate-zone-bottom"
+              onPointerDown={(event) => layerPointerDown(event, layer.id, 'rotate')}
+              title="Rotate sticker"
+            />
+            <span
+              className="editor-layer-rotate-zone editor-layer-rotate-zone-left"
+              onPointerDown={(event) => layerPointerDown(event, layer.id, 'rotate')}
+              title="Rotate sticker"
+            />
+          </>
+        ) : null}
+        <div className="editor-layer-action-group">
+          <button
+            type="button"
+            className="editor-layer-action-button editor-layer-reset-button"
+            title="Reset to 100% size"
+            aria-label="Reset to 100% size"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onClick={() => handleResetStickerLayerSize(layer.id)}
+          >
+            1:1
+          </button>
+          <button
+            type="button"
+            className="editor-layer-action-button editor-layer-remove-button"
+            title="Delete layer"
+            aria-label="Delete layer"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onClick={() => handleDeleteLayer(layer.id)}
+          >
+            ×
+          </button>
+        </div>
+        <img
+          src={sticker.previewUrl}
+          alt="Sticker layer"
+          style={{
+            transform: `rotate(${getStickerLayerRotation(layer)}deg)`,
+            transformOrigin: 'center center',
+          }}
+        />
         {isSelected ? (
           <>
             <span
@@ -1813,16 +2219,32 @@ export const CreativeEditor = () => {
               onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'nw')}
             />
             <span
+              className="editor-layer-resize-handle editor-layer-resize-handle-n"
+              onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'n')}
+            />
+            <span
               className="editor-layer-resize-handle editor-layer-resize-handle-ne"
               onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'ne')}
+            />
+            <span
+              className="editor-layer-resize-handle editor-layer-resize-handle-e"
+              onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'e')}
             />
             <span
               className="editor-layer-resize-handle editor-layer-resize-handle-sw"
               onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'sw')}
             />
             <span
+              className="editor-layer-resize-handle editor-layer-resize-handle-s"
+              onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 's')}
+            />
+            <span
               className="editor-layer-resize-handle editor-layer-resize-handle-se"
               onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'se')}
+            />
+            <span
+              className="editor-layer-resize-handle editor-layer-resize-handle-w"
+              onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'w')}
             />
           </>
         ) : null}
@@ -2404,6 +2826,7 @@ export const CreativeEditor = () => {
                   type="button"
                   className="editor-color-letter-button"
                   style={{ '--editor-color': textColor } as CSSProperties}
+                  onPointerDown={preserveEditorSelectionOnToolbarPointerDown}
                   onClick={() => {
                     setIsBgOpacityOpen(false);
                     setIsBgOpacityBOpen(false);
@@ -2430,7 +2853,9 @@ export const CreativeEditor = () => {
                         onChange={(event) => {
                           const color = event.target.value;
                           setTextColor(color);
-                          updateSelectedTextLayer({ color });
+                          if (!executeInlineTextCommand('foreColor', color)) {
+                            updateSelectedTextLayer({ color });
+                          }
                         }}
                         aria-label="Text color"
                       />
@@ -2444,7 +2869,9 @@ export const CreativeEditor = () => {
               <button
                 type="button"
                 className={textBold ? 'is-active' : ''}
+                onPointerDown={preserveEditorSelectionOnToolbarPointerDown}
                 onClick={() => {
+                  if (executeInlineTextCommand('bold')) return;
                   const next = !textBold;
                   setTextBold(next);
                   updateSelectedTextLayer({ bold: next });
@@ -2456,7 +2883,9 @@ export const CreativeEditor = () => {
               <button
                 type="button"
                 className={textItalic ? 'is-active' : ''}
+                onPointerDown={preserveEditorSelectionOnToolbarPointerDown}
                 onClick={() => {
+                  if (executeInlineTextCommand('italic')) return;
                   const next = !textItalic;
                   setTextItalic(next);
                   updateSelectedTextLayer({ italic: next });
@@ -2468,7 +2897,9 @@ export const CreativeEditor = () => {
               <button
                 type="button"
                 className={textUnderline ? 'is-active' : ''}
+                onPointerDown={preserveEditorSelectionOnToolbarPointerDown}
                 onClick={() => {
+                  if (executeInlineTextCommand('underline')) return;
                   const next = !textUnderline;
                   setTextUnderline(next);
                   updateSelectedTextLayer({ underline: next });
@@ -2480,7 +2911,9 @@ export const CreativeEditor = () => {
               <button
                 type="button"
                 className={textStrike ? 'is-active' : ''}
+                onPointerDown={preserveEditorSelectionOnToolbarPointerDown}
                 onClick={() => {
+                  if (executeInlineTextCommand('strikeThrough')) return;
                   const next = !textStrike;
                   setTextStrike(next);
                   updateSelectedTextLayer({ strike: next });
