@@ -134,6 +134,34 @@ const getStickerLayerWidth = (layer: StickerLayer) =>
 const getStickerLayerHeight = (layer: StickerLayer) =>
   (Number.isFinite(layer.boxHeight) && layer.boxHeight > 0 ? layer.boxHeight : 20);
 const getStickerLayerRotation = (layer: StickerLayer) => (Number.isFinite(layer.rotation) ? layer.rotation : 0);
+const getStickerResizeCursor = (
+  handle: 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w',
+  rotation: number,
+) => {
+  const baseAngleByHandle: Record<'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w', number> = {
+    n: -90,
+    ne: -45,
+    e: 0,
+    se: 45,
+    s: 90,
+    sw: 135,
+    w: 180,
+    nw: -135,
+  };
+  const angle = baseAngleByHandle[handle] + (Number.isFinite(rotation) ? rotation : 0);
+  const normalized = ((angle % 180) + 180) % 180;
+  if (handle === 'e' || handle === 'w' || handle === 'n' || handle === 's') {
+    return Math.abs(normalized - 90) < 45 ? 'ns-resize' : 'ew-resize';
+  }
+  const snapAngles = [0, 45, 90, 135] as const;
+  const snapped = snapAngles.reduce((closest, current) =>
+    Math.abs(current - normalized) < Math.abs(closest - normalized) ? current : closest,
+  snapAngles[0]);
+  if (snapped === 0) return 'ew-resize';
+  if (snapped === 90) return 'ns-resize';
+  if (snapped === 45) return 'nwse-resize';
+  return 'nesw-resize';
+};
 const normalizeEditableText = (value: string) => value.replace(/\r/g, '').replace(/\u00a0/g, ' ').replace(/\n$/, '');
 const escapeHtml = (value: string) =>
   value
@@ -1325,29 +1353,34 @@ export const CreativeEditor = () => {
             const startHeight = Math.max(1, drag.startHeight ?? currentHeight);
             const minWidth = 4;
             const minHeight = 4;
-            const startLeft = drag.startX;
-            const startTop = drag.startY;
-            const startRight = startLeft + startWidth;
-            const startBottom = startTop + startHeight;
-            const startCenterX = startLeft + startWidth / 2;
-            const startCenterY = startTop + startHeight / 2;
             const fromWest = handle.includes('w');
             const fromEast = handle.includes('e');
             const fromNorth = handle.includes('n');
             const fromSouth = handle.includes('s');
-            let nextLeft = startLeft;
-            let nextTop = startTop;
-            let nextRight = startRight;
-            let nextBottom = startBottom;
 
-            if (fromWest) nextLeft += deltaX;
-            if (fromEast) nextRight += deltaX;
-            if (fromNorth) nextTop += deltaY;
-            if (fromSouth) nextBottom += deltaY;
+            const rotationRadians = (getStickerLayerRotation(layer) * Math.PI) / 180;
+            const cos = Math.cos(rotationRadians);
+            const sin = Math.sin(rotationRadians);
+            const localDx = deltaX * cos + deltaY * sin;
+            const localDy = -deltaX * sin + deltaY * cos;
+
+            const startLeftLocal = -startWidth / 2;
+            const startRightLocal = startWidth / 2;
+            const startTopLocal = -startHeight / 2;
+            const startBottomLocal = startHeight / 2;
+            let nextLeftLocal = startLeftLocal;
+            let nextTopLocal = startTopLocal;
+            let nextRightLocal = startRightLocal;
+            let nextBottomLocal = startBottomLocal;
+
+            if (fromWest) nextLeftLocal += localDx;
+            if (fromEast) nextRightLocal += localDx;
+            if (fromNorth) nextTopLocal += localDy;
+            if (fromSouth) nextBottomLocal += localDy;
 
             if (event.shiftKey) {
-              const rawWidth = clamp(nextRight - nextLeft, minWidth, 100);
-              const rawHeight = clamp(nextBottom - nextTop, minHeight, 100);
+              const rawWidth = clamp(nextRightLocal - nextLeftLocal, minWidth, 100);
+              const rawHeight = clamp(nextBottomLocal - nextTopLocal, minHeight, 100);
               const scaleX = rawWidth / startWidth;
               const scaleY = rawHeight / startHeight;
               const isHorizontalOnly = (fromWest || fromEast) && !fromNorth && !fromSouth;
@@ -1360,62 +1393,76 @@ export const CreativeEditor = () => {
                     ? scaleX
                     : scaleY;
 
-              const maxWidthByBounds = fromWest && !fromEast
-                ? startRight
-                : fromEast && !fromWest
-                  ? 100 - startLeft
-                  : Math.min(startCenterX, 100 - startCenterX) * 2;
-              const maxHeightByBounds = fromNorth && !fromSouth
-                ? startBottom
-                : fromSouth && !fromNorth
-                  ? 100 - startTop
-                  : Math.min(startCenterY, 100 - startCenterY) * 2;
               const minScale = Math.max(minWidth / startWidth, minHeight / startHeight);
-              const maxScale = Math.max(
-                minScale,
-                Math.min(
-                  Math.max(minWidth, maxWidthByBounds) / startWidth,
-                  Math.max(minHeight, maxHeightByBounds) / startHeight,
-                ),
-              );
-              targetScale = clamp(targetScale, minScale, maxScale);
+              targetScale = Math.max(targetScale, minScale);
               const targetWidth = clamp(startWidth * targetScale, minWidth, 100);
               const targetHeight = clamp(startHeight * targetScale, minHeight, 100);
 
               if (fromWest && !fromEast) {
-                nextRight = startRight;
-                nextLeft = nextRight - targetWidth;
+                nextRightLocal = startRightLocal;
+                nextLeftLocal = nextRightLocal - targetWidth;
               } else if (fromEast && !fromWest) {
-                nextLeft = startLeft;
-                nextRight = nextLeft + targetWidth;
+                nextLeftLocal = startLeftLocal;
+                nextRightLocal = nextLeftLocal + targetWidth;
               } else {
-                nextLeft = startCenterX - targetWidth / 2;
-                nextRight = nextLeft + targetWidth;
+                nextLeftLocal = -targetWidth / 2;
+                nextRightLocal = targetWidth / 2;
               }
 
               if (fromNorth && !fromSouth) {
-                nextBottom = startBottom;
-                nextTop = nextBottom - targetHeight;
+                nextBottomLocal = startBottomLocal;
+                nextTopLocal = nextBottomLocal - targetHeight;
               } else if (fromSouth && !fromNorth) {
-                nextTop = startTop;
-                nextBottom = nextTop + targetHeight;
+                nextTopLocal = startTopLocal;
+                nextBottomLocal = nextTopLocal + targetHeight;
               } else {
-                nextTop = startCenterY - targetHeight / 2;
-                nextBottom = nextTop + targetHeight;
+                nextTopLocal = -targetHeight / 2;
+                nextBottomLocal = targetHeight / 2;
               }
             }
 
-            nextLeft = clamp(nextLeft, 0, 100 - minWidth);
-            nextTop = clamp(nextTop, 0, 100 - minHeight);
-            nextRight = clamp(nextRight, nextLeft + minWidth, 100);
-            nextBottom = clamp(nextBottom, nextTop + minHeight, 100);
+            if (nextRightLocal - nextLeftLocal < minWidth) {
+              if (fromWest && !fromEast) {
+                nextLeftLocal = nextRightLocal - minWidth;
+              } else if (fromEast && !fromWest) {
+                nextRightLocal = nextLeftLocal + minWidth;
+              } else {
+                const midX = (nextLeftLocal + nextRightLocal) / 2;
+                nextLeftLocal = midX - minWidth / 2;
+                nextRightLocal = midX + minWidth / 2;
+              }
+            }
+            if (nextBottomLocal - nextTopLocal < minHeight) {
+              if (fromNorth && !fromSouth) {
+                nextTopLocal = nextBottomLocal - minHeight;
+              } else if (fromSouth && !fromNorth) {
+                nextBottomLocal = nextTopLocal + minHeight;
+              } else {
+                const midY = (nextTopLocal + nextBottomLocal) / 2;
+                nextTopLocal = midY - minHeight / 2;
+                nextBottomLocal = midY + minHeight / 2;
+              }
+            }
+
+            const nextWidth = clamp(nextRightLocal - nextLeftLocal, minWidth, 100);
+            const nextHeight = clamp(nextBottomLocal - nextTopLocal, minHeight, 100);
+            const localCenterOffsetX = (nextLeftLocal + nextRightLocal) / 2;
+            const localCenterOffsetY = (nextTopLocal + nextBottomLocal) / 2;
+            const worldCenterOffsetX = localCenterOffsetX * cos - localCenterOffsetY * sin;
+            const worldCenterOffsetY = localCenterOffsetX * sin + localCenterOffsetY * cos;
+            const startCenterX = drag.startX + startWidth / 2;
+            const startCenterY = drag.startY + startHeight / 2;
+            const nextCenterX = startCenterX + worldCenterOffsetX;
+            const nextCenterY = startCenterY + worldCenterOffsetY;
+            const nextX = clamp(nextCenterX - nextWidth / 2, 0, 100 - nextWidth);
+            const nextY = clamp(nextCenterY - nextHeight / 2, 0, 100 - nextHeight);
 
             return {
               ...layer,
-              x: nextLeft,
-              y: nextTop,
-              boxWidth: nextRight - nextLeft,
-              boxHeight: nextBottom - nextTop,
+              x: nextX,
+              y: nextY,
+              boxWidth: nextWidth,
+              boxHeight: nextHeight,
             };
           }
 
@@ -2137,6 +2184,7 @@ export const CreativeEditor = () => {
     if (!sticker) return null;
     const stickerWidth = getStickerLayerWidth(layer);
     const stickerHeight = getStickerLayerHeight(layer);
+    const stickerRotation = getStickerLayerRotation(layer);
 
     return (
       <div
@@ -2149,33 +2197,8 @@ export const CreativeEditor = () => {
           height: `${stickerHeight}%`,
           opacity: layer.opacity / 100,
         }}
-        onPointerDown={(event) => layerPointerDown(event, layer.id, 'move')}
         title="Drag to move. Resize from corners and sides. Hold Shift to keep proportions. Drag from outside ring to rotate."
       >
-        {isSelected ? (
-          <>
-            <span
-              className="editor-layer-rotate-zone editor-layer-rotate-zone-top"
-              onPointerDown={(event) => layerPointerDown(event, layer.id, 'rotate')}
-              title="Rotate sticker"
-            />
-            <span
-              className="editor-layer-rotate-zone editor-layer-rotate-zone-right"
-              onPointerDown={(event) => layerPointerDown(event, layer.id, 'rotate')}
-              title="Rotate sticker"
-            />
-            <span
-              className="editor-layer-rotate-zone editor-layer-rotate-zone-bottom"
-              onPointerDown={(event) => layerPointerDown(event, layer.id, 'rotate')}
-              title="Rotate sticker"
-            />
-            <span
-              className="editor-layer-rotate-zone editor-layer-rotate-zone-left"
-              onPointerDown={(event) => layerPointerDown(event, layer.id, 'rotate')}
-              title="Rotate sticker"
-            />
-          </>
-        ) : null}
         <div className="editor-layer-action-group">
           <button
             type="button"
@@ -2204,50 +2227,84 @@ export const CreativeEditor = () => {
             ×
           </button>
         </div>
-        <img
-          src={sticker.previewUrl}
-          alt="Sticker layer"
+        <div
+          className={`editor-layer-sticker-frame${isSelected ? ' is-selected' : ''}`}
           style={{
-            transform: `rotate(${getStickerLayerRotation(layer)}deg)`,
+            transform: `rotate(${stickerRotation}deg)`,
             transformOrigin: 'center center',
           }}
-        />
-        {isSelected ? (
-          <>
-            <span
-              className="editor-layer-resize-handle editor-layer-resize-handle-nw"
-              onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'nw')}
-            />
-            <span
-              className="editor-layer-resize-handle editor-layer-resize-handle-n"
-              onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'n')}
-            />
-            <span
-              className="editor-layer-resize-handle editor-layer-resize-handle-ne"
-              onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'ne')}
-            />
-            <span
-              className="editor-layer-resize-handle editor-layer-resize-handle-e"
-              onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'e')}
-            />
-            <span
-              className="editor-layer-resize-handle editor-layer-resize-handle-sw"
-              onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'sw')}
-            />
-            <span
-              className="editor-layer-resize-handle editor-layer-resize-handle-s"
-              onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 's')}
-            />
-            <span
-              className="editor-layer-resize-handle editor-layer-resize-handle-se"
-              onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'se')}
-            />
-            <span
-              className="editor-layer-resize-handle editor-layer-resize-handle-w"
-              onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'w')}
-            />
-          </>
-        ) : null}
+          onPointerDown={(event) => layerPointerDown(event, layer.id, 'move')}
+        >
+          {isSelected ? (
+            <>
+              <span
+                className="editor-layer-rotate-zone editor-layer-rotate-zone-top"
+                onPointerDown={(event) => layerPointerDown(event, layer.id, 'rotate')}
+                title="Rotate sticker"
+              />
+              <span
+                className="editor-layer-rotate-zone editor-layer-rotate-zone-right"
+                onPointerDown={(event) => layerPointerDown(event, layer.id, 'rotate')}
+                title="Rotate sticker"
+              />
+              <span
+                className="editor-layer-rotate-zone editor-layer-rotate-zone-bottom"
+                onPointerDown={(event) => layerPointerDown(event, layer.id, 'rotate')}
+                title="Rotate sticker"
+              />
+              <span
+                className="editor-layer-rotate-zone editor-layer-rotate-zone-left"
+                onPointerDown={(event) => layerPointerDown(event, layer.id, 'rotate')}
+                title="Rotate sticker"
+              />
+            </>
+          ) : null}
+          <img src={sticker.previewUrl} alt="Sticker layer" />
+          {isSelected ? (
+            <>
+              <span
+                className="editor-layer-resize-handle editor-layer-resize-handle-nw"
+                onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'nw')}
+                style={{ cursor: getStickerResizeCursor('nw', stickerRotation) }}
+              />
+              <span
+                className="editor-layer-resize-handle editor-layer-resize-handle-n"
+                onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'n')}
+                style={{ cursor: getStickerResizeCursor('n', stickerRotation) }}
+              />
+              <span
+                className="editor-layer-resize-handle editor-layer-resize-handle-ne"
+                onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'ne')}
+                style={{ cursor: getStickerResizeCursor('ne', stickerRotation) }}
+              />
+              <span
+                className="editor-layer-resize-handle editor-layer-resize-handle-e"
+                onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'e')}
+                style={{ cursor: getStickerResizeCursor('e', stickerRotation) }}
+              />
+              <span
+                className="editor-layer-resize-handle editor-layer-resize-handle-sw"
+                onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'sw')}
+                style={{ cursor: getStickerResizeCursor('sw', stickerRotation) }}
+              />
+              <span
+                className="editor-layer-resize-handle editor-layer-resize-handle-s"
+                onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 's')}
+                style={{ cursor: getStickerResizeCursor('s', stickerRotation) }}
+              />
+              <span
+                className="editor-layer-resize-handle editor-layer-resize-handle-se"
+                onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'se')}
+                style={{ cursor: getStickerResizeCursor('se', stickerRotation) }}
+              />
+              <span
+                className="editor-layer-resize-handle editor-layer-resize-handle-w"
+                onPointerDown={(event) => layerPointerDown(event, layer.id, 'resize', 'w')}
+                style={{ cursor: getStickerResizeCursor('w', stickerRotation) }}
+              />
+            </>
+          ) : null}
+        </div>
       </div>
     );
   };
