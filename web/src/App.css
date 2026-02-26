@@ -1102,9 +1102,12 @@ body::after {
   gap: 24px;
 }
 
-.creative-resizer .controls,
-.creative-editor .controls {
+.creative-resizer .controls {
   gap: 10px;
+}
+
+.creative-editor .controls {
+  gap: 16px;
 }
 
 .editor-controls-grid {
@@ -1250,6 +1253,7 @@ body::after {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  order: 1;
 }
 
 .editor-text-toolbar-row-background {
@@ -1257,6 +1261,7 @@ body::after {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  order: 2;
 }
 
 .editor-text-field {
@@ -1315,6 +1320,123 @@ body::after {
   box-shadow:
     inset 0 1px 6px rgba(255, 255, 255, 0.65),
     0 8px 18px rgba(120, 198, 224, 0.35);
+}
+
+.editor-select-control {
+  position: relative;
+  width: 100%;
+}
+
+.editor-select-trigger {
+  position: relative;
+  width: 100%;
+  height: 32px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: rgba(52, 80, 82, 0.92);
+  padding: 0 18px 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.16s ease, opacity 0.16s ease;
+}
+
+.editor-select-trigger:hover:not(:disabled) {
+  color: rgba(35, 55, 60, 0.95);
+}
+
+.editor-select-trigger.is-active {
+  color: rgba(16, 126, 96, 0.96);
+  text-shadow: 0 0 0.25px currentColor;
+}
+
+.editor-select-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  font-size: 0.96rem;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.editor-select-trigger svg {
+  position: absolute;
+  right: 2px;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.editor-select-popover {
+  position: absolute;
+  top: calc(100% + 9px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 34;
+  min-width: 74px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(204, 236, 245, 0.9);
+  background: rgba(244, 252, 255, 0.98);
+  box-shadow: 0 12px 26px rgba(83, 142, 162, 0.24);
+}
+
+.editor-select-popover-font {
+  min-width: 170px;
+}
+
+.editor-select-popover-bg {
+  min-width: 108px;
+}
+
+.editor-select-option {
+  width: 100%;
+  min-height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(52, 80, 82, 0.92);
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.editor-select-option:hover {
+  background: rgba(191, 245, 255, 0.32);
+  color: rgba(35, 55, 60, 0.95);
+}
+
+.editor-select-option.is-active {
+  background: rgba(16, 126, 96, 0.14);
+  color: rgba(16, 126, 96, 0.96);
+}
+
+.editor-select-option span {
+  display: block;
+  width: 100%;
+  text-align: center;
+  line-height: 1;
 }
 
 .editor-text-field input[type='number'] {
@@ -1454,6 +1576,15 @@ body::after {
   gap: 4px;
 }
 
+.editor-bg-tools-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
 .editor-gradient-control-slot {
   position: relative;
   width: 0;
@@ -1488,6 +1619,56 @@ body::after {
   gap: 0;
   color: rgba(52, 80, 82, 0.92);
   transition: color 0.16s ease, opacity 0.16s ease;
+}
+
+.editor-padding-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.editor-padding-control {
+  position: relative;
+  width: 28px;
+  min-width: 28px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(52, 80, 82, 0.92);
+}
+
+.editor-padding-button {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.16s ease, opacity 0.16s ease;
+}
+
+.editor-padding-button:hover {
+  color: rgba(35, 55, 60, 0.95);
+}
+
+.editor-padding-button.is-active {
+  color: rgba(16, 126, 96, 0.96);
+  text-shadow: 0 0 0.25px currentColor;
+}
+
+.editor-padding-button svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .editor-gradient-color-trigger {
@@ -1531,27 +1712,29 @@ body::after {
 }
 
 .editor-bg-opacity-popover,
-.editor-bg-radius-popover {
+.editor-bg-radius-popover,
+.editor-padding-popover {
   position: absolute;
   left: -10px;
-  top: calc(100% + 10px);
+  top: calc(100% + 8px);
   z-index: 32;
-  min-width: 148px;
+  min-width: 126px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 11px;
-  border-radius: 12px;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 10px;
   border: 1px solid rgba(204, 236, 245, 0.9);
   background: rgba(244, 252, 255, 0.98);
   box-shadow: 0 12px 26px rgba(83, 142, 162, 0.24);
 }
 
 .editor-bg-opacity-popover input[type='range'],
-.editor-bg-radius-popover input[type='range'] {
+.editor-bg-radius-popover input[type='range'],
+.editor-padding-popover input[type='range'] {
   -webkit-appearance: none;
   appearance: none;
-  width: 100px;
+  width: 84px;
   height: 4px;
   border-radius: 999px;
   background: linear-gradient(90deg, rgba(46, 139, 164, 0.95), rgba(134, 200, 216, 0.92));
@@ -1560,7 +1743,8 @@ body::after {
 }
 
 .editor-bg-opacity-popover input[type='range']::-webkit-slider-thumb,
-.editor-bg-radius-popover input[type='range']::-webkit-slider-thumb {
+.editor-bg-radius-popover input[type='range']::-webkit-slider-thumb,
+.editor-padding-popover input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 12px;
@@ -1572,14 +1756,16 @@ body::after {
 }
 
 .editor-bg-opacity-popover input[type='range']::-moz-range-track,
-.editor-bg-radius-popover input[type='range']::-moz-range-track {
+.editor-bg-radius-popover input[type='range']::-moz-range-track,
+.editor-padding-popover input[type='range']::-moz-range-track {
   height: 4px;
   border-radius: 999px;
   background: linear-gradient(90deg, rgba(46, 139, 164, 0.95), rgba(134, 200, 216, 0.92));
 }
 
 .editor-bg-opacity-popover input[type='range']::-moz-range-thumb,
-.editor-bg-radius-popover input[type='range']::-moz-range-thumb {
+.editor-bg-radius-popover input[type='range']::-moz-range-thumb,
+.editor-padding-popover input[type='range']::-moz-range-thumb {
   width: 12px;
   height: 12px;
   border-radius: 999px;
@@ -1588,13 +1774,46 @@ body::after {
   box-shadow: 0 1px 4px rgba(46, 139, 164, 0.34);
 }
 
-.editor-bg-opacity-popover span,
-.editor-bg-radius-popover span {
-  min-width: 30px;
-  text-align: right;
+.editor-bg-opacity-popover input[type='number'],
+.editor-bg-radius-popover input[type='number'],
+.editor-padding-popover input[type='number'] {
+  width: 40px;
+  min-width: 40px;
+  height: 24px;
+  border-radius: 7px;
+  border: 1px solid rgba(163, 212, 225, 0.9);
+  background: rgba(250, 254, 255, 0.98);
+  color: rgba(45, 65, 74, 0.92);
   font-size: 0.78rem;
   font-weight: 700;
-  color: rgba(45, 65, 74, 0.9);
+  line-height: 1;
+  padding: 0 4px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.editor-bg-opacity-popover input[type='number']:focus,
+.editor-bg-radius-popover input[type='number']:focus,
+.editor-padding-popover input[type='number']:focus {
+  outline: none;
+  border-color: rgba(89, 173, 196, 0.9);
+  box-shadow: 0 0 0 1px rgba(89, 173, 196, 0.2);
+}
+
+.editor-bg-opacity-popover input[type='number']::-webkit-outer-spin-button,
+.editor-bg-opacity-popover input[type='number']::-webkit-inner-spin-button,
+.editor-bg-radius-popover input[type='number']::-webkit-outer-spin-button,
+.editor-bg-radius-popover input[type='number']::-webkit-inner-spin-button,
+.editor-padding-popover input[type='number']::-webkit-outer-spin-button,
+.editor-padding-popover input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.editor-bg-opacity-popover input[type='number'],
+.editor-bg-radius-popover input[type='number'],
+.editor-padding-popover input[type='number'] {
+  -moz-appearance: textfield;
 }
 
 .editor-gradient-color-trigger::after {
@@ -1710,8 +1929,9 @@ body::after {
 
 .editor-line-height-popover {
   position: absolute;
-  left: -18px;
+  left: 50%;
   top: calc(100% + 9px);
+  transform: translateX(-50%);
   z-index: 34;
   min-width: 74px;
   display: flex;
@@ -1734,8 +1954,11 @@ body::after {
   font-size: 0.84rem;
   font-weight: 700;
   line-height: 1;
-  padding: 0 10px;
-  text-align: left;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   cursor: pointer;
   transition: background 0.16s ease, color 0.16s ease;
 }
@@ -1748,6 +1971,26 @@ body::after {
 .editor-line-height-option.is-active {
   background: rgba(16, 126, 96, 0.14);
   color: rgba(16, 126, 96, 0.96);
+}
+
+.editor-line-height-option span {
+  display: block;
+  width: 100%;
+  text-align: center;
+  line-height: 1;
+}
+
+.editor-line-height-popover .editor-line-height-option {
+  width: 100%;
+  min-height: 28px;
+  height: 28px;
+  aspect-ratio: auto;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0;
 }
 
 .editor-icon-group {
@@ -1794,6 +2037,16 @@ body::after {
   min-width: 150px;
 }
 
+.editor-text-field-font .editor-select-control {
+  width: 100%;
+}
+
+.editor-text-field-font .editor-select-trigger {
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.62);
+  padding: 0 22px 0 10px;
+}
+
 .editor-text-toolbar-row-main .editor-text-field-font {
   order: 1;
 }
@@ -1814,11 +2067,11 @@ body::after {
   order: 5;
 }
 
-.editor-text-toolbar-row-main .editor-text-field-bg-mode {
+.editor-text-toolbar-row-main .editor-icon-group-vertical {
   order: 6;
 }
 
-.editor-text-toolbar-row-main .editor-gradient-color-controls {
+.editor-text-toolbar-row-main .editor-padding-controls {
   order: 7;
 }
 
@@ -1836,17 +2089,25 @@ body::after {
   flex: 0 0 auto;
 }
 
-.editor-text-field-bg-mode select {
+.editor-text-field-bg-mode .editor-select-control {
   width: 108px;
   min-width: 108px;
 }
 
-.editor-text-field-bg-mode select option {
-  font-size: 0.9rem;
-}
-
 .editor-icon-group-align {
   grid-template-columns: repeat(5, 30px);
+}
+
+.editor-icon-group-vertical {
+  grid-template-columns: repeat(3, 30px);
+}
+
+.editor-icon-group-vertical button svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .editor-style-letter {

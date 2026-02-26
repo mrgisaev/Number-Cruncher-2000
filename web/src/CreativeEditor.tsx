@@ -30,6 +30,7 @@ type StickerAsset = {
 
 type TextBgMode = 'none' | 'solid' | 'gradient';
 type TextAlignMode = 'left' | 'center' | 'right' | 'justify';
+type TextVerticalAlignMode = 'top' | 'middle' | 'bottom';
 
 type TextLayer = {
   id: string;
@@ -43,6 +44,7 @@ type TextLayer = {
   size: number;
   fontFamily: string;
   align: TextAlignMode;
+  verticalAlign: TextVerticalAlignMode;
   lineHeight: number;
   color: string;
   bold: boolean;
@@ -53,7 +55,9 @@ type TextLayer = {
   bgMode: TextBgMode;
   bgA: string;
   bgB: string;
-  padding: number;
+  paddingX: number;
+  paddingY: number;
+  padding?: number;
   radius: number;
 };
 
@@ -146,6 +150,11 @@ const mimeByExt: Record<string, string> = {
 };
 
 const textFontOptions = ['Roboto', 'Arial', 'Verdana', 'Tahoma', 'Georgia', 'Times New Roman'];
+const textBgModeOptions: ReadonlyArray<{ value: TextBgMode; label: string }> = [
+  { value: 'none', label: 'None' },
+  { value: 'solid', label: 'Solid' },
+  { value: 'gradient', label: 'Gradient' },
+];
 
 const formatSize = (bytes: number) => {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
@@ -250,6 +259,7 @@ export const CreativeEditor = () => {
   const [textSizeInput, setTextSizeInput] = useState('56');
   const [textFont, setTextFont] = useState('Roboto');
   const [textAlign, setTextAlign] = useState<TextAlignMode>('center');
+  const [textVerticalAlign, setTextVerticalAlign] = useState<TextVerticalAlignMode>('middle');
   const [textLineHeight, setTextLineHeight] = useState(1.25);
   const [textColor, setTextColor] = useState('#ffffff');
   const [textBold, setTextBold] = useState(true);
@@ -260,7 +270,8 @@ export const CreativeEditor = () => {
   const [textBgMode, setTextBgMode] = useState<TextBgMode>('none');
   const [textBgA, setTextBgA] = useState('#000000aa');
   const [textBgB, setTextBgB] = useState('#0ea5e9aa');
-  const [textPadding, setTextPadding] = useState(0);
+  const [textPaddingX, setTextPaddingX] = useState(0);
+  const [textPaddingY, setTextPaddingY] = useState(0);
   const [textRadius, setTextRadius] = useState(12);
 
   const [isDeckDropActive, setIsDeckDropActive] = useState(false);
@@ -273,7 +284,11 @@ export const CreativeEditor = () => {
   const colorControlRef = useRef<HTMLDivElement | null>(null);
   const bgOpacityControlRef = useRef<HTMLDivElement | null>(null);
   const bgRadiusControlRef = useRef<HTMLDivElement | null>(null);
+  const paddingXControlRef = useRef<HTMLDivElement | null>(null);
+  const paddingYControlRef = useRef<HTMLDivElement | null>(null);
   const lineHeightControlRef = useRef<HTMLDivElement | null>(null);
+  const bgModeControlRef = useRef<HTMLDivElement | null>(null);
+  const fontControlRef = useRef<HTMLDivElement | null>(null);
   const justifyEditorRef = useRef<HTMLDivElement | null>(null);
   const textMeasureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -282,7 +297,11 @@ export const CreativeEditor = () => {
   const [isColorControlOpen, setIsColorControlOpen] = useState(false);
   const [isBgOpacityOpen, setIsBgOpacityOpen] = useState(false);
   const [isBgRadiusOpen, setIsBgRadiusOpen] = useState(false);
+  const [isPaddingXOpen, setIsPaddingXOpen] = useState(false);
+  const [isPaddingYOpen, setIsPaddingYOpen] = useState(false);
   const [isLineHeightOpen, setIsLineHeightOpen] = useState(false);
+  const [isBgModeOpen, setIsBgModeOpen] = useState(false);
+  const [isFontOpen, setIsFontOpen] = useState(false);
 
   const assetsRef = useRef<EditorAsset[]>([]);
   const stickersRef = useRef<StickerAsset[]>([]);
@@ -319,11 +338,19 @@ export const CreativeEditor = () => {
       if (colorControlRef.current?.contains(target)) return;
       if (bgOpacityControlRef.current?.contains(target)) return;
       if (bgRadiusControlRef.current?.contains(target)) return;
+      if (paddingXControlRef.current?.contains(target)) return;
+      if (paddingYControlRef.current?.contains(target)) return;
       if (lineHeightControlRef.current?.contains(target)) return;
+      if (bgModeControlRef.current?.contains(target)) return;
+      if (fontControlRef.current?.contains(target)) return;
       setIsColorControlOpen(false);
       setIsBgOpacityOpen(false);
       setIsBgRadiusOpen(false);
+      setIsPaddingXOpen(false);
+      setIsPaddingYOpen(false);
       setIsLineHeightOpen(false);
+      setIsBgModeOpen(false);
+      setIsFontOpen(false);
     };
     window.addEventListener('pointerdown', onPointerDown);
     return () => window.removeEventListener('pointerdown', onPointerDown);
@@ -415,6 +442,7 @@ export const CreativeEditor = () => {
     setTextSizeInput(String(selectedLayer.size));
     setTextFont(selectedLayer.fontFamily);
     setTextAlign(selectedLayer.align);
+    setTextVerticalAlign(selectedLayer.verticalAlign ?? 'middle');
     const nextLineHeight = normalizeTextLineHeightOption(getTextLayerLineHeight(selectedLayer));
     setTextLineHeight(nextLineHeight);
     setTextColor(selectedLayer.color);
@@ -426,7 +454,10 @@ export const CreativeEditor = () => {
     setTextBgMode(selectedLayer.bgMode);
     setTextBgA(selectedLayer.bgA);
     setTextBgB(selectedLayer.bgB);
-    setTextPadding(selectedLayer.padding);
+    const nextPaddingX = clamp(Math.round(selectedLayer.paddingX ?? selectedLayer.padding ?? 0), 0, 120);
+    const nextPaddingY = clamp(Math.round(selectedLayer.paddingY ?? selectedLayer.padding ?? 0), 0, 120);
+    setTextPaddingX(nextPaddingX);
+    setTextPaddingY(nextPaddingY);
     setTextRadius(selectedLayer.radius);
   }, [selectedLayerId, selectedLayer]);
 
@@ -543,7 +574,9 @@ export const CreativeEditor = () => {
     return textMeasureCanvasRef.current.getContext('2d');
   };
 
-  const getTextLayerPadding = (_layer: TextLayer) => 0;
+  const getTextLayerPaddingX = (layer: TextLayer) => clamp(Math.round(layer.paddingX ?? layer.padding ?? 0), 0, 120);
+  const getTextLayerPaddingY = (layer: TextLayer) => clamp(Math.round(layer.paddingY ?? layer.padding ?? 0), 0, 120);
+  const getTextLayerVerticalAlign = (layer: TextLayer): TextVerticalAlignMode => layer.verticalAlign ?? 'middle';
   const getTextLayerFont = (layer: TextLayer) =>
     `${layer.italic ? 'italic ' : ''}${layer.bold ? 700 : 500} ${clamp(layer.size, 1, 300)}px ${layer.fontFamily}, Roboto, 'Segoe UI', sans-serif`;
 
@@ -551,11 +584,11 @@ export const CreativeEditor = () => {
     if (bounds.width <= 0) return layer.boxWidth;
     const ctx = getTextMeasureContext();
     if (!ctx) return layer.boxWidth;
-    const padding = getTextLayerPadding(layer);
+    const paddingX = getTextLayerPaddingX(layer);
     ctx.font = getTextLayerFont(layer);
     const hardLines = (layer.text || ' ').split(/\r?\n/);
     const widestLine = hardLines.reduce((max, line) => Math.max(max, ctx.measureText(line || ' ').width), 0);
-    const contentWidthPx = Math.max(10, widestLine + padding * 2);
+    const contentWidthPx = Math.max(10, widestLine + paddingX * 2);
     return (contentWidthPx / bounds.width) * 100;
   };
 
@@ -563,14 +596,15 @@ export const CreativeEditor = () => {
     if (bounds.width <= 0 || bounds.height <= 0) return getTextLayerHeight(layer);
     const ctx = getTextMeasureContext();
     if (!ctx) return getTextLayerHeight(layer);
-    const padding = getTextLayerPadding(layer);
+    const paddingX = getTextLayerPaddingX(layer);
+    const paddingY = getTextLayerPaddingY(layer);
     const boxWidthPx = Math.max(10, (layer.boxWidth / 100) * bounds.width);
-    const maxTextWidth = Math.max(12, boxWidthPx - padding * 2);
+    const maxTextWidth = Math.max(12, boxWidthPx - paddingX * 2);
     const fontSize = clamp(layer.size, 1, 300);
     ctx.font = getTextLayerFont(layer);
     const lines = wrapTextLines(ctx, layer.text || ' ', maxTextWidth);
     const lineHeight = fontSize * getTextLayerLineHeight(layer);
-    const contentHeightPx = Math.max(lineHeight + padding * 2, lines.length * lineHeight + padding * 2);
+    const contentHeightPx = Math.max(lineHeight + paddingY * 2, lines.length * lineHeight + paddingY * 2);
     return (contentHeightPx / bounds.height) * 100;
   };
 
@@ -599,11 +633,21 @@ export const CreativeEditor = () => {
     };
   };
 
-  const getTextLayerVerticalInsetPx = (layer: TextLayer, bounds: DOMRect | null) => {
-    if (!bounds || bounds.height <= 0) return 0;
+  const getTextLayerVerticalInsetsPx = (layer: TextLayer, bounds: DOMRect | null) => {
+    if (!bounds || bounds.height <= 0) {
+      return { top: 0, bottom: 0 };
+    }
     const boxHeightPx = Math.max(1, (getTextLayerHeight(layer) / 100) * bounds.height);
     const contentHeightPx = Math.max(1, (getTextLayerContentHeightPercent(layer, bounds) / 100) * bounds.height);
-    return Math.max(0, (boxHeightPx - contentHeightPx) / 2);
+    const available = Math.max(0, boxHeightPx - contentHeightPx);
+    const verticalAlign = getTextLayerVerticalAlign(layer);
+    if (verticalAlign === 'top') {
+      return { top: 0, bottom: available };
+    }
+    if (verticalAlign === 'bottom') {
+      return { top: available, bottom: 0 };
+    }
+    return { top: available / 2, bottom: available / 2 };
   };
 
   const buildTextLayer = (text: string): TextLayer => ({
@@ -618,6 +662,7 @@ export const CreativeEditor = () => {
     size: clamp(Math.round(textSize), 1, 300),
     fontFamily: textFont,
     align: textAlign,
+    verticalAlign: textVerticalAlign,
     lineHeight: normalizeTextLineHeightOption(textLineHeight),
     color: textColor,
     bold: textBold,
@@ -628,7 +673,9 @@ export const CreativeEditor = () => {
     bgMode: textBgMode,
     bgA: textBgA,
     bgB: textBgB,
-    padding: clamp(Math.round(textPadding), 0, 80),
+    paddingX: clamp(Math.round(textPaddingX), 0, 120),
+    paddingY: clamp(Math.round(textPaddingY), 0, 120),
+    padding: clamp(Math.round(textPaddingY), 0, 120),
     radius: clamp(Math.round(textRadius), 0, 80),
   });
 
@@ -691,6 +738,18 @@ export const CreativeEditor = () => {
     const lineHeight = normalizeTextLineHeightOption(rawValue);
     setTextLineHeight(lineHeight);
     updateSelectedTextLayer({ lineHeight });
+  };
+
+  const applyTextPaddingX = (rawValue: number) => {
+    const paddingX = clamp(Math.round(rawValue), 0, 120);
+    setTextPaddingX(paddingX);
+    updateSelectedTextLayer({ paddingX });
+  };
+
+  const applyTextPaddingY = (rawValue: number) => {
+    const paddingY = clamp(Math.round(rawValue), 0, 120);
+    setTextPaddingY(paddingY);
+    updateSelectedTextLayer({ paddingY });
   };
 
   const applyTextOpacity = (rawValue: number) => {
@@ -835,10 +894,11 @@ export const CreativeEditor = () => {
         const y = (layer.y / 100) * asset.height;
         const boxWidth = Math.max(10, (layer.boxWidth / 100) * asset.width);
         const boxHeight = Math.max(10, (getTextLayerHeight(layer) / 100) * asset.height);
-        const padding = getTextLayerPadding(layer);
+        const paddingX = getTextLayerPaddingX(layer);
+        const paddingY = getTextLayerPaddingY(layer);
         const fontSize = clamp(layer.size, 1, 300);
         const lineHeight = fontSize * getTextLayerLineHeight(layer);
-        const contentMaxWidth = Math.max(12, boxWidth - padding * 2);
+        const contentMaxWidth = Math.max(12, boxWidth - paddingX * 2);
 
         ctx.save();
         ctx.font = `${layer.italic ? 'italic ' : ''}${layer.bold ? 700 : 500} ${fontSize}px ${layer.fontFamily}, Roboto, 'Segoe UI', sans-serif`;
@@ -846,9 +906,14 @@ export const CreativeEditor = () => {
         ctx.textAlign = alignForCanvas;
         ctx.textBaseline = 'top';
         const lines = wrapTextLines(ctx, layer.text || ' ', contentMaxWidth);
-        const maxTextHeight = Math.max(lineHeight, boxHeight - padding * 2);
+        const maxTextHeight = Math.max(lineHeight, boxHeight - paddingY * 2);
         const maxLines = Math.max(1, Math.floor(maxTextHeight / lineHeight));
         const visibleLines = lines.slice(0, maxLines);
+        const textBlockHeight = visibleLines.length * lineHeight;
+        const totalContentHeight = Math.max(lineHeight + paddingY * 2, textBlockHeight + paddingY * 2);
+        const verticalExtra = Math.max(0, boxHeight - totalContentHeight);
+        const verticalAlign = getTextLayerVerticalAlign(layer);
+        const verticalOffset = verticalAlign === 'top' ? 0 : verticalAlign === 'bottom' ? verticalExtra : verticalExtra / 2;
 
         if (layer.bgMode !== 'none') {
           const left = x;
@@ -870,9 +935,9 @@ export const CreativeEditor = () => {
 
         ctx.fillStyle = layer.color;
         const anchorX = alignForCanvas === 'left'
-          ? x + padding
+          ? x + paddingX
           : alignForCanvas === 'right'
-            ? x + boxWidth - padding
+            ? x + boxWidth - paddingX
             : x + boxWidth / 2;
         if (layer.underline || layer.strike) {
           ctx.strokeStyle = layer.color;
@@ -883,7 +948,7 @@ export const CreativeEditor = () => {
         ctx.rect(x, y, boxWidth, boxHeight);
         ctx.clip();
         visibleLines.forEach((line, index) => {
-          const lineY = y + padding + lineHeight * index;
+          const lineY = y + verticalOffset + paddingY + lineHeight * index;
           let lineStartX = anchorX;
           let lineWidth = ctx.measureText(line || ' ').width;
           const words = line.trim().split(/\s+/).filter(Boolean);
@@ -897,7 +962,7 @@ export const CreativeEditor = () => {
             const totalNatural = wordsWidth + naturalSpace * gaps;
             const extraSpace = Math.max(0, contentMaxWidth - totalNatural);
             const gapWidth = naturalSpace + extraSpace / gaps;
-            let cursorX = x + padding;
+            let cursorX = x + paddingX;
             lineStartX = cursorX;
             lineWidth = contentMaxWidth;
             words.forEach((word, wordIndex) => {
@@ -1143,7 +1208,11 @@ export const CreativeEditor = () => {
   const renderLayerItem = (layer: Layer, index: number) => {
     const isSelected = layer.id === selectedLayerId;
     if (layer.type === 'text') {
-      const verticalInsetPx = getTextLayerVerticalInsetPx(layer, overlayBounds);
+      const verticalInsetsPx = getTextLayerVerticalInsetsPx(layer, overlayBounds);
+      const paddingX = getTextLayerPaddingX(layer);
+      const paddingY = getTextLayerPaddingY(layer);
+      const topInset = paddingY + verticalInsetsPx.top;
+      const bottomInset = paddingY + verticalInsetsPx.bottom;
       const background = layer.bgMode === 'none'
         ? 'transparent'
         : layer.bgMode === 'gradient'
@@ -1169,7 +1238,7 @@ export const CreativeEditor = () => {
             textDecorationThickness: '0.08em',
             textUnderlineOffset: '0.14em',
             color: layer.color,
-            padding: '0',
+            padding: 0,
             borderRadius: layer.bgMode === 'none' ? '0' : `${layer.radius}px`,
           }}
           onPointerDown={(event) => layerPointerDown(event, layer.id, 'move')}
@@ -1199,8 +1268,10 @@ export const CreativeEditor = () => {
                   textDecorationLine: textDecorationFromFlags(layer.underline, layer.strike),
                   textDecorationThickness: '0.08em',
                   textUnderlineOffset: '0.14em',
-                  paddingTop: `${verticalInsetPx}px`,
-                  paddingBottom: `${verticalInsetPx}px`,
+                  paddingTop: `${topInset}px`,
+                  paddingBottom: `${bottomInset}px`,
+                  paddingLeft: `${paddingX}px`,
+                  paddingRight: `${paddingX}px`,
                 }}
               />
             ) : (
@@ -1215,8 +1286,10 @@ export const CreativeEditor = () => {
                   textDecorationLine: textDecorationFromFlags(layer.underline, layer.strike),
                   textDecorationThickness: '0.08em',
                   textUnderlineOffset: '0.14em',
-                  paddingTop: `${verticalInsetPx}px`,
-                  paddingBottom: `${verticalInsetPx}px`,
+                  paddingTop: `${topInset}px`,
+                  paddingBottom: `${bottomInset}px`,
+                  paddingLeft: `${paddingX}px`,
+                  paddingRight: `${paddingX}px`,
                 }}
               />
             )
@@ -1224,8 +1297,10 @@ export const CreativeEditor = () => {
             <div
               className="editor-layer-text-view"
               style={{
-                paddingTop: `${verticalInsetPx}px`,
-                paddingBottom: `${verticalInsetPx}px`,
+                paddingTop: `${topInset}px`,
+                paddingBottom: `${bottomInset}px`,
+                paddingLeft: `${paddingX}px`,
+                paddingRight: `${paddingX}px`,
               }}
             >
               {layer.text}
@@ -1303,11 +1378,12 @@ export const CreativeEditor = () => {
 
   return (
     <section className="creative-editor">
-      <section className="card controls-wrapper">
-        <h1>Creative Editor</h1>
-        <p>Upload images, add text layers, then export edited creatives as a ZIP.</p>
-
+      <section className="controls-wrapper">
         <div className="controls">
+          <div className="controls-heading">
+            <h1 className="controls-heading-title">Creative Editor</h1>
+            <p className="controls-subtitle">Upload images, add text layers, then export edited creatives as a ZIP.</p>
+          </div>
           <div className="resizer-primary-actions creative-editor-primary-actions">
             <button type="button" onClick={handleUploadClick} disabled={isWorking}>
               Upload ZIPs or files
@@ -1437,154 +1513,242 @@ export const CreativeEditor = () => {
         </header>
 
         <div className="editor-text-toolbar">
-          <div className="editor-text-toolbar-row editor-text-toolbar-row-main">
-            <div className="editor-text-field editor-text-field-bg-mode editor-text-field-compact">
-              <label className="editor-visually-hidden">Background mode</label>
-              <select
-                value={textBgMode}
-                onChange={(event) => {
-                  const bgMode = event.target.value as TextBgMode;
-                  setTextBgMode(bgMode);
-                  updateSelectedTextLayer({ bgMode });
-                }}
-              >
-                <option value="none">None</option>
-                <option value="solid">Solid</option>
-                <option value="gradient">Gradient</option>
-              </select>
-            </div>
-
-            <div className="editor-gradient-color-controls" aria-label="Background colors">
-              <div className={`editor-gradient-control-slot${textBgMode === 'none' ? '' : ' is-visible'}`}>
-                <div className="editor-bg-radius-control" ref={bgRadiusControlRef}>
+          <div className="editor-text-toolbar-row editor-text-toolbar-row-background">
+            <div className="editor-bg-tools-group">
+              <div className="editor-text-field editor-text-field-bg-mode editor-text-field-compact">
+                <label className="editor-visually-hidden">Background mode</label>
+                <div className="editor-select-control" ref={bgModeControlRef}>
                   <button
                     type="button"
-                    className="editor-bg-radius-button"
+                    className={`editor-select-trigger${isBgModeOpen ? ' is-active' : ''}`}
                     onClick={() => {
                       setIsColorControlOpen(false);
                       setIsBgOpacityOpen(false);
-                      setIsLineHeightOpen(false);
-                      setIsBgRadiusOpen((prev) => !prev);
-                    }}
-                    disabled={textBgMode === 'none'}
-                    title="Background corner radius"
-                    aria-label="Background corner radius"
-                    aria-expanded={isBgRadiusOpen}
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M5 5h14" />
-                      <path d="M5 5v14" />
-                      <path d="M9 19h6a4 4 0 0 0 4-4V9" />
-                    </svg>
-                  </button>
-                  {isBgRadiusOpen && textBgMode !== 'none' ? (
-                    <div className="editor-bg-radius-popover" role="dialog" aria-label="Background corner radius">
-                      <input
-                        type="range"
-                        min={0}
-                        max={80}
-                        value={textRadius}
-                        onChange={(event) => applyTextRadius(Number(event.target.value))}
-                      />
-                      <span>{textRadius}</span>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className={`editor-gradient-control-slot${textBgMode === 'none' ? '' : ' is-visible'}`}>
-                <div className="editor-bg-opacity-control" ref={bgOpacityControlRef}>
-                  <button
-                    type="button"
-                    className="editor-bg-opacity-button"
-                    onClick={() => {
-                      setIsColorControlOpen(false);
-                      setIsLineHeightOpen(false);
                       setIsBgRadiusOpen(false);
-                      setIsBgOpacityOpen((prev) => !prev);
+                      setIsPaddingXOpen(false);
+                      setIsPaddingYOpen(false);
+                      setIsLineHeightOpen(false);
+                      setIsFontOpen(false);
+                      setIsBgModeOpen((prev) => !prev);
                     }}
-                    disabled={textBgMode === 'none'}
-                    title="Background opacity"
-                    aria-label="Background opacity"
-                    aria-expanded={isBgOpacityOpen}
+                    aria-haspopup="listbox"
+                    aria-expanded={isBgModeOpen}
+                    aria-label="Background mode"
                   >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <circle cx="12" cy="12" r="7" />
-                      <path d="M12 5a7 7 0 0 0 0 14V5Z" fill="currentColor" stroke="none" />
+                    <span className="editor-select-value">
+                      {textBgModeOptions.find((option) => option.value === textBgMode)?.label ?? 'None'}
+                    </span>
+                    <svg viewBox="0 0 16 16" aria-hidden="true">
+                      <path d="M4 6l4 4 4-4" />
                     </svg>
                   </button>
-                  {isBgOpacityOpen && textBgMode !== 'none' ? (
-                    <div className="editor-bg-opacity-popover" role="dialog" aria-label="Background opacity">
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        value={textOpacity}
-                        onChange={(event) => applyTextOpacity(Number(event.target.value))}
-                      />
-                      <span>{textOpacity}%</span>
+                  {isBgModeOpen ? (
+                    <div className="editor-select-popover editor-select-popover-bg" role="listbox" aria-label="Background mode values">
+                      {textBgModeOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          className={`editor-select-option${textBgMode === option.value ? ' is-active' : ''}`}
+                          aria-selected={textBgMode === option.value}
+                          onClick={() => {
+                            setTextBgMode(option.value);
+                            updateSelectedTextLayer({ bgMode: option.value });
+                            setIsBgModeOpen(false);
+                          }}
+                        >
+                          <span>{option.label}</span>
+                        </button>
+                      ))}
                     </div>
                   ) : null}
                 </div>
               </div>
 
-              <div className={`editor-gradient-control-slot${textBgMode === 'none' ? '' : ' is-visible'}`}>
-                <label
-                  className={`editor-gradient-color-trigger${textBgMode === 'none' ? ' is-disabled' : ''}`}
-                  style={{ '--editor-gradient-color': textBgA } as CSSProperties}
-                >
-                  <span className="editor-visually-hidden">Background color A</span>
-                  <span className="editor-gradient-color-letter" aria-hidden="true">A</span>
-                  <input
-                    type="color"
-                    value={textBgA}
-                    onChange={(event) => {
-                      const bgA = event.target.value;
-                      setTextBgA(bgA);
-                      updateSelectedTextLayer({ bgA });
-                    }}
-                    disabled={textBgMode === 'none'}
-                  />
-                </label>
-              </div>
+              <div className="editor-gradient-color-controls" aria-label="Background colors">
+                <div className={`editor-gradient-control-slot${textBgMode === 'none' ? '' : ' is-visible'}`}>
+                  <div className="editor-bg-radius-control" ref={bgRadiusControlRef}>
+                    <button
+                      type="button"
+                      className="editor-bg-radius-button"
+                      onClick={() => {
+                        setIsColorControlOpen(false);
+                        setIsBgOpacityOpen(false);
+                        setIsPaddingXOpen(false);
+                        setIsPaddingYOpen(false);
+                        setIsLineHeightOpen(false);
+                        setIsBgModeOpen(false);
+                        setIsFontOpen(false);
+                        setIsBgRadiusOpen((prev) => !prev);
+                      }}
+                      disabled={textBgMode === 'none'}
+                      title="Background corner radius"
+                      aria-label="Background corner radius"
+                      aria-expanded={isBgRadiusOpen}
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 5h14" />
+                        <path d="M5 5v14" />
+                        <path d="M9 19h6a4 4 0 0 0 4-4V9" />
+                      </svg>
+                    </button>
+                    {isBgRadiusOpen && textBgMode !== 'none' ? (
+                      <div className="editor-bg-radius-popover" role="dialog" aria-label="Background corner radius">
+                        <input
+                          type="range"
+                          min={0}
+                          max={80}
+                          value={textRadius}
+                          onChange={(event) => applyTextRadius(Number(event.target.value))}
+                        />
+                        <input
+                          type="number"
+                          min={0}
+                          max={80}
+                          value={textRadius}
+                          onChange={(event) => applyTextRadius(Number(event.target.value))}
+                          aria-label="Background corner radius value"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
 
-              <div className={`editor-gradient-control-slot${textBgMode === 'gradient' ? ' is-visible' : ''}`}>
-                <label
-                  className={`editor-gradient-color-trigger${textBgMode !== 'gradient' ? ' is-disabled' : ''}`}
-                  style={{ '--editor-gradient-color': textBgB } as CSSProperties}
-                >
-                  <span className="editor-visually-hidden">Background color B</span>
-                  <span className="editor-gradient-color-letter" aria-hidden="true">B</span>
-                  <input
-                    type="color"
-                    value={textBgB}
-                    onChange={(event) => {
-                      const bgB = event.target.value;
-                      setTextBgB(bgB);
-                      updateSelectedTextLayer({ bgB });
-                    }}
-                    disabled={textBgMode !== 'gradient'}
-                  />
-                </label>
+                <div className={`editor-gradient-control-slot${textBgMode === 'none' ? '' : ' is-visible'}`}>
+                  <div className="editor-bg-opacity-control" ref={bgOpacityControlRef}>
+                    <button
+                      type="button"
+                      className="editor-bg-opacity-button"
+                      onClick={() => {
+                        setIsColorControlOpen(false);
+                        setIsPaddingXOpen(false);
+                        setIsPaddingYOpen(false);
+                        setIsLineHeightOpen(false);
+                        setIsBgRadiusOpen(false);
+                        setIsBgModeOpen(false);
+                        setIsFontOpen(false);
+                        setIsBgOpacityOpen((prev) => !prev);
+                      }}
+                      disabled={textBgMode === 'none'}
+                      title="Background opacity"
+                      aria-label="Background opacity"
+                      aria-expanded={isBgOpacityOpen}
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="7" />
+                        <path d="M12 5a7 7 0 0 0 0 14V5Z" fill="currentColor" stroke="none" />
+                      </svg>
+                    </button>
+                    {isBgOpacityOpen && textBgMode !== 'none' ? (
+                      <div className="editor-bg-opacity-popover" role="dialog" aria-label="Background opacity">
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          value={textOpacity}
+                          onChange={(event) => applyTextOpacity(Number(event.target.value))}
+                        />
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={textOpacity}
+                          onChange={(event) => applyTextOpacity(Number(event.target.value))}
+                          aria-label="Background opacity value"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className={`editor-gradient-control-slot${textBgMode === 'none' ? '' : ' is-visible'}`}>
+                  <label
+                    className={`editor-gradient-color-trigger${textBgMode === 'none' ? ' is-disabled' : ''}`}
+                    style={{ '--editor-gradient-color': textBgA } as CSSProperties}
+                  >
+                    <span className="editor-visually-hidden">Background color A</span>
+                    <span className="editor-gradient-color-letter" aria-hidden="true">A</span>
+                    <input
+                      type="color"
+                      value={textBgA}
+                      onChange={(event) => {
+                        const bgA = event.target.value;
+                        setTextBgA(bgA);
+                        updateSelectedTextLayer({ bgA });
+                      }}
+                      disabled={textBgMode === 'none'}
+                    />
+                  </label>
+                </div>
+
+                <div className={`editor-gradient-control-slot${textBgMode === 'gradient' ? ' is-visible' : ''}`}>
+                  <label
+                    className={`editor-gradient-color-trigger${textBgMode !== 'gradient' ? ' is-disabled' : ''}`}
+                    style={{ '--editor-gradient-color': textBgB } as CSSProperties}
+                  >
+                    <span className="editor-visually-hidden">Background color B</span>
+                    <span className="editor-gradient-color-letter" aria-hidden="true">B</span>
+                    <input
+                      type="color"
+                      value={textBgB}
+                      onChange={(event) => {
+                        const bgB = event.target.value;
+                        setTextBgB(bgB);
+                        updateSelectedTextLayer({ bgB });
+                      }}
+                      disabled={textBgMode !== 'gradient'}
+                    />
+                  </label>
+                </div>
               </div>
             </div>
+          </div>
 
+          <div className="editor-text-toolbar-row editor-text-toolbar-row-main">
             <div className="editor-text-field editor-text-field-font">
               <label className="editor-visually-hidden">Font</label>
-              <select
-                value={textFont}
-                onChange={(event) => {
-                  const fontFamily = event.target.value;
-                  setTextFont(fontFamily);
-                  updateSelectedTextLayer({ fontFamily });
-                }}
-              >
-                {textFontOptions.map((font) => (
-                  <option key={font} value={font}>
-                    {font}
-                  </option>
-                ))}
-              </select>
+              <div className="editor-select-control" ref={fontControlRef}>
+                <button
+                  type="button"
+                  className={`editor-select-trigger${isFontOpen ? ' is-active' : ''}`}
+                  onClick={() => {
+                    setIsColorControlOpen(false);
+                    setIsBgOpacityOpen(false);
+                    setIsBgRadiusOpen(false);
+                    setIsPaddingXOpen(false);
+                    setIsPaddingYOpen(false);
+                    setIsLineHeightOpen(false);
+                    setIsBgModeOpen(false);
+                    setIsFontOpen((prev) => !prev);
+                  }}
+                  aria-haspopup="listbox"
+                  aria-expanded={isFontOpen}
+                  aria-label="Font family"
+                >
+                  <span className="editor-select-value">{textFont}</span>
+                  <svg viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M4 6l4 4 4-4" />
+                  </svg>
+                </button>
+                {isFontOpen ? (
+                  <div className="editor-select-popover editor-select-popover-font" role="listbox" aria-label="Font family values">
+                    {textFontOptions.map((font) => (
+                      <button
+                        key={font}
+                        type="button"
+                        className={`editor-select-option${textFont === font ? ' is-active' : ''}`}
+                        aria-selected={textFont === font}
+                        onClick={() => {
+                          setTextFont(font);
+                          updateSelectedTextLayer({ fontFamily: font });
+                          setIsFontOpen(false);
+                        }}
+                      >
+                        <span>{font}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             <div className="editor-text-field editor-text-field-size editor-text-field-compact">
@@ -1622,7 +1786,11 @@ export const CreativeEditor = () => {
                   onClick={() => {
                     setIsBgOpacityOpen(false);
                     setIsBgRadiusOpen(false);
+                    setIsPaddingXOpen(false);
+                    setIsPaddingYOpen(false);
                     setIsLineHeightOpen(false);
+                    setIsBgModeOpen(false);
+                    setIsFontOpen(false);
                     setIsColorControlOpen((prev) => !prev);
                   }}
                   title="Text color"
@@ -1761,6 +1929,10 @@ export const CreativeEditor = () => {
                     setIsColorControlOpen(false);
                     setIsBgOpacityOpen(false);
                     setIsBgRadiusOpen(false);
+                    setIsPaddingXOpen(false);
+                    setIsPaddingYOpen(false);
+                    setIsBgModeOpen(false);
+                    setIsFontOpen(false);
                     setIsLineHeightOpen((prev) => !prev);
                   }}
                   title="Line height"
@@ -1787,6 +1959,136 @@ export const CreativeEditor = () => {
                         <span>{value}</span>
                       </button>
                     ))}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="editor-icon-group editor-icon-group-vertical" aria-label="Vertical text alignment">
+              <button
+                type="button"
+                className={textVerticalAlign === 'top' ? 'is-active' : ''}
+                onClick={() => {
+                  setTextVerticalAlign('top');
+                  updateSelectedTextLayer({ verticalAlign: 'top' });
+                }}
+                title="Align top"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 5h14v2H5V5zm3 4h8v10H8V9z" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className={textVerticalAlign === 'middle' ? 'is-active' : ''}
+                onClick={() => {
+                  setTextVerticalAlign('middle');
+                  updateSelectedTextLayer({ verticalAlign: 'middle' });
+                }}
+                title="Align middle"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 7h8v10H8V7zm-3 4h14v2H5v-2z" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className={textVerticalAlign === 'bottom' ? 'is-active' : ''}
+                onClick={() => {
+                  setTextVerticalAlign('bottom');
+                  updateSelectedTextLayer({ verticalAlign: 'bottom' });
+                }}
+                title="Align bottom"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 5h8v10H8V5zm-3 12h14v2H5v-2z" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="editor-padding-controls" aria-label="Text padding">
+              <div className="editor-padding-control" ref={paddingXControlRef}>
+                <button
+                  type="button"
+                  className={`editor-padding-button${isPaddingXOpen ? ' is-active' : ''}`}
+                  onClick={() => {
+                    setIsColorControlOpen(false);
+                    setIsBgOpacityOpen(false);
+                    setIsBgRadiusOpen(false);
+                    setIsLineHeightOpen(false);
+                    setIsBgModeOpen(false);
+                    setIsFontOpen(false);
+                    setIsPaddingYOpen(false);
+                    setIsPaddingXOpen((prev) => !prev);
+                  }}
+                  title="Side padding"
+                  aria-label="Side padding"
+                  aria-expanded={isPaddingXOpen}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 12h14M5 12l2-2M5 12l2 2M19 12l-2-2M19 12l-2 2" />
+                  </svg>
+                </button>
+                {isPaddingXOpen ? (
+                  <div className="editor-padding-popover" role="dialog" aria-label="Side padding">
+                    <input
+                      type="range"
+                      min={0}
+                      max={120}
+                      value={textPaddingX}
+                      onChange={(event) => applyTextPaddingX(Number(event.target.value))}
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      max={120}
+                      value={textPaddingX}
+                      onChange={(event) => applyTextPaddingX(Number(event.target.value))}
+                      aria-label="Side padding value"
+                    />
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="editor-padding-control" ref={paddingYControlRef}>
+                <button
+                  type="button"
+                  className={`editor-padding-button${isPaddingYOpen ? ' is-active' : ''}`}
+                  onClick={() => {
+                    setIsColorControlOpen(false);
+                    setIsBgOpacityOpen(false);
+                    setIsBgRadiusOpen(false);
+                    setIsLineHeightOpen(false);
+                    setIsBgModeOpen(false);
+                    setIsFontOpen(false);
+                    setIsPaddingXOpen(false);
+                    setIsPaddingYOpen((prev) => !prev);
+                  }}
+                  title="Top and bottom padding"
+                  aria-label="Top and bottom padding"
+                  aria-expanded={isPaddingYOpen}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 5v14M12 5l-2 2M12 5l2 2M12 19l-2-2M12 19l2-2" />
+                  </svg>
+                </button>
+                {isPaddingYOpen ? (
+                  <div className="editor-padding-popover" role="dialog" aria-label="Top and bottom padding">
+                    <input
+                      type="range"
+                      min={0}
+                      max={120}
+                      value={textPaddingY}
+                      onChange={(event) => applyTextPaddingY(Number(event.target.value))}
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      max={120}
+                      value={textPaddingY}
+                      onChange={(event) => applyTextPaddingY(Number(event.target.value))}
+                      aria-label="Top and bottom padding value"
+                    />
                   </div>
                 ) : null}
               </div>
