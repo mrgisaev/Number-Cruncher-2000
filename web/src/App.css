@@ -1458,7 +1458,7 @@ body::after {
   position: relative;
   width: 0;
   min-width: 0;
-  height: 20px;
+  height: 24px;
   opacity: 0;
   transform: translateX(-8px);
   overflow: hidden;
@@ -1467,7 +1467,7 @@ body::after {
 }
 
 .editor-gradient-control-slot.is-visible {
-  width: 24px;
+  width: 28px;
   opacity: 1;
   transform: translateX(0);
   overflow: visible;
@@ -1475,16 +1475,17 @@ body::after {
 }
 
 .editor-bg-opacity-control,
+.editor-bg-radius-control,
 .editor-gradient-color-trigger {
   --editor-gradient-color: #000000;
   position: relative;
-  width: 24px;
-  min-width: 24px;
-  height: 20px;
+  width: 28px;
+  min-width: 28px;
+  height: 24px;
   display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 1px;
+  justify-content: center;
+  gap: 0;
   color: rgba(52, 80, 82, 0.92);
   transition: color 0.16s ease, opacity 0.16s ease;
 }
@@ -1494,11 +1495,13 @@ body::after {
 }
 
 .editor-bg-opacity-button:hover:not(:disabled),
+.editor-bg-radius-button:hover:not(:disabled),
 .editor-gradient-color-trigger:hover:not(.is-disabled) {
   color: rgba(35, 55, 60, 0.95);
 }
 
-.editor-bg-opacity-button {
+.editor-bg-opacity-button,
+.editor-bg-radius-button {
   width: 100%;
   height: 100%;
   border: 0;
@@ -1511,17 +1514,24 @@ body::after {
   cursor: pointer;
 }
 
-.editor-bg-opacity-button:disabled {
+.editor-bg-opacity-button:disabled,
+.editor-bg-radius-button:disabled {
   cursor: default;
 }
 
-.editor-bg-opacity-button svg {
-  width: 14px;
-  height: 14px;
-  fill: currentColor;
+.editor-bg-opacity-button svg,
+.editor-bg-radius-button svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.editor-bg-opacity-popover {
+.editor-bg-opacity-popover,
+.editor-bg-radius-popover {
   position: absolute;
   left: -10px;
   top: calc(100% + 10px);
@@ -1537,7 +1547,8 @@ body::after {
   box-shadow: 0 12px 26px rgba(83, 142, 162, 0.24);
 }
 
-.editor-bg-opacity-popover input[type='range'] {
+.editor-bg-opacity-popover input[type='range'],
+.editor-bg-radius-popover input[type='range'] {
   -webkit-appearance: none;
   appearance: none;
   width: 100px;
@@ -1548,7 +1559,8 @@ body::after {
   outline: none;
 }
 
-.editor-bg-opacity-popover input[type='range']::-webkit-slider-thumb {
+.editor-bg-opacity-popover input[type='range']::-webkit-slider-thumb,
+.editor-bg-radius-popover input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 12px;
@@ -1559,13 +1571,15 @@ body::after {
   box-shadow: 0 1px 4px rgba(46, 139, 164, 0.34);
 }
 
-.editor-bg-opacity-popover input[type='range']::-moz-range-track {
+.editor-bg-opacity-popover input[type='range']::-moz-range-track,
+.editor-bg-radius-popover input[type='range']::-moz-range-track {
   height: 4px;
   border-radius: 999px;
   background: linear-gradient(90deg, rgba(46, 139, 164, 0.95), rgba(134, 200, 216, 0.92));
 }
 
-.editor-bg-opacity-popover input[type='range']::-moz-range-thumb {
+.editor-bg-opacity-popover input[type='range']::-moz-range-thumb,
+.editor-bg-radius-popover input[type='range']::-moz-range-thumb {
   width: 12px;
   height: 12px;
   border-radius: 999px;
@@ -1574,7 +1588,8 @@ body::after {
   box-shadow: 0 1px 4px rgba(46, 139, 164, 0.34);
 }
 
-.editor-bg-opacity-popover span {
+.editor-bg-opacity-popover span,
+.editor-bg-radius-popover span {
   min-width: 30px;
   text-align: right;
   font-size: 0.78rem;
@@ -1585,10 +1600,10 @@ body::after {
 .editor-gradient-color-trigger::after {
   content: '';
   position: absolute;
-  left: 3px;
-  bottom: 1px;
-  width: 12px;
-  height: 2px;
+  left: 6px;
+  bottom: 3px;
+  width: 16px;
+  height: 2.5px;
   border-radius: 999px;
   background: var(--editor-gradient-color);
 }
@@ -1600,17 +1615,13 @@ body::after {
   cursor: pointer;
 }
 
-.editor-gradient-color-trigger-icon {
-  width: 13px;
-  height: 13px;
-  fill: currentColor;
-}
-
-.editor-gradient-color-trigger-caret {
-  width: 11px;
-  height: 11px;
-  fill: currentColor;
-  opacity: 0.76;
+.editor-gradient-color-letter {
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  color: currentColor;
+  transform: translateY(-2px);
 }
 
 .editor-gradient-color-trigger.is-disabled {
@@ -1801,7 +1812,7 @@ body::after {
 .editor-layer {
   position: absolute;
   user-select: none;
-  line-height: 1.2;
+  line-height: 1.24;
   word-break: break-word;
 }
 
@@ -1830,6 +1841,7 @@ body::after {
   height: 100%;
   min-height: 0;
   overflow: hidden;
+  box-sizing: border-box;
   position: relative;
   z-index: 1;
 }
@@ -1881,10 +1893,24 @@ body::after {
   cursor: nwse-resize;
 }
 
+.editor-layer-resize-handle-n {
+  left: 50%;
+  top: -6px;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+}
+
 .editor-layer-resize-handle-ne {
   right: -6px;
   top: -6px;
   cursor: nesw-resize;
+}
+
+.editor-layer-resize-handle-e {
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: ew-resize;
 }
 
 .editor-layer-resize-handle-sw {
@@ -1893,10 +1919,24 @@ body::after {
   cursor: nesw-resize;
 }
 
+.editor-layer-resize-handle-s {
+  left: 50%;
+  bottom: -6px;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+}
+
 .editor-layer-resize-handle-se {
   right: -6px;
   bottom: -6px;
   cursor: nwse-resize;
+}
+
+.editor-layer-resize-handle-w {
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: ew-resize;
 }
 
 .editor-layer-sticker {
