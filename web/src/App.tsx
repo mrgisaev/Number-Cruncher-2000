@@ -1,4 +1,17 @@
-import { Suspense, lazy, type ChangeEvent, type CSSProperties, useEffect, useId, useMemo, useRef, useState } from 'react';
+import {
+  Suspense,
+  lazy,
+  type ChangeEvent,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from 'react';
 import './App.css';
 
 const sampleColumn = '';
@@ -309,6 +322,16 @@ const parsePercentInput = (input: string) => {
   return { value: parsed.value, isPercent };
 };
 
+const getRouteTitle = (pathname: string) => {
+  if (pathname.includes('creative-editor')) return 'Creative Editor - Number Cruncher 2026';
+  if (pathname.includes('creative-resizer')) return 'Creative Resizer - Number Cruncher 2026';
+  if (pathname.includes('creative-renamer')) return 'Asset Renamer - Number Cruncher 2026';
+  if (pathname.includes('share-splitter')) return 'Share Splitter - Number Cruncher 2026';
+  if (pathname.includes('utm-generator')) return 'UTM Generator - Number Cruncher 2026';
+  if (pathname.includes('whats-new')) return "What's new - Number Cruncher 2026";
+  return 'Number Cruncher 2026';
+};
+
 function App() {
   const [rawInput, setRawInput] = useState(sampleColumn);
   const [sumMode, setSumMode] = useState<'add' | 'target' | 'multiply'>('add');
@@ -322,6 +345,10 @@ function App() {
   const [menuOverflow, setMenuOverflow] = useState(false);
   const [menuFadeLeft, setMenuFadeLeft] = useState(false);
   const [menuFadeRight, setMenuFadeRight] = useState(false);
+  const [routePath, setRoutePath] = useState(() =>
+    typeof window !== 'undefined' ? window.location.pathname : '/index.html',
+  );
+  const [, startRouteTransition] = useTransition();
   const pasteAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const menuScrollRef = useRef<HTMLUListElement | null>(null);
   const [showConsent, setShowConsent] = useState(() => {
@@ -329,15 +356,12 @@ function App() {
     return localStorage.getItem('nc-analytics-consent') !== 'granted';
   });
   const footerYear = new Date().getFullYear();
-  const isWhatsNew = typeof window !== 'undefined' && window.location.pathname.includes('whats-new');
-  const isShareSplitter = typeof window !== 'undefined' && window.location.pathname.includes('share-splitter');
-  const isCreativeRenamer =
-    typeof window !== 'undefined' && window.location.pathname.includes('creative-renamer');
-  const isCreativeResizer =
-    typeof window !== 'undefined' && window.location.pathname.includes('creative-resizer');
-  const isCreativeEditor =
-    typeof window !== 'undefined' && window.location.pathname.includes('creative-editor');
-  const isUtmGenerator = typeof window !== 'undefined' && window.location.pathname.includes('utm-generator');
+  const isWhatsNew = routePath.includes('whats-new');
+  const isShareSplitter = routePath.includes('share-splitter');
+  const isCreativeRenamer = routePath.includes('creative-renamer');
+  const isCreativeResizer = routePath.includes('creative-resizer');
+  const isCreativeEditor = routePath.includes('creative-editor');
+  const isUtmGenerator = routePath.includes('utm-generator');
   const latestReleaseDate = 'Feb 21, 2026';
   const feb17ReleaseDate = 'Feb 17, 2026';
   const feb15ReleaseDate = 'Feb 15, 2026';
@@ -532,6 +556,78 @@ function App() {
     setTimeout(scrollTop, 0);
   };
 
+  const preloadRouteModule = useCallback((pathname: string) => {
+    if (pathname.includes('creative-renamer')) {
+      void import('./CreativeRenamer');
+      return;
+    }
+    if (pathname.includes('creative-resizer')) {
+      void import('./CreativeResizer');
+      return;
+    }
+    if (pathname.includes('creative-editor')) {
+      void import('./CreativeEditor');
+      return;
+    }
+    if (pathname.includes('utm-generator')) {
+      void import('./UtmGenerator');
+      return;
+    }
+    if (pathname.includes('share-splitter')) {
+      void import('./ShareSplitter');
+    }
+  }, []);
+
+  const navigateTo = useCallback(
+    (href: string) => {
+      if (typeof window === 'undefined') return;
+      const nextUrl = new URL(href, window.location.origin);
+      if (nextUrl.origin !== window.location.origin) {
+        window.location.href = href;
+        return;
+      }
+      const nextPath = nextUrl.pathname;
+      const isToolPage = nextPath === '/' || nextPath === '/index.html' || nextPath.endsWith('.html');
+      if (!isToolPage) {
+        window.location.href = href;
+        return;
+      }
+      if (nextPath === routePath) return;
+
+      preloadRouteModule(nextPath);
+      window.history.pushState({}, '', `${nextPath}${nextUrl.search}${nextUrl.hash}`);
+      startRouteTransition(() => {
+        setRoutePath(nextPath);
+      });
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    },
+    [preloadRouteModule, routePath, startRouteTransition],
+  );
+
+  const handleToolLinkClick = useCallback(
+    (event: ReactMouseEvent<HTMLAnchorElement>) => {
+      if (event.defaultPrevented) return;
+      if (event.button !== 0) return;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const href = event.currentTarget.getAttribute('href');
+      if (!href) return;
+      event.preventDefault();
+      navigateTo(href);
+    },
+    [navigateTo],
+  );
+
+  const handleToolLinkHover = useCallback(
+    (event: ReactMouseEvent<HTMLAnchorElement>) => {
+      const href = event.currentTarget.getAttribute('href');
+      if (!href || typeof window === 'undefined') return;
+      const nextUrl = new URL(href, window.location.origin);
+      if (nextUrl.origin !== window.location.origin) return;
+      preloadRouteModule(nextUrl.pathname);
+    },
+    [preloadRouteModule],
+  );
+
   useEffect(() => {
     let rafId = 0;
     const updateScrollCue = () => {
@@ -617,6 +713,19 @@ function App() {
     }
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onPopState = () => {
+      setRoutePath(window.location.pathname);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  useEffect(() => {
+    document.title = getRouteTitle(routePath);
+  }, [routePath]);
+
   return (
     <>
       <div className="dust-overlay" aria-hidden="true">
@@ -653,37 +762,37 @@ function App() {
             ref={menuScrollRef}
           >
             <li>
-              <a className="tool-link-button" href="https://number-cruncher.org">
+              <a className="tool-link-button" href="/index.html" onClick={handleToolLinkClick} onMouseEnter={handleToolLinkHover}>
                 Number Cruncher
               </a>
             </li>
             <li>
-              <a className="tool-link-button" href="/share-splitter.html">
+              <a className="tool-link-button" href="/share-splitter.html" onClick={handleToolLinkClick} onMouseEnter={handleToolLinkHover}>
                 Share Splitter
               </a>
             </li>
             <li>
-              <a className="tool-link-button" href="/creative-resizer.html">
+              <a className="tool-link-button" href="/creative-resizer.html" onClick={handleToolLinkClick} onMouseEnter={handleToolLinkHover}>
                 Creative Resizer
               </a>
             </li>
             <li>
-              <a className="tool-link-button" href="/creative-editor.html">
+              <a className="tool-link-button" href="/creative-editor.html" onClick={handleToolLinkClick} onMouseEnter={handleToolLinkHover}>
                 Creative Editor
               </a>
             </li>
             <li>
-              <a className="tool-link-button" href="/creative-renamer.html">
+              <a className="tool-link-button" href="/creative-renamer.html" onClick={handleToolLinkClick} onMouseEnter={handleToolLinkHover}>
                 Asset Renamer
               </a>
             </li>
             <li>
-              <a className="tool-link-button" href="/utm-generator.html">
+              <a className="tool-link-button" href="/utm-generator.html" onClick={handleToolLinkClick} onMouseEnter={handleToolLinkHover}>
                 UTM Generator
               </a>
             </li>
             <li>
-              <a className="tool-link-button" href="/whats-new.html">
+              <a className="tool-link-button" href="/whats-new.html" onClick={handleToolLinkClick} onMouseEnter={handleToolLinkHover}>
                 What's new
               </a>
             </li>
