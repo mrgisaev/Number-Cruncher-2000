@@ -2554,16 +2554,16 @@ body::after {
 }
 
 .editor-layer-sticker-frame.is-selected {
-  outline: 2px solid rgba(180, 245, 255, 0.98);
-  outline-offset: -2px;
-  box-shadow: 0 0 0 1px rgba(68, 225, 255, 0.55);
-  border-radius: 8px;
+  outline: 1px solid rgba(185, 245, 255, 0.95);
+  outline-offset: -1px;
+  box-shadow: 0 0 0 1px rgba(95, 225, 255, 0.28);
+  border-radius: 6px;
 }
 
 .editor-layer-sticker-frame.is-selected .editor-layer-resize-handle {
-  background: rgba(191, 245, 255, 0.96);
-  border: 1px solid rgba(115, 215, 234, 0.95);
-  box-shadow: 0 0 0 1px rgba(8, 147, 173, 0.25);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
 .editor-layer-sticker-frame.is-selected .editor-layer-resize-handle-n,
