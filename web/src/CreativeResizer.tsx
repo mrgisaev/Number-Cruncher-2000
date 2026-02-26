@@ -560,6 +560,7 @@ export const CreativeResizer = () => {
   const [qualityPreviewUrl, setQualityPreviewUrl] = useState<string | null>(null);
   const [qualityEstimatedSize, setQualityEstimatedSize] = useState('вЂ”');
   const [isDeckDropActive, setIsDeckDropActive] = useState(false);
+  const [isGlobalFileDragActive, setIsGlobalFileDragActive] = useState(false);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [isCropInteracting, setIsCropInteracting] = useState(false);
@@ -577,6 +578,7 @@ export const CreativeResizer = () => {
   const qualityEstimateTaskRef = useRef(0);
   const qualityPreviewUrlRef = useRef<string | null>(null);
   const deckDragDepthRef = useRef(0);
+  const globalFileDragDepthRef = useRef(0);
 
   const currentAsset = assets[currentIndex] ?? null;
   const deckStep = 52;
@@ -1039,6 +1041,63 @@ export const CreativeResizer = () => {
   const isFileDragEvent = (event: ReactDragEvent) =>
     Array.from(event.dataTransfer?.types ?? []).includes('Files');
 
+  useEffect(() => {
+    const hasFiles = (event: DragEvent) => Array.from(event.dataTransfer?.types ?? []).includes('Files');
+    const reset = () => {
+      globalFileDragDepthRef.current = 0;
+      setIsGlobalFileDragActive(false);
+    };
+
+    const onDragEnter = (event: DragEvent) => {
+      if (!hasFiles(event)) {
+        return;
+      }
+      event.preventDefault();
+      globalFileDragDepthRef.current += 1;
+      setIsGlobalFileDragActive(true);
+    };
+
+    const onDragOver = (event: DragEvent) => {
+      if (!hasFiles(event)) {
+        return;
+      }
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'copy';
+      }
+      setIsGlobalFileDragActive(true);
+    };
+
+    const onDragLeave = (event: DragEvent) => {
+      if (!hasFiles(event)) {
+        return;
+      }
+      globalFileDragDepthRef.current = Math.max(0, globalFileDragDepthRef.current - 1);
+      if (globalFileDragDepthRef.current === 0) {
+        setIsGlobalFileDragActive(false);
+      }
+    };
+
+    const onDrop = () => {
+      reset();
+    };
+
+    window.addEventListener('dragenter', onDragEnter);
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('dragleave', onDragLeave);
+    window.addEventListener('drop', onDrop);
+    window.addEventListener('dragend', onDrop);
+    window.addEventListener('blur', onDrop);
+    return () => {
+      window.removeEventListener('dragenter', onDragEnter);
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('dragleave', onDragLeave);
+      window.removeEventListener('drop', onDrop);
+      window.removeEventListener('dragend', onDrop);
+      window.removeEventListener('blur', onDrop);
+    };
+  }, []);
+
   const handleDeckDragEnter = (event: ReactDragEvent<HTMLDivElement>) => {
     if (!isFileDragEvent(event)) {
       return;
@@ -1080,6 +1139,8 @@ export const CreativeResizer = () => {
     setIsDeckDropActive(false);
     void handleFilesAdded(event.dataTransfer.files);
   };
+
+  const isDeckDropVisualActive = isDeckDropActive || isGlobalFileDragActive;
 
   const handleStartDrag = (event: ReactPointerEvent<HTMLElement>, mode: DragMode) => {
     if (!zoomLayerRef.current) {
@@ -1565,7 +1626,7 @@ export const CreativeResizer = () => {
 
         <div className="number-field number-field-mode resizer-actions-field">
           <div
-            className={`resizer-deck-row${isDeckDropActive ? ' is-drop-active' : ''}`}
+            className={`resizer-deck-row${isDeckDropVisualActive ? ' is-drop-active' : ''}`}
             onDragEnter={handleDeckDragEnter}
             onDragOver={handleDeckDragOver}
             onDragLeave={handleDeckDragLeave}
@@ -1646,7 +1707,7 @@ export const CreativeResizer = () => {
             >
               &rsaquo;
             </button>
-            {isDeckDropActive ? (
+            {isDeckDropVisualActive ? (
               <div className="resizer-deck-dropzone" aria-hidden="true">
                 <span>Drop ZIPs or image files here</span>
               </div>

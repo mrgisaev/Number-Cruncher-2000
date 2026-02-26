@@ -29,6 +29,7 @@ type StickerAsset = {
 };
 
 type TextBgMode = 'none' | 'solid' | 'gradient';
+type TextAlignMode = 'left' | 'center' | 'right' | 'justify';
 
 type TextLayer = {
   id: string;
@@ -41,7 +42,8 @@ type TextLayer = {
   minBoxHeight: number;
   size: number;
   fontFamily: string;
-  align: 'left' | 'center' | 'right';
+  align: TextAlignMode;
+  lineHeight: number;
   color: string;
   bold: boolean;
   italic: boolean;
@@ -102,6 +104,16 @@ const textDecorationFromFlags = (underline: boolean, strike: boolean) => {
 const getTextLayerHeight = (layer: TextLayer) => (Number.isFinite(layer.boxHeight) && layer.boxHeight > 0 ? layer.boxHeight : 8);
 const getTextLayerMinHeight = (layer: TextLayer) => (Number.isFinite(layer.minBoxHeight) && layer.minBoxHeight > 0 ? layer.minBoxHeight : 8);
 const getTextLayerBgOpacity = (layer: TextLayer) => (Number.isFinite(layer.opacity) ? clamp(Math.round(layer.opacity), 0, 100) : 100);
+const clampTextLineHeight = (value: number) => (Number.isFinite(value) ? clamp(value, 0.8, 2.5) : 1.24);
+const getTextLayerLineHeight = (layer: TextLayer) => clampTextLineHeight(layer.lineHeight);
+const normalizeEditableText = (value: string) => value.replace(/\r/g, '').replace(/\u00a0/g, ' ').replace(/\n$/, '');
+const textLineHeightOptions = [1, 1.1, 1.25, 1.5, 1.75, 2] as const;
+const normalizeTextLineHeightOption = (value: number) => {
+  const normalized = clampTextLineHeight(value);
+  return textLineHeightOptions.reduce((closest, current) =>
+    Math.abs(current - normalized) < Math.abs(closest - normalized) ? current : closest,
+  textLineHeightOptions[0]);
+};
 
 const imageExt = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'svg', 'avif']);
 
@@ -237,7 +249,8 @@ export const CreativeEditor = () => {
   const [textSize, setTextSize] = useState(56);
   const [textSizeInput, setTextSizeInput] = useState('56');
   const [textFont, setTextFont] = useState('Roboto');
-  const [textAlign, setTextAlign] = useState<'left' | 'center' | 'right'>('center');
+  const [textAlign, setTextAlign] = useState<TextAlignMode>('center');
+  const [textLineHeight, setTextLineHeight] = useState(1.25);
   const [textColor, setTextColor] = useState('#ffffff');
   const [textBold, setTextBold] = useState(true);
   const [textItalic, setTextItalic] = useState(false);
@@ -251,6 +264,7 @@ export const CreativeEditor = () => {
   const [textRadius, setTextRadius] = useState(12);
 
   const [isDeckDropActive, setIsDeckDropActive] = useState(false);
+  const [isGlobalFileDragActive, setIsGlobalFileDragActive] = useState(false);
   const [hoverPreview, setHoverPreview] = useState<{ url: string; x: number; y: number } | null>(null);
   const [overlayBounds, setOverlayBounds] = useState<DOMRect | null>(null);
 
@@ -259,12 +273,16 @@ export const CreativeEditor = () => {
   const colorControlRef = useRef<HTMLDivElement | null>(null);
   const bgOpacityControlRef = useRef<HTMLDivElement | null>(null);
   const bgRadiusControlRef = useRef<HTMLDivElement | null>(null);
+  const lineHeightControlRef = useRef<HTMLDivElement | null>(null);
+  const justifyEditorRef = useRef<HTMLDivElement | null>(null);
   const textMeasureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const deckDragDepthRef = useRef(0);
+  const globalFileDragDepthRef = useRef(0);
   const [isColorControlOpen, setIsColorControlOpen] = useState(false);
   const [isBgOpacityOpen, setIsBgOpacityOpen] = useState(false);
   const [isBgRadiusOpen, setIsBgRadiusOpen] = useState(false);
+  const [isLineHeightOpen, setIsLineHeightOpen] = useState(false);
 
   const assetsRef = useRef<EditorAsset[]>([]);
   const stickersRef = useRef<StickerAsset[]>([]);
@@ -301,9 +319,11 @@ export const CreativeEditor = () => {
       if (colorControlRef.current?.contains(target)) return;
       if (bgOpacityControlRef.current?.contains(target)) return;
       if (bgRadiusControlRef.current?.contains(target)) return;
+      if (lineHeightControlRef.current?.contains(target)) return;
       setIsColorControlOpen(false);
       setIsBgOpacityOpen(false);
       setIsBgRadiusOpen(false);
+      setIsLineHeightOpen(false);
     };
     window.addEventListener('pointerdown', onPointerDown);
     return () => window.removeEventListener('pointerdown', onPointerDown);
@@ -314,6 +334,55 @@ export const CreativeEditor = () => {
     setIsBgOpacityOpen(false);
     setIsBgRadiusOpen(false);
   }, [textBgMode]);
+
+  useEffect(() => {
+    const hasFiles = (event: DragEvent) => Array.from(event.dataTransfer?.types ?? []).includes('Files');
+    const reset = () => {
+      globalFileDragDepthRef.current = 0;
+      setIsGlobalFileDragActive(false);
+    };
+
+    const onDragEnter = (event: DragEvent) => {
+      if (!hasFiles(event)) return;
+      event.preventDefault();
+      globalFileDragDepthRef.current += 1;
+      setIsGlobalFileDragActive(true);
+    };
+
+    const onDragOver = (event: DragEvent) => {
+      if (!hasFiles(event)) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+      setIsGlobalFileDragActive(true);
+    };
+
+    const onDragLeave = (event: DragEvent) => {
+      if (!hasFiles(event)) return;
+      globalFileDragDepthRef.current = Math.max(0, globalFileDragDepthRef.current - 1);
+      if (globalFileDragDepthRef.current === 0) {
+        setIsGlobalFileDragActive(false);
+      }
+    };
+
+    const onDrop = () => {
+      reset();
+    };
+
+    window.addEventListener('dragenter', onDragEnter);
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('dragleave', onDragLeave);
+    window.addEventListener('drop', onDrop);
+    window.addEventListener('dragend', onDrop);
+    window.addEventListener('blur', onDrop);
+    return () => {
+      window.removeEventListener('dragenter', onDragEnter);
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('dragleave', onDragLeave);
+      window.removeEventListener('drop', onDrop);
+      window.removeEventListener('dragend', onDrop);
+      window.removeEventListener('blur', onDrop);
+    };
+  }, []);
 
   useEffect(() => {
     const overlay = overlayRef.current;
@@ -338,6 +407,7 @@ export const CreativeEditor = () => {
 
   const currentAsset = assets[currentIndex] ?? null;
   const selectedLayer = layers.find((layer) => layer.id === selectedLayerId) ?? null;
+  const selectedTextAlign = selectedLayer?.type === 'text' ? selectedLayer.align : null;
 
   useEffect(() => {
     if (!selectedLayer || selectedLayer.type !== 'text') return;
@@ -345,6 +415,8 @@ export const CreativeEditor = () => {
     setTextSizeInput(String(selectedLayer.size));
     setTextFont(selectedLayer.fontFamily);
     setTextAlign(selectedLayer.align);
+    const nextLineHeight = normalizeTextLineHeightOption(getTextLayerLineHeight(selectedLayer));
+    setTextLineHeight(nextLineHeight);
     setTextColor(selectedLayer.color);
     setTextBold(selectedLayer.bold);
     setTextItalic(selectedLayer.italic);
@@ -357,6 +429,30 @@ export const CreativeEditor = () => {
     setTextPadding(selectedLayer.padding);
     setTextRadius(selectedLayer.radius);
   }, [selectedLayerId, selectedLayer]);
+
+  useEffect(() => {
+    if (!selectedLayer || selectedLayer.type !== 'text' || selectedLayer.align !== 'justify') return;
+    const editor = justifyEditorRef.current;
+    if (!editor) return;
+    const currentText = normalizeEditableText(editor.innerText);
+    if (currentText !== selectedLayer.text) {
+      editor.innerText = selectedLayer.text;
+    }
+  }, [selectedLayerId, selectedLayer]);
+
+  useEffect(() => {
+    if (!selectedLayer || selectedLayer.type !== 'text' || selectedLayer.align !== 'justify') return;
+    const editor = justifyEditorRef.current;
+    if (!editor || document.activeElement === editor) return;
+    editor.focus();
+    const selection = window.getSelection();
+    if (!selection) return;
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }, [selectedLayerId, selectedTextAlign]);
 
   const handleUploadClick = () => fileInputRef.current?.click();
 
@@ -470,7 +566,7 @@ export const CreativeEditor = () => {
     const fontSize = clamp(layer.size, 1, 300);
     ctx.font = getTextLayerFont(layer);
     const lines = wrapTextLines(ctx, layer.text || ' ', maxTextWidth);
-    const lineHeight = fontSize * 1.24;
+    const lineHeight = fontSize * getTextLayerLineHeight(layer);
     const contentHeightPx = Math.max(lineHeight + padding * 2, lines.length * lineHeight + padding * 2);
     return (contentHeightPx / bounds.height) * 100;
   };
@@ -519,6 +615,7 @@ export const CreativeEditor = () => {
     size: clamp(Math.round(textSize), 1, 300),
     fontFamily: textFont,
     align: textAlign,
+    lineHeight: normalizeTextLineHeightOption(textLineHeight),
     color: textColor,
     bold: textBold,
     italic: textItalic,
@@ -585,6 +682,12 @@ export const CreativeEditor = () => {
       return;
     }
     applyTextSize(parsed);
+  };
+
+  const applyTextLineHeight = (rawValue: number) => {
+    const lineHeight = normalizeTextLineHeightOption(rawValue);
+    setTextLineHeight(lineHeight);
+    updateSelectedTextLayer({ lineHeight });
   };
 
   const applyTextOpacity = (rawValue: number) => {
@@ -731,13 +834,15 @@ export const CreativeEditor = () => {
         const boxHeight = Math.max(10, (getTextLayerHeight(layer) / 100) * asset.height);
         const padding = getTextLayerPadding(layer);
         const fontSize = clamp(layer.size, 1, 300);
-        const lineHeight = fontSize * 1.24;
+        const lineHeight = fontSize * getTextLayerLineHeight(layer);
+        const contentMaxWidth = Math.max(12, boxWidth - padding * 2);
 
         ctx.save();
         ctx.font = `${layer.italic ? 'italic ' : ''}${layer.bold ? 700 : 500} ${fontSize}px ${layer.fontFamily}, Roboto, 'Segoe UI', sans-serif`;
-        ctx.textAlign = layer.align;
+        const alignForCanvas = layer.align === 'justify' ? 'left' : layer.align;
+        ctx.textAlign = alignForCanvas;
         ctx.textBaseline = 'top';
-        const lines = wrapTextLines(ctx, layer.text || ' ', Math.max(12, boxWidth - padding * 2));
+        const lines = wrapTextLines(ctx, layer.text || ' ', contentMaxWidth);
         const maxTextHeight = Math.max(lineHeight, boxHeight - padding * 2);
         const maxLines = Math.max(1, Math.floor(maxTextHeight / lineHeight));
         const visibleLines = lines.slice(0, maxLines);
@@ -761,9 +866,9 @@ export const CreativeEditor = () => {
         }
 
         ctx.fillStyle = layer.color;
-        const anchorX = layer.align === 'left'
+        const anchorX = alignForCanvas === 'left'
           ? x + padding
-          : layer.align === 'right'
+          : alignForCanvas === 'right'
             ? x + boxWidth - padding
             : x + boxWidth / 2;
         if (layer.underline || layer.strike) {
@@ -776,13 +881,37 @@ export const CreativeEditor = () => {
         ctx.clip();
         visibleLines.forEach((line, index) => {
           const lineY = y + padding + lineHeight * index;
-          ctx.fillText(line, anchorX, lineY);
-          const lineWidth = ctx.measureText(line || ' ').width;
-          const lineStartX = layer.align === 'left'
-            ? anchorX
-            : layer.align === 'right'
-              ? anchorX - lineWidth
-              : anchorX - lineWidth / 2;
+          let lineStartX = anchorX;
+          let lineWidth = ctx.measureText(line || ' ').width;
+          const words = line.trim().split(/\s+/).filter(Boolean);
+          const canJustify = layer.align === 'justify' && index < visibleLines.length - 1 && words.length > 1;
+
+          if (canJustify) {
+            const wordMetrics = words.map((word) => ctx.measureText(word).width);
+            const wordsWidth = wordMetrics.reduce((sum, width) => sum + width, 0);
+            const naturalSpace = ctx.measureText(' ').width;
+            const gaps = words.length - 1;
+            const totalNatural = wordsWidth + naturalSpace * gaps;
+            const extraSpace = Math.max(0, contentMaxWidth - totalNatural);
+            const gapWidth = naturalSpace + extraSpace / gaps;
+            let cursorX = x + padding;
+            lineStartX = cursorX;
+            lineWidth = contentMaxWidth;
+            words.forEach((word, wordIndex) => {
+              ctx.fillText(word, cursorX, lineY);
+              if (wordIndex < gaps) {
+                cursorX += wordMetrics[wordIndex] + gapWidth;
+              }
+            });
+          } else {
+            ctx.fillText(line, anchorX, lineY);
+            lineStartX = alignForCanvas === 'left'
+              ? anchorX
+              : alignForCanvas === 'right'
+                ? anchorX - lineWidth
+                : anchorX - lineWidth / 2;
+          }
+
           if (layer.underline) {
             const underlineY = lineY + fontSize * 1.02;
             ctx.beginPath();
@@ -982,6 +1111,8 @@ export const CreativeEditor = () => {
     window.open(item.previewUrl, '_blank', 'noopener,noreferrer');
   };
 
+  const isDeckDropVisualActive = isDeckDropActive || isGlobalFileDragActive;
+
   const deckOffset = assets.length > 0
     ? (((assets.length - 1) / 2) - currentIndex) * 52
     : 0;
@@ -1016,6 +1147,7 @@ export const CreativeEditor = () => {
             fontSize: `${layer.size}px`,
             fontFamily: `${layer.fontFamily}, Roboto, 'Segoe UI', sans-serif`,
             textAlign: layer.align,
+            lineHeight: getTextLayerLineHeight(layer),
             fontWeight: layer.bold ? 700 : 500,
             fontStyle: layer.italic ? 'italic' : 'normal',
             textDecorationLine: textDecorationFromFlags(layer.underline, layer.strike),
@@ -1040,21 +1172,39 @@ export const CreativeEditor = () => {
             />
           ) : null}
           {isSelected ? (
-            <textarea
-              className="editor-layer-text-editor"
-              value={layer.text}
-              onChange={(event) => handleTextLayerInput(layer.id, event.target.value)}
-              onPointerDown={(event) => event.stopPropagation()}
-              rows={1}
-              autoFocus
-              style={{
-                textDecorationLine: textDecorationFromFlags(layer.underline, layer.strike),
-                textDecorationThickness: '0.08em',
-                textUnderlineOffset: '0.14em',
-                paddingTop: `${verticalInsetPx}px`,
-                paddingBottom: `${verticalInsetPx}px`,
-              }}
-            />
+            layer.align === 'justify' ? (
+              <div
+                ref={justifyEditorRef}
+                contentEditable
+                suppressContentEditableWarning
+                className="editor-layer-text-editor editor-layer-text-editor-contenteditable"
+                onInput={(event) => handleTextLayerInput(layer.id, normalizeEditableText(event.currentTarget.innerText))}
+                onPointerDown={(event) => event.stopPropagation()}
+                style={{
+                  textDecorationLine: textDecorationFromFlags(layer.underline, layer.strike),
+                  textDecorationThickness: '0.08em',
+                  textUnderlineOffset: '0.14em',
+                  paddingTop: `${verticalInsetPx}px`,
+                  paddingBottom: `${verticalInsetPx}px`,
+                }}
+              />
+            ) : (
+              <textarea
+                className="editor-layer-text-editor"
+                value={layer.text}
+                onChange={(event) => handleTextLayerInput(layer.id, event.target.value)}
+                onPointerDown={(event) => event.stopPropagation()}
+                rows={1}
+                autoFocus
+                style={{
+                  textDecorationLine: textDecorationFromFlags(layer.underline, layer.strike),
+                  textDecorationThickness: '0.08em',
+                  textUnderlineOffset: '0.14em',
+                  paddingTop: `${verticalInsetPx}px`,
+                  paddingBottom: `${verticalInsetPx}px`,
+                }}
+              />
+            )
           ) : (
             <div
               className="editor-layer-text-view"
@@ -1143,15 +1293,12 @@ export const CreativeEditor = () => {
         <p>Upload images, add text layers, then export edited creatives as a ZIP.</p>
 
         <div className="controls">
-          <div className="resizer-primary-actions">
+          <div className="resizer-primary-actions creative-editor-primary-actions">
             <button type="button" onClick={handleUploadClick} disabled={isWorking}>
               Upload ZIPs or files
             </button>
             <button type="button" onClick={handleClearAll} disabled={isWorking || (!assets.length && !readyItems.length)}>
               Clear all
-            </button>
-            <button type="button" onClick={addTextLayer} disabled={!assets.length}>
-              Add text layer
             </button>
           </div>
         </div>
@@ -1185,7 +1332,7 @@ export const CreativeEditor = () => {
         </header>
 
         <div
-          className={`resizer-deck-row${isDeckDropActive ? ' is-drop-active' : ''}`}
+          className={`resizer-deck-row${isDeckDropVisualActive ? ' is-drop-active' : ''}`}
           onDragEnter={handleDeckDragEnter}
           onDragOver={handleDeckDragOver}
           onDragLeave={handleDeckDragLeave}
@@ -1195,7 +1342,7 @@ export const CreativeEditor = () => {
             ‹
           </button>
           <div className="resizer-deck">
-            {isDeckDropActive ? (
+            {isDeckDropVisualActive ? (
               <div className="resizer-deck-dropzone">
                 <span>Drop files here</span>
               </div>
@@ -1266,6 +1413,11 @@ export const CreativeEditor = () => {
         <header className="card-header">
           <div className="card-header-top">
             <h2>Text editor</h2>
+            <div className="split-result-actions">
+              <button type="button" onClick={addTextLayer} disabled={!assets.length}>
+                Add text layer
+              </button>
+            </div>
           </div>
         </header>
 
@@ -1296,6 +1448,7 @@ export const CreativeEditor = () => {
                     onClick={() => {
                       setIsColorControlOpen(false);
                       setIsBgOpacityOpen(false);
+                      setIsLineHeightOpen(false);
                       setIsBgRadiusOpen((prev) => !prev);
                     }}
                     disabled={textBgMode === 'none'}
@@ -1331,6 +1484,7 @@ export const CreativeEditor = () => {
                     className="editor-bg-opacity-button"
                     onClick={() => {
                       setIsColorControlOpen(false);
+                      setIsLineHeightOpen(false);
                       setIsBgRadiusOpen(false);
                       setIsBgOpacityOpen((prev) => !prev);
                     }}
@@ -1340,8 +1494,8 @@ export const CreativeEditor = () => {
                     aria-expanded={isBgOpacityOpen}
                   >
                     <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M12 3c0 0-5 5.3-5 9a5 5 0 0 0 10 0c0-3.7-5-9-5-9Z" />
-                      <path d="M12 8v8" />
+                      <circle cx="12" cy="12" r="7" />
+                      <path d="M12 5a7 7 0 0 0 0 14V5Z" fill="currentColor" stroke="none" />
                     </svg>
                   </button>
                   {isBgOpacityOpen && textBgMode !== 'none' ? (
@@ -1453,6 +1607,7 @@ export const CreativeEditor = () => {
                   onClick={() => {
                     setIsBgOpacityOpen(false);
                     setIsBgRadiusOpen(false);
+                    setIsLineHeightOpen(false);
                     setIsColorControlOpen((prev) => !prev);
                   }}
                   title="Text color"
@@ -1570,6 +1725,56 @@ export const CreativeEditor = () => {
                   <path d="M4 5h16v2H4V5zm10 4h6v2h-6V9zM4 13h16v2H4v-2zm10 4h6v2h-6v-2z" />
                 </svg>
               </button>
+              <button
+                type="button"
+                className={textAlign === 'justify' ? 'is-active' : ''}
+                onClick={() => {
+                  setTextAlign('justify');
+                  updateSelectedTextLayer({ align: 'justify' });
+                }}
+                title="Align justify"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 5h16v2H4V5zm0 4h16v2H4V9zm0 4h16v2H4v-2zm0 4h16v2H4v-2z" />
+                </svg>
+              </button>
+              <div className="editor-line-height-control" ref={lineHeightControlRef}>
+                <button
+                  type="button"
+                  className={`editor-line-height-button${isLineHeightOpen ? ' is-active' : ''}`}
+                  onClick={() => {
+                    setIsColorControlOpen(false);
+                    setIsBgOpacityOpen(false);
+                    setIsBgRadiusOpen(false);
+                    setIsLineHeightOpen((prev) => !prev);
+                  }}
+                  title="Line height"
+                  aria-label="Line height"
+                  aria-expanded={isLineHeightOpen}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M7 5v14M7 5l-2 2M7 5l2 2M7 19l-2-2M7 19l2-2M11 8h8M11 12h8M11 16h8" />
+                  </svg>
+                </button>
+                {isLineHeightOpen ? (
+                  <div className="editor-line-height-popover" role="listbox" aria-label="Line height values">
+                    {textLineHeightOptions.map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        className={`editor-line-height-option${textLineHeight === value ? ' is-active' : ''}`}
+                        aria-selected={textLineHeight === value}
+                        onClick={() => {
+                          applyTextLineHeight(value);
+                          setIsLineHeightOpen(false);
+                        }}
+                      >
+                        <span>{value}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>
