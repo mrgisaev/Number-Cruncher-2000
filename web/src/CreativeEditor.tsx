@@ -125,7 +125,7 @@ const getTextLayerBgDirection = (layer: TextLayer): TextBgDirection => {
   if (direction === 'to-right' || direction === 'to-bottom' || direction === 'to-bottom-left' || direction === 'to-bottom-right') {
     return direction;
   }
-  return 'to-bottom-right';
+  return 'to-bottom';
 };
 const clampTextLineHeight = (value: number) => (Number.isFinite(value) ? clamp(value, 0.8, 2.5) : 1.24);
 const getTextLayerLineHeight = (layer: TextLayer) => clampTextLineHeight(layer.lineHeight);
@@ -192,6 +192,20 @@ const normalizeTextLineHeightOption = (value: number) => {
   return textLineHeightOptions.reduce((closest, current) =>
     Math.abs(current - normalized) < Math.abs(closest - normalized) ? current : closest,
   textLineHeightOptions[0]);
+};
+const cloneLayer = (layer: Layer): Layer => ({ ...layer });
+const LAYER_CLIPBOARD_PREFIX = '__CLEVER_TASK_LAYER__:';
+const serializeLayerToClipboard = (layer: Layer) => `${LAYER_CLIPBOARD_PREFIX}${JSON.stringify(layer)}`;
+const parseLayerFromClipboard = (value: string): Layer | null => {
+  if (!value.startsWith(LAYER_CLIPBOARD_PREFIX)) return null;
+  try {
+    const parsed = JSON.parse(value.slice(LAYER_CLIPBOARD_PREFIX.length)) as Layer;
+    if (!parsed || typeof parsed !== 'object' || !('type' in parsed)) return null;
+    if (parsed.type !== 'text' && parsed.type !== 'sticker') return null;
+    return cloneLayer(parsed);
+  } catch {
+    return null;
+  }
 };
 
 const imageExt = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'svg', 'avif']);
@@ -450,15 +464,15 @@ export const CreativeEditor = () => {
   const [textItalic, setTextItalic] = useState(false);
   const [textUnderline, setTextUnderline] = useState(false);
   const [textStrike, setTextStrike] = useState(false);
-  const [textOpacity, setTextOpacity] = useState(100);
+  const [textOpacity, setTextOpacity] = useState(50);
   const [textBgOpacityB, setTextBgOpacityB] = useState(100);
   const [textBgMode, setTextBgMode] = useState<TextBgMode>('none');
-  const [textBgDirection, setTextBgDirection] = useState<TextBgDirection>('to-bottom-right');
+  const [textBgDirection, setTextBgDirection] = useState<TextBgDirection>('to-bottom');
   const [textBgA, setTextBgA] = useState('#000000');
-  const [textBgB, setTextBgB] = useState('#0ea5e9');
+  const [textBgB, setTextBgB] = useState('#000000');
   const [textPaddingX, setTextPaddingX] = useState(0);
   const [textPaddingY, setTextPaddingY] = useState(0);
-  const [textRadius, setTextRadius] = useState(12);
+  const [textRadius, setTextRadius] = useState(0);
 
   const [isDeckDropActive, setIsDeckDropActive] = useState(false);
   const [isGlobalFileDragActive, setIsGlobalFileDragActive] = useState(false);
@@ -498,6 +512,8 @@ export const CreativeEditor = () => {
   const assetsRef = useRef<EditorAsset[]>([]);
   const stickersRef = useRef<StickerAsset[]>([]);
   const layersRef = useRef<Layer[]>([]);
+  const currentAssetRef = useRef<EditorAsset | null>(null);
+  const copiedLayerRef = useRef<Layer | null>(null);
   const readyItemsRef = useRef<ReadyItem[]>([]);
   const copiedReadyTimerRef = useRef<number | null>(null);
 
@@ -621,6 +637,72 @@ export const CreativeEditor = () => {
   }, []);
 
   useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        const isFormField = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+        if (isFormField || target.isContentEditable) {
+          return;
+        }
+      }
+
+      const clipboard = event.clipboardData;
+      if (!clipboard) return;
+      const fromItems = Array.from(clipboard.items ?? [])
+        .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+        .map((item) => item.getAsFile())
+        .filter((file): file is File => file !== null);
+      const fromFiles = Array.from(clipboard.files ?? [])
+        .filter((file) => file.type.startsWith('image/'));
+      const sourceFiles = fromItems.length ? fromItems : fromFiles;
+      if (sourceFiles.length) {
+        const timestamp = Date.now();
+        const normalizedFiles = sourceFiles
+          .map((file, index) => {
+            if (file.name) return file;
+            const extension = file.type === 'image/jpeg' ? 'jpg' : 'png';
+            const type = file.type || 'image/png';
+            return new File([file], `pasted-sticker-${timestamp}-${index}.${extension}`, { type });
+          })
+          .filter(isStickerFile);
+        if (normalizedFiles.length) {
+          event.preventDefault();
+          void addStickerFiles(normalizedFiles);
+          return;
+        }
+      }
+
+      const plainText = clipboard.getData('text/plain');
+      const copiedLayerFromClipboard = parseLayerFromClipboard(plainText);
+      if (copiedLayerFromClipboard) {
+        copiedLayerRef.current = copiedLayerFromClipboard;
+        event.preventDefault();
+        const duplicated = duplicateLayerForPaste(copiedLayerFromClipboard);
+        setLayers((prev) => [...prev, duplicated]);
+        setSelectedLayerId(duplicated.id);
+        return;
+      }
+
+      // If user copied plain/html text outside the app, let that clipboard content win.
+      const htmlText = clipboard.getData('text/html');
+      if (plainText.trim() || htmlText.trim()) {
+        return;
+      }
+
+      const copiedLayer = copiedLayerRef.current;
+      if (!copiedLayer) return;
+      event.preventDefault();
+      const duplicated = duplicateLayerForPaste(copiedLayer);
+      setLayers((prev) => [...prev, duplicated]);
+      setSelectedLayerId(duplicated.id);
+    };
+
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, []);
+
+  useEffect(() => {
     const overlay = overlayRef.current;
     if (!overlay || typeof ResizeObserver === 'undefined') {
       setOverlayBounds(null);
@@ -645,6 +727,10 @@ export const CreativeEditor = () => {
   const selectedLayer = layers.find((layer) => layer.id === selectedLayerId) ?? null;
 
   useEffect(() => {
+    currentAssetRef.current = currentAsset;
+  }, [currentAsset]);
+
+  useEffect(() => {
     if (!selectedLayer || selectedLayer.type !== 'text') return;
     const isEditingSelectedText = document.activeElement === textEditorRef.current;
     setTextSize(selectedLayer.size);
@@ -666,7 +752,7 @@ export const CreativeEditor = () => {
     setTextBgMode(selectedLayer.bgMode);
     setTextBgDirection(getTextLayerBgDirection(selectedLayer));
     setTextBgA(normalizeHexColor(selectedLayer.bgA, '#000000'));
-    setTextBgB(normalizeHexColor(selectedLayer.bgB, '#0ea5e9'));
+    setTextBgB(normalizeHexColor(selectedLayer.bgB, '#000000'));
     const nextPaddingX = clamp(Math.round(selectedLayer.paddingX ?? selectedLayer.padding ?? 0), 0, 120);
     const nextPaddingY = clamp(Math.round(selectedLayer.paddingY ?? selectedLayer.padding ?? 0), 0, 120);
     setTextPaddingX(nextPaddingX);
@@ -790,9 +876,8 @@ export const CreativeEditor = () => {
     };
   };
 
-  const handleStickerFilesAdded = async (list: FileList | null) => {
-    if (!list) return;
-    const incoming = Array.from(list).filter(isStickerFile);
+  const addStickerFiles = async (incomingFiles: File[]) => {
+    const incoming = incomingFiles.filter(isStickerFile);
     if (!incoming.length) return;
 
     const loaded = await Promise.all(incoming.map(async (file) => {
@@ -811,11 +896,41 @@ export const CreativeEditor = () => {
     if (!nextStickers.length) return;
     setStickers((prev) => [...prev, ...nextStickers]);
 
-    const stickerLayers = nextStickers.map((sticker, index) => buildStickerLayer(sticker, index, currentAsset));
+    const stickerLayers = nextStickers.map((sticker, index) => buildStickerLayer(sticker, index, currentAssetRef.current));
     if (stickerLayers.length) {
       setLayers((prev) => [...prev, ...stickerLayers]);
       setSelectedLayerId(stickerLayers[stickerLayers.length - 1]?.id ?? null);
     }
+  };
+
+  const handleStickerFilesAdded = async (list: FileList | null) => {
+    if (!list) return;
+    await addStickerFiles(Array.from(list));
+  };
+
+  const duplicateLayerForPaste = (layer: Layer): Layer => {
+    const offset = 2.5;
+    if (layer.type === 'text') {
+      const boxHeight = getTextLayerHeight(layer);
+      const nextX = clamp(layer.x + offset, 0, 100 - layer.boxWidth);
+      const nextY = clamp(layer.y + offset, 0, 100 - boxHeight);
+      return {
+        ...cloneLayer(layer),
+        id: `layer-${createId()}`,
+        x: nextX,
+        y: nextY,
+      };
+    }
+    const boxWidth = getStickerLayerWidth(layer);
+    const boxHeight = getStickerLayerHeight(layer);
+    const nextX = clamp(layer.x + offset, 0, 100 - boxWidth);
+    const nextY = clamp(layer.y + offset, 0, 100 - boxHeight);
+    return {
+      ...cloneLayer(layer),
+      id: `layer-${createId()}`,
+      x: nextX,
+      y: nextY,
+    };
   };
 
   const handleClearAssets = () => {
@@ -952,7 +1067,7 @@ export const CreativeEditor = () => {
     bgMode: textBgMode,
     bgDirection: textBgDirection,
     bgA: normalizeHexColor(textBgA, '#000000'),
-    bgB: normalizeHexColor(textBgB, '#0ea5e9'),
+    bgB: normalizeHexColor(textBgB, '#000000'),
     bgOpacityA: clamp(Math.round(textOpacity), 0, 100),
     bgOpacityB: clamp(Math.round(textBgOpacityB), 0, 100),
     paddingX: clamp(Math.round(textPaddingX), 0, 120),
@@ -1605,7 +1720,7 @@ export const CreativeEditor = () => {
           const left = x;
           const top = y;
           const bgColorA = rgbaFromHex(layer.bgA, getTextLayerBgOpacityA(layer), '#000000');
-          const bgColorB = rgbaFromHex(layer.bgB, getTextLayerBgOpacityB(layer), '#0ea5e9');
+          const bgColorB = rgbaFromHex(layer.bgB, getTextLayerBgOpacityB(layer), '#000000');
           if (layer.bgMode === 'gradient') {
             const line = getCanvasGradientLine(getTextLayerBgDirection(layer), left, top, boxWidth, boxHeight);
             const gradient = ctx.createLinearGradient(line.x0, line.y0, line.x1, line.y1);
@@ -1954,16 +2069,44 @@ export const CreativeEditor = () => {
   };
 
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Delete' || !selectedLayerId) return;
+    const onCopy = (event: ClipboardEvent) => {
       const target = event.target as HTMLElement | null;
-      if (target) {
-        const tag = target.tagName;
-        const isFormField = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
-        if (isFormField || target.isContentEditable) {
-          return;
-        }
+      const tag = target?.tagName ?? '';
+      const isFormField = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+      const selection = window.getSelection();
+      const hasExpandedSelectionInTextEditor = Boolean(
+        selection &&
+        selection.rangeCount > 0 &&
+        !selection.isCollapsed &&
+        textEditorRef.current?.contains(selection.getRangeAt(0).commonAncestorContainer),
+      );
+      if (isFormField || hasExpandedSelectionInTextEditor) {
+        return;
       }
+      if (!selectedLayerId) return;
+      const selected = layersRef.current.find((layer) => layer.id === selectedLayerId);
+      if (!selected) return;
+      const copiedLayer = cloneLayer(selected);
+      copiedLayerRef.current = copiedLayer;
+      if (event.clipboardData) {
+        event.clipboardData.setData('text/plain', serializeLayerToClipboard(copiedLayer));
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener('copy', onCopy);
+    return () => window.removeEventListener('copy', onCopy);
+  }, [selectedLayerId]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName ?? '';
+      const isFormField = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+      const isContentEditableTarget = Boolean(target?.isContentEditable);
+
+      if (event.key !== 'Delete' || !selectedLayerId) return;
+      if (isFormField || isContentEditableTarget) return;
       event.preventDefault();
       handleDeleteSelectedLayer();
     };
@@ -2040,7 +2183,7 @@ export const CreativeEditor = () => {
       const topInset = paddingY + verticalInsetsPx.top;
       const bottomInset = paddingY + verticalInsetsPx.bottom;
       const bgColorA = rgbaFromHex(layer.bgA, getTextLayerBgOpacityA(layer), '#000000');
-      const bgColorB = rgbaFromHex(layer.bgB, getTextLayerBgOpacityB(layer), '#0ea5e9');
+      const bgColorB = rgbaFromHex(layer.bgB, getTextLayerBgOpacityB(layer), '#000000');
       const background = layer.bgMode === 'none'
         ? 'transparent'
         : layer.bgMode === 'gradient'
@@ -2789,7 +2932,7 @@ export const CreativeEditor = () => {
                       type="color"
                       value={textBgB}
                       onChange={(event) => {
-                        const bgB = normalizeHexColor(event.target.value, '#0ea5e9');
+                        const bgB = normalizeHexColor(event.target.value, '#000000');
                         setTextBgB(bgB);
                         updateSelectedTextLayer({ bgB });
                       }}
