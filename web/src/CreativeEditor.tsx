@@ -2150,7 +2150,7 @@ export const CreativeEditor = () => {
           opacity: layer.opacity / 100,
         }}
         onPointerDown={(event) => layerPointerDown(event, layer.id, 'move')}
-        title="Drag to move. Resize from corners and sides. Hold Shift to keep proportions. Drag outside edge to rotate."
+        title="Drag to move. Resize from corners and sides. Hold Shift to keep proportions. Drag from outside ring to rotate."
       >
         {isSelected ? (
           <>
