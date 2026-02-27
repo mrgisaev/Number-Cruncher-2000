@@ -762,7 +762,7 @@ function App() {
             ref={menuScrollRef}
           >
             <li className="tool-links-section-title" aria-hidden="true">
-              Numbers
+              Numbers:
             </li>
             <li>
               <a className="tool-link-button" href="/index.html" onClick={handleToolLinkClick} onMouseEnter={handleToolLinkHover}>
@@ -775,7 +775,7 @@ function App() {
               </a>
             </li>
             <li className="tool-links-section-title" aria-hidden="true">
-              Creatives
+              Creatives:
             </li>
             <li>
               <a className="tool-link-button" href="/creative-resizer.html" onClick={handleToolLinkClick} onMouseEnter={handleToolLinkHover}>
@@ -793,7 +793,7 @@ function App() {
               </a>
             </li>
             <li className="tool-links-section-title" aria-hidden="true">
-              Other
+              Other:
             </li>
             <li>
               <a className="tool-link-button" href="/utm-generator.html" onClick={handleToolLinkClick} onMouseEnter={handleToolLinkHover}>
