@@ -761,6 +761,9 @@ function App() {
             className={`tool-links${menuOverflow ? ' is-scrollable' : ''}`}
             ref={menuScrollRef}
           >
+            <li className="tool-links-section-title" aria-hidden="true">
+              Numbers
+            </li>
             <li>
               <a className="tool-link-button" href="/index.html" onClick={handleToolLinkClick} onMouseEnter={handleToolLinkHover}>
                 Number Cruncher
@@ -770,6 +773,9 @@ function App() {
               <a className="tool-link-button" href="/share-splitter.html" onClick={handleToolLinkClick} onMouseEnter={handleToolLinkHover}>
                 Share Splitter
               </a>
+            </li>
+            <li className="tool-links-section-title" aria-hidden="true">
+              Creatives
             </li>
             <li>
               <a className="tool-link-button" href="/creative-resizer.html" onClick={handleToolLinkClick} onMouseEnter={handleToolLinkHover}>
@@ -785,6 +791,9 @@ function App() {
               <a className="tool-link-button" href="/creative-renamer.html" onClick={handleToolLinkClick} onMouseEnter={handleToolLinkHover}>
                 Asset Renamer
               </a>
+            </li>
+            <li className="tool-links-section-title" aria-hidden="true">
+              Other
             </li>
             <li>
               <a className="tool-link-button" href="/utm-generator.html" onClick={handleToolLinkClick} onMouseEnter={handleToolLinkHover}>

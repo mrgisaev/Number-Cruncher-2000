@@ -519,6 +519,13 @@ export const UtmGenerator = () => {
                 />
               </div>
             </div>
+            <div className="stacked-field-column">
+              <div className="stacked-field">
+                <button type="button" className="utm-lp-clear-button clear-action-button" onClick={handleClearTree}>
+                  Clear
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -527,9 +534,6 @@ export const UtmGenerator = () => {
         <header className="card-header split-grid-header-row">
           <div className="card-header-top">
             <h2>Input data</h2>
-            <button type="button" className="clear-action-button" onClick={handleClearTree}>
-              Clear field
-            </button>
           </div>
         </header>
 

@@ -553,6 +553,7 @@ export const CreativeResizer = () => {
   const [useCustomOutputSize, setUseCustomOutputSize] = useState(false);
   const [cropRect, setCropRect] = useState<CropRect>({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 });
   const [isWorking, setIsWorking] = useState(false);
+  const [isSendingToEditor, setIsSendingToEditor] = useState(false);
   const [isSendingToRenamer, setIsSendingToRenamer] = useState(false);
   const [sendError, setSendError] = useState('');
   const [zoomPercent, setZoomPercent] = useState(100);
@@ -1248,7 +1249,7 @@ export const CreativeResizer = () => {
   };
 
   const handleSendToAssetRenamer = async () => {
-    if (!readyItems.length || isWorking || isSendingToRenamer) {
+    if (!readyItems.length || isWorking || isSendingToRenamer || isSendingToEditor) {
       return;
     }
     setSendError('');
@@ -1266,6 +1267,28 @@ export const CreativeResizer = () => {
     } catch {
       setSendError('Could not send files to Asset Renamer. Please try again.');
       setIsSendingToRenamer(false);
+    }
+  };
+
+  const handleSendToCreativeEditor = async () => {
+    if (!readyItems.length || isWorking || isSendingToEditor || isSendingToRenamer) {
+      return;
+    }
+    setSendError('');
+    setIsSendingToEditor(true);
+    try {
+      const payloadId = await storeResizerTransfer(
+        readyItems.map((item) => ({
+          name: item.name,
+          blob: item.blob,
+          width: item.width,
+          height: item.height,
+        })),
+      );
+      window.location.href = `/creative-editor.html?import=${encodeURIComponent(payloadId)}`;
+    } catch {
+      setSendError('Could not send files to Creative Editor. Please try again.');
+      setIsSendingToEditor(false);
     }
   };
 
@@ -1848,9 +1871,16 @@ export const CreativeResizer = () => {
               <button
                 type="button"
                 onClick={() => void handleSendToAssetRenamer()}
-                disabled={!readyItems.length || isWorking || isSendingToRenamer}
+                disabled={!readyItems.length || isWorking || isSendingToRenamer || isSendingToEditor}
               >
                 {isSendingToRenamer ? 'Sending...' : 'To Asset Renamer'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSendToCreativeEditor()}
+                disabled={!readyItems.length || isWorking || isSendingToEditor || isSendingToRenamer}
+              >
+                {isSendingToEditor ? 'Sending...' : 'To Creative Editor'}
               </button>
             </div>
           </div>

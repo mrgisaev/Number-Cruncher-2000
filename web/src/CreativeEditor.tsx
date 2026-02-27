@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 import JSZip from 'jszip';
+import { deleteResizerTransfer, getResizerTransfer } from './lib/resizerTransfer';
 
 type EditorAsset = {
   id: string;
@@ -542,6 +543,73 @@ export const CreativeEditor = () => {
         window.clearTimeout(copiedReadyTimerRef.current);
         copiedReadyTimerRef.current = null;
       }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const transferId = params.get('import');
+    if (!transferId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const importFromResizer = async () => {
+      try {
+        const incoming = await getResizerTransfer(transferId);
+        if (!incoming?.length || cancelled) {
+          return;
+        }
+
+        const loaded = await Promise.all(incoming.map(async (item) => {
+          const extensionFromName = getExt(item.name);
+          const extensionFromMime = Object.entries(mimeByExt).find(([, mime]) => mime === item.blob.type)?.[0] ?? '';
+          const extension = extensionFromName || extensionFromMime || 'png';
+          const fileName = extensionFromName ? item.name : `${item.name}.${extension}`;
+          const mimeType = mimeByExt[extension] ?? item.blob.type ?? 'image/png';
+          const file = new File([item.blob], fileName, { type: mimeType });
+          const meta = await loadImageMeta(file);
+          if (!meta) {
+            return null;
+          }
+          return {
+            id: `asset-${createId()}`,
+            file,
+            previewUrl: meta.url,
+            nameBase: getBase(file.name),
+            extension: getExt(file.name) || 'png',
+            width: meta.width,
+            height: meta.height,
+          } satisfies EditorAsset;
+        }));
+
+        const nextAssets = loaded.filter((asset): asset is EditorAsset => asset !== null);
+        if (!nextAssets.length || cancelled) {
+          nextAssets.forEach((asset) => URL.revokeObjectURL(asset.previewUrl));
+          return;
+        }
+
+        setAssets((prev) => [...prev, ...nextAssets]);
+        await deleteResizerTransfer(transferId);
+        if (!cancelled) {
+          params.delete('import');
+          const query = params.toString();
+          const nextUrl = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`;
+          window.history.replaceState({}, '', nextUrl);
+        }
+      } catch {
+        // keep silent on import errors
+      }
+    };
+
+    void importFromResizer();
+
+    return () => {
+      cancelled = true;
     };
   }, []);
 
@@ -2581,24 +2649,21 @@ export const CreativeEditor = () => {
         <header className="card-header">
           <div className="card-header-top">
             <h2>Text editor</h2>
-            <div className="split-result-actions">
-              <button
-                type="button"
-                onClick={handleStickerUploadClick}
-                disabled={!assets.length || isWorking}
-                title="Upload sticker (JPG or PNG)."
-              >
-                Upload sticker
-              </button>
-              <button type="button" onClick={addTextLayer} disabled={!assets.length}>
-                Add text layer
-              </button>
-            </div>
           </div>
         </header>
 
         <div className="editor-text-toolbar">
           <div className="editor-text-toolbar-row editor-text-toolbar-row-background">
+            <button
+              type="button"
+              className="editor-add-text-mini-button editor-sticker-upload-button"
+              onClick={handleStickerUploadClick}
+              disabled={!assets.length || isWorking}
+              title="Upload sticker (JPG or PNG)."
+              aria-label="Upload sticker"
+            >
+              +Sticker
+            </button>
             <div className="editor-bg-tools-group">
               <div className="editor-text-field editor-text-field-bg-mode editor-text-field-compact">
                 <label className="editor-visually-hidden">Background mode</label>
@@ -2935,6 +3000,16 @@ export const CreativeEditor = () => {
           </div>
 
           <div className="editor-text-toolbar-row editor-text-toolbar-row-main">
+            <button
+              type="button"
+              className="editor-add-text-mini-button"
+              onClick={addTextLayer}
+              disabled={!assets.length}
+              title="Add text layer"
+            >
+              +Text
+            </button>
+            <div className="editor-bg-tools-group editor-text-tools-frame">
             <div className="editor-text-field editor-text-field-font">
               <label className="editor-visually-hidden">Font</label>
               <div className="editor-select-control" ref={fontControlRef}>
@@ -3344,6 +3419,7 @@ export const CreativeEditor = () => {
                   </div>
                 ) : null}
               </div>
+            </div>
             </div>
           </div>
         </div>
