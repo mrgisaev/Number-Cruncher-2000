@@ -1358,6 +1358,14 @@ export const CreativeRenamer = () => {
                       onChange={(event) => setIncludeFormat(event.target.checked)}
                     />
                   </label>
+                  <button
+                    type="button"
+                    className="creative-header-clear-button clear-action-button"
+                    onClick={handleClear}
+                    disabled={!hasFiles && groups.length === 1}
+                  >
+                    Clear field
+                  </button>
                 </div>
               </div>
             </div>
@@ -1370,9 +1378,6 @@ export const CreativeRenamer = () => {
         <header className="card-header creative-header">
           <div className="card-header-top">
             <h2>Input data</h2>
-            <button type="button" className="clear-action-button" onClick={handleClear} disabled={!hasFiles && groups.length === 1}>
-              Clear field
-            </button>
           </div>
         </header>
         <div className="creative-table">{renderRows(groups)}</div>

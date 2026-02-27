@@ -1890,28 +1890,6 @@ export const CreativeEditor = () => {
     }
   };
 
-  const renderAll = async () => {
-    if (!assets.length || isWorking) return;
-    setIsWorking(true);
-    try {
-      const generated: ReadyItem[] = [];
-      for (const asset of assetsRef.current) {
-        const out = await renderOneSafe(asset, layersRef.current);
-        const name = `${asset.nameBase}-edited.${out.ext}`;
-        generated.push({
-          id: `ready-${createId()}`,
-          name,
-          blob: out.blob,
-          previewUrl: URL.createObjectURL(out.blob),
-          width: out.width,
-          height: out.height,
-        });
-      }
-      setReadyItems((prev) => [...prev, ...generated]);
-    } finally {
-      setIsWorking(false);
-    }
-  };
 
   const handleDownloadReady = (item: ReadyItem) => {
     const href = URL.createObjectURL(item.blob);
@@ -2236,7 +2214,7 @@ export const CreativeEditor = () => {
             }}
             onClick={() => handleDeleteLayer(layer.id)}
           >
-            ×
+            &times;
           </button>
           {isSelected ? (
             <div
@@ -2367,7 +2345,7 @@ export const CreativeEditor = () => {
             }}
             onClick={() => handleDeleteLayer(layer.id)}
           >
-            ×
+            &times;
           </button>
         </div>
         <div
@@ -2464,8 +2442,16 @@ export const CreativeEditor = () => {
             <button type="button" onClick={handleUploadClick} disabled={isWorking}>
               Upload ZIPs or files
             </button>
-            <button type="button" onClick={handleClearAll} disabled={isWorking || (!assets.length && !readyItems.length)}>
-              Clear all
+            <button type="button" disabled>
+              {assets.length} loaded
+            </button>
+            <button
+              type="button"
+              className="clear-action-button"
+              onClick={handleClearAll}
+              disabled={isWorking || (!assets.length && !readyItems.length)}
+            >
+              Clear
             </button>
           </div>
         </div>
@@ -2498,79 +2484,83 @@ export const CreativeEditor = () => {
         <header className="card-header">
           <div className="card-header-top">
             <h2>Preview</h2>
-            <div className="split-result-actions">
-              <button type="button" onClick={() => void renderCurrent()} disabled={!currentAsset || isWorking}>
-                Render current
-              </button>
-              <button type="button" onClick={() => void renderAll()} disabled={!assets.length || isWorking}>
-                Render all
-              </button>
-            </div>
           </div>
         </header>
 
-        <div
-          className={`resizer-deck-row${isDeckDropVisualActive ? ' is-drop-active' : ''}`}
-          onDragEnter={handleDeckDragEnter}
-          onDragOver={handleDeckDragOver}
-          onDragLeave={handleDeckDragLeave}
-          onDrop={handleDeckDrop}
-        >
-          <button type="button" className="resizer-nav-button" onClick={() => handleStepAsset(-1)} disabled={currentIndex <= 0}>
-            ‹
-          </button>
-          <div className="resizer-deck">
-            {assets.length ? (
-              <div className="resizer-deck-track" style={deckTrackStyle}>
-                {assets.map((asset, index) => (
-                  <button
-                    key={asset.id}
-                    type="button"
-                    className={`resizer-deck-item${index === currentIndex ? ' is-active' : ''}`}
-                    style={
-                      {
-                        '--deck-y': `${Math.abs(index - currentIndex) * 4}px`,
-                        '--deck-opacity': index === currentIndex ? 1 : 0.85,
-                        '--deck-z': String(200 - Math.abs(index - currentIndex)),
-                      } as CSSProperties
-                    }
-                    onClick={() => setCurrentIndex(index)}
-                    onMouseEnter={(event) => setHoverPreview({ url: asset.previewUrl, x: event.clientX, y: event.clientY })}
-                    onMouseMove={(event) => setHoverPreview({ url: asset.previewUrl, x: event.clientX, y: event.clientY })}
-                    onMouseLeave={() => setHoverPreview(null)}
-                    title={asset.file.name}
-                  >
-                    <img src={asset.previewUrl} alt={asset.file.name} />
-                    <span className="resizer-deck-item-size">{asset.width}x{asset.height}</span>
-                    <span
-                      className="resizer-deck-item-remove"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleRemoveAsset(asset.id);
-                      }}
-                    >
-                      ×
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="resizer-deck-empty">No images loaded.</div>
-            )}
-          </div>
-          <button
-            type="button"
-            className="resizer-nav-button"
-            onClick={() => handleStepAsset(1)}
-            disabled={!assets.length || currentIndex >= assets.length - 1}
+        <div className="number-field number-field-mode resizer-actions-field">
+          <div
+            className={`resizer-deck-row${isDeckDropVisualActive ? ' is-drop-active' : ''}`}
+            onDragEnter={handleDeckDragEnter}
+            onDragOver={handleDeckDragOver}
+            onDragLeave={handleDeckDragLeave}
+            onDrop={handleDeckDrop}
           >
-            ›
-          </button>
-          {isDeckDropVisualActive ? (
-            <div className="resizer-deck-dropzone" aria-hidden="true">
-              <span>Drop ZIPs or image files here</span>
+            <button type="button" className="resizer-nav-button" onClick={() => handleStepAsset(-1)} disabled={currentIndex <= 0}>
+              &lsaquo;
+            </button>
+            <div className="resizer-deck">
+              {assets.length ? (
+                <div className="resizer-deck-track" style={deckTrackStyle}>
+                  {assets.map((asset, index) => (
+                    <button
+                      key={asset.id}
+                      type="button"
+                      className={`resizer-deck-item${index === currentIndex ? ' is-active' : ''}`}
+                      style={
+                        {
+                          '--deck-y': `${Math.abs(index - currentIndex) * 4}px`,
+                          '--deck-opacity': index === currentIndex ? 1 : 0.85,
+                          '--deck-z': String(200 - Math.abs(index - currentIndex)),
+                        } as CSSProperties
+                      }
+                      onClick={() => setCurrentIndex(index)}
+                      onMouseEnter={(event) => setHoverPreview({ url: asset.previewUrl, x: event.clientX, y: event.clientY })}
+                      onMouseMove={(event) => setHoverPreview({ url: asset.previewUrl, x: event.clientX, y: event.clientY })}
+                      onMouseLeave={() => setHoverPreview(null)}
+                      title={asset.file.name}
+                    >
+                      <img src={asset.previewUrl} alt={asset.file.name} />
+                      <span className="resizer-deck-item-size">{asset.width}x{asset.height}</span>
+                      <span
+                        className="resizer-deck-item-remove"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleRemoveAsset(asset.id);
+                        }}
+                      >
+                        &times;
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="resizer-deck-empty">No images loaded.</div>
+              )}
             </div>
-          ) : null}
+            <button
+              type="button"
+              className="resizer-nav-button"
+              onClick={() => handleStepAsset(1)}
+              disabled={!assets.length || currentIndex >= assets.length - 1}
+            >
+              &rsaquo;
+            </button>
+            {isDeckDropVisualActive ? (
+              <div className="resizer-deck-dropzone" aria-hidden="true">
+                <span>Drop ZIPs or image files here</span>
+              </div>
+            ) : null}
+          </div>
+          <div className="resizer-action-row">
+            <button
+              type="button"
+              className="resizer-toolbar-button resizer-toolbar-button-primary resizer-resize-button"
+              onClick={() => void renderCurrent()}
+              disabled={!currentAsset || isWorking}
+            >
+              Render
+            </button>
+          </div>
         </div>
 
         <div className="editor-stage">
