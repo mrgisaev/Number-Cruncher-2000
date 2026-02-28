@@ -156,7 +156,8 @@ body::after {
   display: block;
 }
 
-.number-field input {
+.number-field input,
+.number-field select {
   border-radius: 12px;
   border: 1px solid rgba(121, 192, 201, 0.4);
   padding: 10px 12px;
@@ -178,7 +179,9 @@ body::after {
 }
 
 .number-field input:focus-visible,
-.number-field input:focus {
+.number-field input:focus,
+.number-field select:focus-visible,
+.number-field select:focus {
   outline: none;
   border-color: rgba(255, 255, 255, 0.8);
   box-shadow: 0 18px 40px rgba(77, 234, 255, 0.35);
@@ -320,6 +323,106 @@ body::after {
 
 .split-control .number-field {
   width: 100%;
+}
+
+.number-field-input-wrapper.bulk-working-inline {
+  --toggle-padding: 154px;
+}
+
+.number-field-input-wrapper.bulk-working-inline .bulk-working-type-control {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  width: 136px;
+  min-width: 136px;
+  max-width: 136px;
+  z-index: 3;
+}
+
+.number-field-input-wrapper.bulk-working-inline .bulk-working-type-control .bulk-select-trigger {
+  width: 136px;
+  min-width: 136px;
+  max-width: 136px;
+}
+
+.number-field-input-wrapper.bulk-working-inline .bulk-working-type-control .bulk-select-popover {
+  min-width: 136px;
+  width: 136px;
+  max-width: 136px;
+}
+
+.bulk-select-trigger {
+  justify-content: flex-start;
+  height: 30px;
+  padding: 0 22px 0 10px;
+  border-radius: 10px;
+  border: 0;
+  background: linear-gradient(135deg, #f8ffff, #ecf4ff);
+  color: #283646;
+  box-shadow: none;
+}
+
+.bulk-select-trigger .editor-select-value {
+  justify-content: flex-start;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.bulk-select-popover {
+  left: 0;
+  transform: none;
+  top: calc(100% + 6px);
+  min-width: 136px;
+  width: 136px;
+  max-width: 136px;
+}
+
+.bulk-select-popover .editor-select-option span {
+  white-space: nowrap;
+}
+
+.bulk-percent-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: rgba(66, 82, 100, 0.8);
+  width: 136px;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bulk-input-type-control {
+  width: 136px;
+  min-width: 136px;
+  max-width: 136px;
+}
+
+.bulk-input-type-control .bulk-select-trigger {
+  height: 30px;
+}
+
+.bulk-input-type-control .bulk-select-popover {
+  min-width: 136px;
+  width: 136px;
+  max-width: 136px;
+}
+
+.bulk-result-type-control {
+  width: 136px;
+  min-width: 136px;
+  max-width: 136px;
+}
+
+.bulk-result-type-control .bulk-select-trigger {
+  height: 30px;
+}
+
+.bulk-result-type-control .bulk-select-popover {
+  min-width: 136px;
+  width: 136px;
+  max-width: 136px;
 }
 
 .share-splitter .split-control {
@@ -524,11 +627,24 @@ body::after {
   margin-bottom: 12px;
 }
 
-.result-summary span {
+.result-summary > span {
   color: #a38fb0;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   font-size: 0.7rem;
+}
+
+.result-summary .bulk-select-trigger .editor-select-value {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.result-summary .bulk-select-popover .editor-select-option span {
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: nowrap;
 }
 
 .result-summary strong {
@@ -4719,9 +4835,7 @@ body::after {
   }
 
   .floating-menu .tool-links-section-title {
-    margin: 0 2px 0 6px;
-    flex: 0 0 auto;
-    font-size: 0.68rem;
+    display: none;
   }
 
   .floating-menu .tool-links:active {
@@ -4952,6 +5066,49 @@ body::after {
 
   .split-control .stacked-field-column {
     width: 100%;
+  }
+
+  .number-field-input-wrapper.bulk-working-inline {
+    --toggle-padding: 12px;
+  }
+
+  .number-field-input-wrapper.bulk-working-inline .bulk-working-type-control {
+    position: static;
+    transform: none;
+    width: 136px;
+    min-width: 136px;
+    max-width: 136px;
+    margin-bottom: 8px;
+  }
+
+  .number-field-input-wrapper.bulk-working-inline .bulk-select-popover {
+    min-width: 136px;
+    width: 136px;
+    max-width: 136px;
+  }
+
+  .number-field-input-wrapper.bulk-working-inline input {
+    padding-left: 12px;
+  }
+
+  .bulk-input-type-control {
+    width: 136px;
+    min-width: 136px;
+    max-width: 136px;
+  }
+
+  .bulk-result-type-control {
+    width: 136px;
+    min-width: 136px;
+    max-width: 136px;
+  }
+
+  .bulk-percent-hint {
+    width: 136px;
+    max-width: 136px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .utm-tree-cell {

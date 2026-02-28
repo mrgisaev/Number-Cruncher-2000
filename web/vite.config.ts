@@ -10,6 +10,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
+        bulkPercent: resolve(__dirname, 'bulk-percent.html'),
         whatsNew: resolve(__dirname, 'whats-new.html'),
         shareSplitter: resolve(__dirname, 'share-splitter.html'),
         creativeRenamer: resolve(__dirname, 'creative-renamer.html'),

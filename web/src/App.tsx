@@ -322,14 +322,169 @@ const parsePercentInput = (input: string) => {
   return { value: parsed.value, isPercent };
 };
 
+type BulkInputType =
+  | 'initial'
+  | 'final'
+  | 'markup'
+  | 'margin'
+  | 'markup_percent'
+  | 'margin_percent';
+type BulkWorkingType = 'initial' | 'final' | 'markup' | 'margin';
+type BulkResultViewType =
+  | 'initial'
+  | 'final'
+  | 'markup_value'
+  | 'markup_percent'
+  | 'margin_value'
+  | 'margin_percent';
+type BulkResultType = 'auto' | BulkResultViewType;
+
+interface BulkScenarioConfig {
+  input: BulkInputType;
+  working: BulkWorkingType;
+  autoResult: BulkResultViewType;
+  resultOptions: BulkResultViewType[];
+}
+
+interface BulkDerivedRow {
+  initial: number | null;
+  final: number | null;
+  markup: number | null;
+  margin: number | null;
+}
+
+const BULK_TYPE_LABELS: Record<BulkInputType | BulkWorkingType, string> = {
+  initial: 'Initial sum',
+  final: 'Final sum',
+  markup: 'Markup',
+  margin: 'Margin',
+  markup_percent: 'Markup %',
+  margin_percent: 'Margin %',
+};
+
+const BULK_RESULT_LABELS: Record<BulkResultViewType, string> = {
+  initial: 'Initial sum',
+  final: 'Final sum',
+  markup_value: 'Markup',
+  markup_percent: 'Markup %',
+  margin_value: 'Margin',
+  margin_percent: 'Margin %',
+};
+
+const BULK_INPUT_ORDER: BulkInputType[] = [
+  'initial',
+  'final',
+  'markup',
+  'margin',
+  'markup_percent',
+  'margin_percent',
+];
+const BULK_WORKING_ORDER: BulkWorkingType[] = ['initial', 'final', 'markup', 'margin'];
+
+const BULK_SCENARIOS: BulkScenarioConfig[] = [
+  {
+    input: 'final',
+    working: 'initial',
+    autoResult: 'markup_value',
+    resultOptions: ['markup_value', 'markup_percent', 'margin_value', 'margin_percent'],
+  },
+  {
+    input: 'markup',
+    working: 'initial',
+    autoResult: 'final',
+    resultOptions: ['final', 'margin_value', 'margin_percent'],
+  },
+  {
+    input: 'margin',
+    working: 'initial',
+    autoResult: 'final',
+    resultOptions: ['final', 'markup_value', 'markup_percent'],
+  },
+  {
+    input: 'markup_percent',
+    working: 'initial',
+    autoResult: 'final',
+    resultOptions: ['final', 'markup_value', 'margin_percent'],
+  },
+  {
+    input: 'margin_percent',
+    working: 'initial',
+    autoResult: 'final',
+    resultOptions: ['final', 'markup_value', 'markup_percent'],
+  },
+  {
+    input: 'initial',
+    working: 'final',
+    autoResult: 'markup_value',
+    resultOptions: ['markup_value', 'markup_percent', 'margin_value', 'margin_percent'],
+  },
+  {
+    input: 'initial',
+    working: 'markup',
+    autoResult: 'final',
+    resultOptions: ['final', 'markup_value', 'markup_percent', 'margin_value', 'margin_percent'],
+  },
+  {
+    input: 'initial',
+    working: 'margin',
+    autoResult: 'final',
+    resultOptions: ['final', 'markup_value', 'markup_percent'],
+  },
+  {
+    input: 'final',
+    working: 'markup',
+    autoResult: 'initial',
+    resultOptions: ['initial', 'markup_value', 'markup_percent', 'margin_value', 'margin_percent'],
+  },
+  {
+    input: 'final',
+    working: 'margin',
+    autoResult: 'initial',
+    resultOptions: ['initial', 'markup_value', 'markup_percent'],
+  },
+  {
+    input: 'markup',
+    working: 'final',
+    autoResult: 'initial',
+    resultOptions: ['initial', 'margin_value', 'margin_percent'],
+  },
+  {
+    input: 'margin',
+    working: 'final',
+    autoResult: 'initial',
+    resultOptions: ['initial', 'markup_value', 'markup_percent'],
+  },
+  {
+    input: 'markup_percent',
+    working: 'final',
+    autoResult: 'initial',
+    resultOptions: ['initial', 'markup_value', 'margin_percent'],
+  },
+  {
+    input: 'margin_percent',
+    working: 'final',
+    autoResult: 'initial',
+    resultOptions: ['initial', 'markup_value', 'markup_percent'],
+  },
+];
+
+const getBulkInputOptionsForWorking = (working: BulkWorkingType): BulkInputType[] =>
+  BULK_INPUT_ORDER.filter((input) =>
+    BULK_SCENARIOS.some((scenario) => scenario.input === input && scenario.working === working),
+  );
+
+const findBulkScenario = (input: BulkInputType, working: BulkWorkingType) =>
+  BULK_SCENARIOS.find((scenario) => scenario.input === input && scenario.working === working) ?? null;
+
 const getRouteTitle = (pathname: string) => {
+  if (pathname.includes('bulk-percent')) return 'Percent Cruncher - Number Cruncher';
   if (pathname.includes('creative-editor')) return 'Creative Editor - Number Cruncher 2026';
   if (pathname.includes('creative-resizer')) return 'Creative Resizer - Number Cruncher 2026';
   if (pathname.includes('creative-renamer')) return 'Asset Renamer - Number Cruncher 2026';
   if (pathname.includes('share-splitter')) return 'Share Splitter - Number Cruncher 2026';
   if (pathname.includes('utm-generator')) return 'UTM Generator - Number Cruncher 2026';
   if (pathname.includes('whats-new')) return "What's new - Number Cruncher 2026";
-  return 'Number Cruncher 2026';
+  return 'Number Cruncher';
 };
 
 function App() {
@@ -338,6 +493,13 @@ function App() {
   const [targetInput, setTargetInput] = useState('');
   const [additionInput, setAdditionInput] = useState('');
   const [multiplierInput, setMultiplierInput] = useState('');
+  const [bulkWorkingInput, setBulkWorkingInput] = useState('');
+  const [bulkInputType, setBulkInputType] = useState<BulkInputType>('initial');
+  const [bulkWorkingType, setBulkWorkingType] = useState<BulkWorkingType>('markup');
+  const [bulkResultType, setBulkResultType] = useState<BulkResultType>('auto');
+  const [isBulkWorkingTypeOpen, setIsBulkWorkingTypeOpen] = useState(false);
+  const [isBulkInputTypeOpen, setIsBulkInputTypeOpen] = useState(false);
+  const [isBulkResultTypeOpen, setIsBulkResultTypeOpen] = useState(false);
   const [fractionDigitsInput, setFractionDigitsInput] = useState('');
   const [randomPercentInput, setRandomPercentInput] = useState('');
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
@@ -351,6 +513,9 @@ function App() {
   const [, startRouteTransition] = useTransition();
   const pasteAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const menuScrollRef = useRef<HTMLUListElement | null>(null);
+  const bulkWorkingControlRef = useRef<HTMLDivElement | null>(null);
+  const bulkInputControlRef = useRef<HTMLDivElement | null>(null);
+  const bulkResultControlRef = useRef<HTMLDivElement | null>(null);
   const [showConsent, setShowConsent] = useState(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('nc-analytics-consent') !== 'granted';
@@ -362,6 +527,9 @@ function App() {
   const isCreativeResizer = routePath.includes('creative-resizer');
   const isCreativeEditor = routePath.includes('creative-editor');
   const isUtmGenerator = routePath.includes('utm-generator');
+  const isBulkPercent = routePath.includes('bulk-percent');
+  const mainToolTitle = isBulkPercent ? 'Percent Cruncher' : 'Number Cruncher';
+  const feb28ReleaseDate = 'Feb 28, 2026';
   const latestReleaseDate = 'Feb 21, 2026';
   const feb17ReleaseDate = 'Feb 17, 2026';
   const feb15ReleaseDate = 'Feb 15, 2026';
@@ -422,32 +590,403 @@ function App() {
         : baseSum * multiplier;
   const desiredSum = decimals === 0 ? Math.round(desiredSumRaw) : desiredSumRaw;
 
-  const scaledValues = useMemo(
-    () => buildScaledValues(numericValues, desiredSum),
-    [numericValues, desiredSum],
+  const bulkWorkingOptions = BULK_WORKING_ORDER;
+  const bulkInputOptions = useMemo(
+    () => getBulkInputOptionsForWorking(bulkWorkingType),
+    [bulkWorkingType],
   );
+  const bulkScenario = useMemo(
+    () => findBulkScenario(bulkInputType, bulkWorkingType),
+    [bulkInputType, bulkWorkingType],
+  );
+  const bulkResultOptions = bulkScenario?.resultOptions ?? ['markup_value'];
+  const bulkAutoResultType = bulkScenario?.autoResult ?? bulkResultOptions[0];
+  const bulkEffectiveResultType: BulkResultViewType =
+    bulkResultType !== 'auto' && bulkResultOptions.includes(bulkResultType as BulkResultViewType)
+      ? (bulkResultType as BulkResultViewType)
+      : bulkAutoResultType;
 
-  const randomizedValues = useMemo(() => {
-    if (!scaledValues.length || randomPercentValue <= 0) {
-      return scaledValues;
+  useEffect(() => {
+    if (!isBulkPercent) return;
+    const nextInputOptions = getBulkInputOptionsForWorking(bulkWorkingType);
+    if (!nextInputOptions.includes(bulkInputType)) {
+      setBulkInputType(nextInputOptions[0]);
+    }
+  }, [isBulkPercent, bulkInputType, bulkWorkingType]);
+
+  useEffect(() => {
+    if (!isBulkPercent) return;
+    if (bulkResultType === 'auto') return;
+    if (!bulkResultOptions.includes(bulkResultType as BulkResultViewType)) {
+      setBulkResultType('auto');
+    }
+  }, [isBulkPercent, bulkResultType, bulkResultOptions]);
+
+  useEffect(() => {
+    if (!isBulkPercent) {
+      setIsBulkWorkingTypeOpen(false);
+      setIsBulkInputTypeOpen(false);
+      setIsBulkResultTypeOpen(false);
+      return;
+    }
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (bulkWorkingControlRef.current?.contains(target)) return;
+      if (bulkInputControlRef.current?.contains(target)) return;
+      if (bulkResultControlRef.current?.contains(target)) return;
+      setIsBulkWorkingTypeOpen(false);
+      setIsBulkInputTypeOpen(false);
+      setIsBulkResultTypeOpen(false);
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [isBulkPercent]);
+
+  const bulkInputLabel = BULK_TYPE_LABELS[bulkInputType];
+  const bulkWorkingLabel = BULK_TYPE_LABELS[bulkWorkingType];
+  const bulkResultTypeLabel = BULK_RESULT_LABELS[bulkEffectiveResultType];
+
+  const parseBulkMetricInput = (input: string) => {
+    const parsed = parsePercentInput(input);
+    if (parsed.value === null) {
+      return null;
+    }
+    if (parsed.isPercent) {
+      return { isPercent: true, value: parsed.value / 100 };
+    }
+    const absolute = Math.abs(parsed.value);
+    if (absolute > 0 && absolute < 1) {
+      return { isPercent: true, value: parsed.value };
+    }
+    return { isPercent: false, value: parsed.value };
+  };
+
+  const bulkDerivedRows = useMemo<BulkDerivedRow[]>(() => {
+    if (!isBulkPercent) {
+      return [];
+    }
+    const parsedWorkingValue = parseColumn(bulkWorkingInput)[0]?.value ?? null;
+    const metricInput =
+      bulkWorkingType === 'final' || bulkWorkingType === 'initial'
+        ? null
+        : parseBulkMetricInput(bulkWorkingInput);
+    const absoluteWorkingInput =
+      bulkWorkingType === 'final' || bulkWorkingType === 'initial'
+        ? parsedWorkingValue
+        : null;
+    const inputTotal = sumValues(numericValues);
+    const emptyRow: BulkDerivedRow = { initial: null, final: null, markup: null, margin: null };
+
+    if (
+      (bulkWorkingType === 'final' || bulkWorkingType === 'initial') &&
+      absoluteWorkingInput === null
+    ) {
+      return numericValues.map(() => emptyRow);
+    }
+
+    if (bulkWorkingType !== 'final' && bulkWorkingType !== 'initial' && !metricInput) {
+      return numericValues.map(() => emptyRow);
+    }
+
+    return numericValues.map((inputValue) => {
+      let initialValue: number | null = null;
+      let finalValue: number | null = null;
+      let markupValue: number | null = null;
+      let marginValue: number | null = null;
+
+      if (bulkWorkingType === 'final') {
+        const finalTotal = absoluteWorkingInput as number;
+        if (inputTotal === 0 || bulkInputType === 'final') {
+          return emptyRow;
+        }
+        const allocatedFinal = inputValue * (finalTotal / inputTotal);
+        finalValue = allocatedFinal;
+
+        if (bulkInputType === 'initial') {
+          initialValue = inputValue;
+          markupValue = finalValue - initialValue;
+        } else if (bulkInputType === 'markup_percent') {
+          const pct = inputValue / 100;
+          if (pct <= -1) {
+            return emptyRow;
+          }
+          initialValue = finalValue / (1 + pct);
+          markupValue = finalValue - initialValue;
+        } else if (bulkInputType === 'margin_percent') {
+          const pct = inputValue / 100;
+          if (pct >= 1) {
+            return emptyRow;
+          }
+          initialValue = finalValue * (1 - pct);
+          markupValue = finalValue - initialValue;
+        } else {
+          // For input Markup/Margin we treat each row value as absolute markup amount.
+          markupValue = inputValue;
+          initialValue = finalValue - markupValue;
+        }
+      } else if (bulkWorkingType === 'initial') {
+        const initialTotal = absoluteWorkingInput as number;
+        if (inputTotal === 0 || bulkInputType === 'initial') {
+          return emptyRow;
+        }
+        const allocatedInitial = inputValue * (initialTotal / inputTotal);
+        initialValue = allocatedInitial;
+
+        if (bulkInputType === 'final') {
+          finalValue = inputValue;
+          markupValue = finalValue - initialValue;
+        } else if (bulkInputType === 'markup_percent') {
+          const pct = inputValue / 100;
+          finalValue = initialValue * (1 + pct);
+          markupValue = finalValue - initialValue;
+        } else if (bulkInputType === 'margin_percent') {
+          const pct = inputValue / 100;
+          if (pct >= 1) {
+            return emptyRow;
+          }
+          finalValue = initialValue / (1 - pct);
+          markupValue = finalValue - initialValue;
+        } else {
+          // For input Markup/Margin we treat each row value as absolute markup amount.
+          markupValue = inputValue;
+          finalValue = initialValue + markupValue;
+        }
+      } else if (bulkWorkingType === 'markup') {
+        const metricValue = metricInput?.value as number;
+        if (bulkInputType !== 'initial' && bulkInputType !== 'final') {
+          return emptyRow;
+        }
+        if (bulkInputType === 'initial') {
+          initialValue = inputValue;
+          if (metricInput?.isPercent) {
+            markupValue = initialValue * metricValue;
+          } else {
+            if (inputTotal === 0) {
+              return emptyRow;
+            }
+            // Absolute markup is treated as total delta across the whole column.
+            markupValue = initialValue * (metricValue / inputTotal);
+          }
+          finalValue = initialValue + markupValue;
+        } else {
+          finalValue = inputValue;
+          if (metricInput?.isPercent) {
+            if (metricValue <= -1) {
+              return emptyRow;
+            }
+            initialValue = finalValue / (1 + metricValue);
+            markupValue = finalValue - initialValue;
+          } else {
+            if (inputTotal === 0) {
+              return emptyRow;
+            }
+            const initialTotal = inputTotal - metricValue;
+            initialValue = finalValue * (initialTotal / inputTotal);
+            markupValue = finalValue - initialValue;
+          }
+        }
+      } else {
+        const metricValue = metricInput?.value as number;
+        if (bulkInputType !== 'initial' && bulkInputType !== 'final') {
+          return emptyRow;
+        }
+        if (bulkInputType === 'initial') {
+          initialValue = inputValue;
+          if (metricInput?.isPercent) {
+            if (metricValue >= 1) {
+              return emptyRow;
+            }
+            finalValue = initialValue / (1 - metricValue);
+            markupValue = finalValue - initialValue;
+            marginValue = metricValue;
+          } else {
+            if (inputTotal === 0) {
+              return emptyRow;
+            }
+            // Absolute margin is treated as total markup delta across the whole column.
+            markupValue = initialValue * (metricValue / inputTotal);
+            finalValue = initialValue + markupValue;
+          }
+        } else {
+          finalValue = inputValue;
+          if (metricInput?.isPercent) {
+            if (metricValue >= 1) {
+              return emptyRow;
+            }
+            initialValue = finalValue * (1 - metricValue);
+            markupValue = finalValue - initialValue;
+            marginValue = metricValue;
+          } else {
+            if (inputTotal === 0) {
+              return emptyRow;
+            }
+            const initialTotal = inputTotal - metricValue;
+            initialValue = finalValue * (initialTotal / inputTotal);
+            markupValue = finalValue - initialValue;
+          }
+        }
+      }
+
+      if (marginValue === null && finalValue !== null && markupValue !== null && finalValue !== 0) {
+        marginValue = markupValue / finalValue;
+      }
+
+      return {
+        initial:
+          typeof initialValue === 'number' && Number.isFinite(initialValue) ? initialValue : null,
+        final: typeof finalValue === 'number' && Number.isFinite(finalValue) ? finalValue : null,
+        markup:
+          typeof markupValue === 'number' && Number.isFinite(markupValue) ? markupValue : null,
+        margin:
+          typeof marginValue === 'number' && Number.isFinite(marginValue) ? marginValue : null,
+      };
+    });
+  }, [isBulkPercent, bulkWorkingInput, bulkInputType, bulkWorkingType, numericValues]);
+
+  const baseComputedValues = useMemo<Array<number | null>>(() => {
+    if (isBulkPercent) {
+      return bulkDerivedRows.map((row) => {
+        const result =
+          bulkEffectiveResultType === 'initial'
+            ? row.initial
+            : bulkEffectiveResultType === 'final'
+              ? row.final
+              : bulkEffectiveResultType === 'markup_value'
+                ? row.markup
+                : bulkEffectiveResultType === 'markup_percent'
+                  ? row.initial !== null && row.markup !== null && row.initial !== 0
+                    ? (row.markup / row.initial) * 100
+                    : null
+                  : bulkEffectiveResultType === 'margin_value'
+                    ? row.markup
+                    : row.margin !== null
+                      ? row.margin * 100
+                      : null;
+
+        if (typeof result !== 'number' || !Number.isFinite(result)) {
+          return null;
+        }
+        return result;
+      });
+    }
+
+    return buildScaledValues(numericValues, desiredSum).map((value) =>
+      Number.isFinite(value) ? value : null,
+    );
+  }, [
+    isBulkPercent,
+    bulkDerivedRows,
+    bulkEffectiveResultType,
+    numericValues,
+    desiredSum,
+  ]);
+
+  const isPercentResultOutput =
+    isBulkPercent &&
+    (bulkEffectiveResultType === 'markup_percent' ||
+      bulkEffectiveResultType === 'margin_percent');
+
+  const randomizedValues = useMemo<Array<number | null>>(() => {
+    if (!baseComputedValues.length || randomPercentValue <= 0) {
+      return baseComputedValues;
     }
     const factor = randomPercentValue / 100;
-    const jittered = scaledValues.map((value) => {
-      const offset = (Math.random() * 2 - 1) * factor;
-      return value * (1 + offset);
-    });
-    const jitterSum = sumValues(jittered);
-    if (jitterSum === 0) {
-      return scaledValues;
-    }
-    return jittered.map((value) => value * (desiredSum / jitterSum));
-  }, [scaledValues, randomPercentValue, desiredSum]);
+    const jittered = [...baseComputedValues];
+    const numericIndexes: number[] = [];
+    let baseNumericSum = 0;
 
-  const adjustedValues = useMemo(
-    () => enforceRounding(randomizedValues, desiredSum, decimals),
-    [randomizedValues, desiredSum, decimals],
+    for (let index = 0; index < baseComputedValues.length; index += 1) {
+      const value = baseComputedValues[index];
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        numericIndexes.push(index);
+        baseNumericSum += value;
+      }
+    }
+
+    if (!numericIndexes.length) {
+      return baseComputedValues;
+    }
+
+    let jitterSum = 0;
+    numericIndexes.forEach((index) => {
+      const source = baseComputedValues[index] as number;
+      const offset = (Math.random() * 2 - 1) * factor;
+      const next = source * (1 + offset);
+      jittered[index] = next;
+      jitterSum += next;
+    });
+
+    if (jitterSum !== 0) {
+      const scale = baseNumericSum / jitterSum;
+      numericIndexes.forEach((index) => {
+        const value = jittered[index];
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          jittered[index] = value * scale;
+        }
+      });
+    }
+
+    return jittered;
+  }, [baseComputedValues, randomPercentValue]);
+
+  const adjustedValues = useMemo<Array<number | null>>(() => {
+    const finiteValues = randomizedValues.filter(
+      (value): value is number => typeof value === 'number' && Number.isFinite(value),
+    );
+    if (!finiteValues.length) {
+      return randomizedValues.map(() => null);
+    }
+    const roundingTarget = isBulkPercent ? sumValues(finiteValues) : desiredSum;
+    const rounded = enforceRounding(finiteValues, roundingTarget, decimals);
+    let pointer = 0;
+    return randomizedValues.map((value) => {
+      if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return null;
+      }
+      const next = rounded[pointer];
+      pointer += 1;
+      return Number.isFinite(next) ? next : null;
+    });
+  }, [randomizedValues, isBulkPercent, desiredSum, decimals]);
+
+  const adjustedSum = useMemo(
+    () => {
+      const finite = adjustedValues.filter(
+        (value): value is number => typeof value === 'number' && Number.isFinite(value),
+      );
+      if (!finite.length) {
+        return 0;
+      }
+      if (isPercentResultOutput) {
+        return sumValues(finite) / finite.length;
+      }
+      return sumValues(finite);
+    },
+    [adjustedValues, isPercentResultOutput],
   );
-  const adjustedSum = useMemo(() => sumValues(adjustedValues), [adjustedValues]);
+
+  const bulkInputSummaryValue = useMemo(() => {
+    if (!isBulkPercent) {
+      return baseSum;
+    }
+    if (bulkInputType === 'markup_percent' || bulkInputType === 'margin_percent') {
+      const markupSum = sumValues(
+        bulkDerivedRows
+          .map((row) => row.markup)
+          .filter((value): value is number => typeof value === 'number' && Number.isFinite(value)),
+      );
+      return markupSum;
+    }
+    return baseSum;
+  }, [isBulkPercent, bulkInputType, bulkDerivedRows, baseSum]);
+
+  const hasCalculatedValues = useMemo(
+    () => adjustedValues.some((value) => typeof value === 'number' && Number.isFinite(value)),
+    [adjustedValues],
+  );
+  const adjustedSumLabel = isPercentResultOutput
+    ? `${numberFormatter.format(adjustedSum)}%`
+    : numberFormatter.format(adjustedSum);
   const formattedValues = (() => {
     let pointer = 0;
     return parsedRows.map((row) => {
@@ -456,17 +995,23 @@ function App() {
       }
       const next = adjustedValues[pointer];
       pointer += 1;
-      if (typeof next !== 'number') {
-        return row.raw || '';
+      if (typeof next !== 'number' || !Number.isFinite(next)) {
+        return '';
       }
       const formatted = formatRowValue(next, decimals);
+      if (isBulkPercent) {
+        return isPercentResultOutput ? `${formatted}%` : formatted;
+      }
+      if (isPercentResultOutput) {
+        return `${formatted}%`;
+      }
       return `${row.prefix || ''}${formatted}${row.suffix || ''}`;
     });
   })();
   const resultText = formattedValues.join('\n');
 
   const handleCopy = async () => {
-    if (!numericValues.length) {
+    if (!hasCalculatedValues) {
       return;
     }
     try {
@@ -770,6 +1315,11 @@ function App() {
               </a>
             </li>
             <li>
+              <a className="tool-link-button" href="/bulk-percent.html" onClick={handleToolLinkClick} onMouseEnter={handleToolLinkHover}>
+                Percent Cruncher
+              </a>
+            </li>
+            <li>
               <a className="tool-link-button" href="/share-splitter.html" onClick={handleToolLinkClick} onMouseEnter={handleToolLinkHover}>
                 Share Splitter
               </a>
@@ -826,6 +1376,15 @@ function App() {
                     <h2>Release notes</h2>
                   </div>
                 </header>
+                <div className="release-entry">
+                  <p className="release-date">{feb28ReleaseDate}</p>
+                  <ul className="whats-new-list">
+                    <li>Released Creative Editor with text layers, rich style controls, background fills, gradients, and live drag/resize editing.</li>
+                    <li>Added sticker workflow: upload/paste, move, resize, rotate, duplicate, and export matching the preview.</li>
+                    <li>Released Percent Cruncher for bulk Initial/Final/Markup/Margin scenarios with automatic input/output filtering.</li>
+                    <li>Added smart percent or absolute parsing, plus rounding, randomizer, and copy-ready bulk results.</li>
+                  </ul>
+                </div>
                 <div className="release-entry">
                   <p className="release-date">{latestReleaseDate}</p>
                   <ul className="whats-new-list">
@@ -905,9 +1464,9 @@ function App() {
         ) : (
           <>
             <section className="controls-wrapper">
-                <div className="controls">
+                  <div className="controls">
                   <div className="controls-heading">
-                    <h1 className="controls-heading-title">Number Cruncher 2026</h1>
+                    <h1 className="controls-heading-title">{mainToolTitle}</h1>
                     <p className="controls-subtitle">
                       One column for your data, the other for a polished result. Pick the distribution mode and settings before copying the result.
                     </p>
@@ -917,46 +1476,97 @@ function App() {
                       <div className="stacked-field">
                         <div className="number-field number-field-mode">
                           <label className="number-field-label" htmlFor={additionInputId}>
-                            {desiredLabel}
+                            {isBulkPercent ? 'Working value' : desiredLabel}
                           </label>
-                          <div className="number-field-input-wrapper input-with-toggle addition-toggle">
-                            <div className="mode-toggle mode-toggle-inline" role="group" aria-label="Sum mode toggle">
-                              <button
-                                type="button"
-                                className={`mode-toggle-button${sumMode === 'add' ? ' active' : ''}`}
-                                aria-pressed={sumMode === 'add'}
-                                onClick={() => handleModeToggle('add')}
-                                title="Add to the base sum"
-                              >
-                                +
-                              </button>
-                              <button
-                                type="button"
-                                className={`mode-toggle-button${sumMode === 'multiply' ? ' active' : ''}`}
-                                aria-pressed={sumMode === 'multiply'}
-                                onClick={() => handleModeToggle('multiply')}
-                                title="Multiply the base sum"
-                              >
-                                ×
-                              </button>
-                              <button
-                                type="button"
-                                className={`mode-toggle-button${sumMode === 'target' ? ' active' : ''}`}
-                                aria-pressed={sumMode === 'target'}
-                                onClick={() => handleModeToggle('target')}
-                                title="Aim for a target sum"
-                              >
-                                =
-                              </button>
+                          {isBulkPercent ? (
+                            <>
+                              <div className="number-field-input-wrapper input-with-toggle bulk-working-inline">
+                                <div className="editor-select-control bulk-working-type-control" ref={bulkWorkingControlRef}>
+                                  <button
+                                    type="button"
+                                    className={`editor-select-trigger bulk-select-trigger${isBulkWorkingTypeOpen ? ' is-active' : ''}`}
+                                    onClick={() => {
+                                      setIsBulkInputTypeOpen(false);
+                                      setIsBulkResultTypeOpen(false);
+                                      setIsBulkWorkingTypeOpen((prev) => !prev);
+                                    }}
+                                    aria-haspopup="listbox"
+                                    aria-expanded={isBulkWorkingTypeOpen}
+                                    aria-label="Working value type"
+                                  >
+                                    <span className="editor-select-value">{bulkWorkingLabel}</span>
+                                    <svg viewBox="0 0 16 16" aria-hidden="true">
+                                      <path d="M4 6l4 4 4-4" />
+                                    </svg>
+                                  </button>
+                                  {isBulkWorkingTypeOpen ? (
+                                    <div className="editor-select-popover bulk-select-popover" role="listbox" aria-label="Working value options">
+                                      {bulkWorkingOptions.map((option) => (
+                                        <button
+                                          key={option}
+                                          type="button"
+                                          className={`editor-select-option${bulkWorkingType === option ? ' is-active' : ''}`}
+                                          aria-selected={bulkWorkingType === option}
+                                          onClick={() => {
+                                            setBulkWorkingType(option);
+                                            setIsBulkWorkingTypeOpen(false);
+                                          }}
+                                        >
+                                          <span>{BULK_TYPE_LABELS[option]}</span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                </div>
+                                <input
+                                  id={additionInputId}
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={bulkWorkingInput}
+                                  onChange={(event) => setBulkWorkingInput(event.target.value)}
+                                />
+                              </div>
+                            </>
+                          ) : (
+                            <div className="number-field-input-wrapper input-with-toggle addition-toggle">
+                              <div className="mode-toggle mode-toggle-inline" role="group" aria-label="Sum mode toggle">
+                                <button
+                                  type="button"
+                                  className={`mode-toggle-button${sumMode === 'add' ? ' active' : ''}`}
+                                  aria-pressed={sumMode === 'add'}
+                                  onClick={() => handleModeToggle('add')}
+                                  title="Add to the base sum"
+                                >
+                                  +
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`mode-toggle-button${sumMode === 'multiply' ? ' active' : ''}`}
+                                  aria-pressed={sumMode === 'multiply'}
+                                  onClick={() => handleModeToggle('multiply')}
+                                  title="Multiply the base sum"
+                                >
+                                  ×
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`mode-toggle-button${sumMode === 'target' ? ' active' : ''}`}
+                                  aria-pressed={sumMode === 'target'}
+                                  onClick={() => handleModeToggle('target')}
+                                  title="Aim for a target sum"
+                                >
+                                  =
+                                </button>
+                              </div>
+                              <input
+                                id={additionInputId}
+                                type="text"
+                                inputMode="decimal"
+                                value={desiredInputValue}
+                                onChange={(event) => onDesiredChange(event.target.value)}
+                              />
                             </div>
-                            <input
-                              id={additionInputId}
-                              type="text"
-                              inputMode="decimal"
-                              value={desiredInputValue}
-                              onChange={(event) => onDesiredChange(event.target.value)}
-                            />
-                          </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1056,8 +1666,49 @@ function App() {
                     <p>Copy values in Excel and paste them here with Ctrl+V.</p>
                   </header>
                     <div className="result-summary summary-inline">
-                      <span>Sum of input values</span>
-                      <strong>{numberFormatter.format(baseSum)}</strong>
+                      {isBulkPercent ? (
+                        <div className="editor-select-control bulk-input-type-control" ref={bulkInputControlRef}>
+                          <button
+                            id="bulk-input-type"
+                            type="button"
+                            className={`editor-select-trigger bulk-select-trigger${isBulkInputTypeOpen ? ' is-active' : ''}`}
+                            onClick={() => {
+                              setIsBulkWorkingTypeOpen(false);
+                              setIsBulkResultTypeOpen(false);
+                              setIsBulkInputTypeOpen((prev) => !prev);
+                            }}
+                            aria-haspopup="listbox"
+                            aria-expanded={isBulkInputTypeOpen}
+                            aria-label="Input data type"
+                          >
+                            <span className="editor-select-value">{bulkInputLabel}</span>
+                            <svg viewBox="0 0 16 16" aria-hidden="true">
+                              <path d="M4 6l4 4 4-4" />
+                            </svg>
+                          </button>
+                          {isBulkInputTypeOpen ? (
+                            <div className="editor-select-popover bulk-select-popover" role="listbox" aria-label="Input data type options">
+                              {bulkInputOptions.map((option) => (
+                                <button
+                                  key={option}
+                                  type="button"
+                                  className={`editor-select-option${bulkInputType === option ? ' is-active' : ''}`}
+                                  aria-selected={bulkInputType === option}
+                                  onClick={() => {
+                                    setBulkInputType(option);
+                                    setIsBulkInputTypeOpen(false);
+                                  }}
+                                >
+                                  <span>{BULK_TYPE_LABELS[option]}</span>
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span>Sum of input values</span>
+                      )}
+                      <strong>{numberFormatter.format(bulkInputSummaryValue)}</strong>
                     </div>
                     <textarea
                       className="paste-area"
@@ -1074,16 +1725,56 @@ function App() {
                   <header className="card-header">
                     <div className="card-header-top">
                       <h2>Result</h2>
-                      <button type="button" onClick={handleCopy} disabled={!numericValues.length}>
+                      <button type="button" onClick={handleCopy} disabled={!hasCalculatedValues}>
                         {copyState === 'copied' ? 'Copied!' : 'Copy'}
                       </button>
                     </div>
-                    <p>Numbers adjusted to the new sum.</p>
+                    <p>{isBulkPercent ? 'Values calculated from the selected scenario.' : 'Numbers adjusted to the new sum.'}</p>
                   </header>
 
                   <div className="result-summary">
-                    <span>Sum of result column</span>
-                    <strong>{numberFormatter.format(adjustedSum)}</strong>
+                    {isBulkPercent ? (
+                      <div className="editor-select-control bulk-result-type-control" ref={bulkResultControlRef}>
+                        <button
+                          type="button"
+                          className={`editor-select-trigger bulk-select-trigger${isBulkResultTypeOpen ? ' is-active' : ''}`}
+                          onClick={() => {
+                            setIsBulkWorkingTypeOpen(false);
+                            setIsBulkInputTypeOpen(false);
+                            setIsBulkResultTypeOpen((prev) => !prev);
+                          }}
+                          aria-haspopup="listbox"
+                          aria-expanded={isBulkResultTypeOpen}
+                          aria-label="Result type"
+                        >
+                          <span className="editor-select-value">{bulkResultTypeLabel}</span>
+                          <svg viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M4 6l4 4 4-4" />
+                          </svg>
+                        </button>
+                        {isBulkResultTypeOpen ? (
+                          <div className="editor-select-popover bulk-select-popover" role="listbox" aria-label="Result type options">
+                            {bulkResultOptions.map((option) => (
+                              <button
+                                key={option}
+                                type="button"
+                                className={`editor-select-option${bulkEffectiveResultType === option ? ' is-active' : ''}`}
+                                aria-selected={bulkEffectiveResultType === option}
+                                onClick={() => {
+                                  setBulkResultType(option);
+                                  setIsBulkResultTypeOpen(false);
+                                }}
+                              >
+                                <span>{BULK_RESULT_LABELS[option]}</span>
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span>Sum of result column</span>
+                    )}
+                    <strong>{adjustedSumLabel}</strong>
                   </div>
 
                   <div className="result-list">
@@ -1149,3 +1840,4 @@ function App() {
 }
 
 export default App;
+
