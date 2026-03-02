@@ -292,9 +292,12 @@ const addChildGroup = (nodes: CreativeNode[], id: string, depth = 0): GroupChang
   const next = nodes.map((node) => {
     if (node.id === id && node.type === 'group') {
       changed = true;
+      const newGroup = createGroupNode(getNextGroupLabel(node.children, depth + 1));
+      const groupChildren = node.children.filter((child) => child.type === 'group');
+      const fileChildren = node.children.filter((child) => child.type !== 'group');
       return {
         ...node,
-        children: [...node.children, createGroupNode(getNextGroupLabel(node.children, depth + 1))],
+        children: [...groupChildren, newGroup, ...fileChildren],
       };
     }
     if (node.children.length) {
@@ -345,6 +348,31 @@ const insertNodeToGroup = (
     }
     return node;
   });
+
+const insertNodeBefore = (
+  nodes: CreativeNode[],
+  targetId: string,
+  child: CreativeNode,
+): { nodes: CreativeNode[]; inserted: boolean } => {
+  let inserted = false;
+  const next: CreativeNode[] = [];
+  nodes.forEach((node) => {
+    if (node.id === targetId) {
+      next.push(child);
+      inserted = true;
+    }
+    if (node.children.length) {
+      const result = insertNodeBefore(node.children, targetId, child);
+      if (result.inserted) {
+        next.push({ ...node, children: result.nodes });
+        inserted = true;
+        return;
+      }
+    }
+    next.push(node);
+  });
+  return { nodes: next, inserted };
+};
 
 const removeNodeAndCollect = (nodes: CreativeNode[], id: string): RemoveResult => {
   const removedFileIds: string[] = [];
@@ -482,6 +510,19 @@ const moveGroupToGroup = (nodes: CreativeNode[], groupId: string, targetGroupId:
   return insertNodeToGroup(detachedResult.nodes, targetGroupId, detachedResult.detached);
 };
 
+const collectGroupIds = (nodes: CreativeNode[]): string[] => {
+  const ids: string[] = [];
+  nodes.forEach((node) => {
+    if (node.type === 'group') {
+      ids.push(node.id);
+    }
+    if (node.children.length) {
+      ids.push(...collectGroupIds(node.children));
+    }
+  });
+  return ids;
+};
+
 const collectFileIds = (nodes: CreativeNode[]): string[] => {
   const ids: string[] = [];
   nodes.forEach((node) => {
@@ -555,6 +596,7 @@ export const CreativeRenamer = () => {
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
   const [isExporting, setIsExporting] = useState(false);
   const [preview, setPreview] = useState<{ file: CreativeFile; x: number; y: number } | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const fileEntries = useMemo(() => flattenFiles(groups), [groups]);
   const filesArray = useMemo(() => Object.values(files), [files]);
@@ -839,6 +881,7 @@ export const CreativeRenamer = () => {
     setGroups(createInitialGroups());
     setAssetKind(null);
     setUploadError('');
+    setCollapsedGroups({});
   };
 
   const handleUpdateGroupName = (id: string, value: string, nodes: CreativeNode[]): CreativeNode[] =>
@@ -894,6 +937,16 @@ export const CreativeRenamer = () => {
       });
     }
     setGroups(result.nodes);
+    const remainingGroups = new Set(collectGroupIds(result.nodes));
+    setCollapsedGroups((prev) => {
+      const next: Record<string, boolean> = {};
+      Object.entries(prev).forEach(([key, value]) => {
+        if (value && remainingGroups.has(key)) {
+          next[key] = value;
+        }
+      });
+      return next;
+    });
   };
 
   const handleGroupPaste = (event: ClipboardEvent<HTMLInputElement>, groupId: string) => {
@@ -993,6 +1046,7 @@ export const CreativeRenamer = () => {
 
   const handleDragStartGroup = (event: DragEvent<HTMLElement>, groupId: string) => {
     event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', groupId);
     event.dataTransfer.setData(
       'application/x-creative-node',
       JSON.stringify({ type: 'group', id: groupId }),
@@ -1023,9 +1077,9 @@ export const CreativeRenamer = () => {
       }
     }
     if (!parsed) {
-      const fileId = event.dataTransfer.getData('text/plain');
-      if (fileId) {
-        parsed = { type: 'file', id: fileId };
+      const rawId = event.dataTransfer.getData('text/plain');
+      if (rawId) {
+        parsed = { type: rawId.startsWith('group-') ? 'group' : 'file', id: rawId };
       }
     }
     if (!parsed) {
@@ -1050,6 +1104,53 @@ export const CreativeRenamer = () => {
         return moveGroupToGroup(prev, parsed.id, newParentId);
       }
       return moveGroupToGroup(prev, parsed.id, groupId);
+    });
+  };
+
+  const handleDropOnFile = (event: DragEvent<HTMLDivElement>, targetId: string) => {
+    event.preventDefault();
+    setPreview(null);
+    const payload = event.dataTransfer.getData('application/x-creative-node');
+    if (!payload) {
+      const rawId = event.dataTransfer.getData('text/plain');
+      if (!rawId || !rawId.startsWith('group-')) {
+        return;
+      }
+      setGroups((prev) => {
+        if (rawId === targetId || isDescendant(prev, rawId, targetId)) {
+          return prev;
+        }
+        const detachedResult = detachNode(prev, rawId);
+        if (!detachedResult.detached) {
+          return prev;
+        }
+        const result = insertNodeBefore(detachedResult.nodes, targetId, detachedResult.detached);
+        return result.inserted ? result.nodes : prev;
+      });
+      return;
+    }
+    let parsed: { type: 'group' | 'file'; id: string } | null = null;
+    try {
+      const data = JSON.parse(payload) as { type?: string; id?: string };
+      if ((data.type === 'file' || data.type === 'group') && data.id) {
+        parsed = { type: data.type, id: data.id };
+      }
+    } catch {
+      parsed = null;
+    }
+    if (!parsed || parsed.type !== 'group') {
+      return;
+    }
+    setGroups((prev) => {
+      if (parsed.id === targetId || isDescendant(prev, parsed.id, targetId)) {
+        return prev;
+      }
+      const detachedResult = detachNode(prev, parsed.id);
+      if (!detachedResult.detached) {
+        return prev;
+      }
+      const result = insertNodeBefore(detachedResult.nodes, targetId, detachedResult.detached);
+      return result.inserted ? result.nodes : prev;
     });
   };
 
@@ -1135,6 +1236,8 @@ export const CreativeRenamer = () => {
   const renderRows = (nodes: CreativeNode[], depth = 0): ReactElement[] =>
     nodes.flatMap((node) => {
       const isGroup = node.type === 'group';
+      const hasChildren = isGroup && node.children.length > 0;
+      const isCollapsed = hasChildren && Boolean(collapsedGroups[node.id]);
       const file = files[node.id];
       const disableRemove = isGroup && depth === 0 && groups.length <= 1;
       const widthOffset = 38 + depth * 50;
@@ -1157,14 +1260,14 @@ export const CreativeRenamer = () => {
               <div
                 className={`creative-cell${isGroup ? ' is-group' : ' is-file'}`}
                 onDragOver={(event) => {
-                  if (isGroup) {
-                    event.preventDefault();
-                  }
+                  event.preventDefault();
                 }}
                 onDrop={(event) => {
                   if (isGroup) {
                     handleDropOnGroup(event, node.id);
+                    return;
                   }
+                  handleDropOnFile(event, node.id);
                 }}
               >
                 <div className="creative-name-cell">
@@ -1179,6 +1282,19 @@ export const CreativeRenamer = () => {
                       >
                         ::
                       </span>
+                      {hasChildren ? (
+                        <button
+                          type="button"
+                          className={`creative-collapse-toggle${isCollapsed ? ' is-collapsed' : ''}`}
+                          onClick={() =>
+                            setCollapsedGroups((prev) => ({ ...prev, [node.id]: !prev[node.id] }))
+                          }
+                          title={isCollapsed ? 'Expand group' : 'Collapse group'}
+                          aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
+                        >
+                          {isCollapsed ? '▸' : '▾'}
+                        </button>
+                      ) : null}
                       <input
                         className="creative-name-input"
                         value={node.name}
@@ -1280,6 +1396,9 @@ export const CreativeRenamer = () => {
         </div>
       );
       if (!node.children.length) {
+        return [row];
+      }
+      if (isCollapsed) {
         return [row];
       }
       return [row, ...renderRows(node.children, depth + 1)];
