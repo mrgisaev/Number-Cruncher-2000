@@ -42,6 +42,14 @@ interface SummaryItem {
   value: string;
 }
 
+interface WebcamRenderMetrics {
+  margin: number;
+  usableWidth: number;
+  usableHeight: number;
+  width: number;
+  height: number;
+}
+
 interface Elements {
   audioSelect: HTMLSelectElement;
   closeModalButton: HTMLButtonElement;
@@ -640,6 +648,7 @@ export function mountScreenRecorder(root: HTMLElement) {
     const fps = state.currentFps;
     const needsWebcam = state.currentWebcamEnabled;
     const compositeWebcam = needsWebcam;
+    const requestedCaptureFps = getRequestedCaptureFps(fps, needsWebcam);
     let displayStream: MediaStream | null = null;
     let micStream: MediaStream | null = null;
     let webcamStream: MediaStream | null = null;
@@ -651,7 +660,7 @@ export function mountScreenRecorder(root: HTMLElement) {
       }
 
       displayStream = await navigator.mediaDevices.getDisplayMedia({
-        video: buildDisplayVideoConstraints(preset, fps, state.currentCursorEnabled),
+        video: buildDisplayVideoConstraints(preset, requestedCaptureFps, state.currentCursorEnabled),
         audio: audioOption.needsSystem,
         systemAudio: audioOption.needsSystem ? 'include' : 'exclude',
         selfBrowserSurface: 'exclude',
@@ -689,7 +698,7 @@ export function mountScreenRecorder(root: HTMLElement) {
       const mimeType = pickMimeType();
       const recorder = new MediaRecorder(pipeline.outputStream, {
         mimeType,
-        videoBitsPerSecond: estimateVideoBitrate(pipeline.outputSize, fps),
+        videoBitsPerSecond: estimateVideoBitrate(pipeline.outputSize, pipeline.fps),
       });
 
       recorder.addEventListener('dataavailable', (event) => {
@@ -753,7 +762,7 @@ export function mountScreenRecorder(root: HTMLElement) {
         }),
         hasSystemAudio: displayStream.getAudioTracks().length > 0,
         hasMicAudio: Boolean(micStream?.getAudioTracks().length),
-        fps,
+        fps: pipeline.fps,
         cursorLabel: state.currentCursorEnabled ? 'Visible' : 'Hidden',
         formatLabel: outputFormat === 'mp4' ? 'MP4 (converted on save)' : 'WebM',
         presetLabel: preset.label,
@@ -904,6 +913,11 @@ export function mountScreenRecorder(root: HTMLElement) {
     };
 
     const outputSize = sourceSize;
+    const effectiveFps = resolveEffectiveOutputFps({
+      requestedFps: fps,
+      displayTrack: displayVideoTrack,
+      webcamStream: compositeWebcam ? webcamStream : null,
+    });
     const mixedAudio = await createMixedAudioChain(displayStream, micStream);
     const requiresCanvasResize = false;
     const requiresCanvasOverlay = compositeWebcam && Boolean(webcamVideo);
@@ -912,6 +926,7 @@ export function mountScreenRecorder(root: HTMLElement) {
     let captureContext: CanvasRenderingContext2D | null = null;
     let canvasStream: MediaStream | null = null;
     let videoTrack = displayVideoTrack;
+    let requestCanvasFrame: (() => void) | null = null;
     let renderMode = 'direct';
 
     if (requiresCanvas) {
@@ -931,16 +946,37 @@ export function mountScreenRecorder(root: HTMLElement) {
       captureContext.imageSmoothingEnabled = true;
       captureContext.imageSmoothingQuality = 'low';
 
+      const webcamRenderMetrics = webcamVideo
+        ? createWebcamRenderMetrics(outputSize, webcamVideo)
+        : null;
+
+      canvasStream = captureCanvas.captureStream(0);
+      let canvasVideoTrack = canvasStream.getVideoTracks()[0] as MediaStreamTrack & {
+        requestFrame?: () => void;
+      };
+      if (typeof canvasVideoTrack.requestFrame === 'function') {
+        requestCanvasFrame = () => {
+          canvasVideoTrack.requestFrame?.();
+        };
+      } else {
+        stopLooseTracks(canvasStream);
+        canvasStream = captureCanvas.captureStream(effectiveFps);
+        canvasVideoTrack = canvasStream.getVideoTracks()[0] as MediaStreamTrack & {
+          requestFrame?: () => void;
+        };
+      }
+
       startCanvasRenderLoop({
         sourceVideo,
         webcamVideo,
         captureContext,
         outputSize,
-        fps,
+        fps: effectiveFps,
+        webcamRenderMetrics,
+        requestCanvasFrame,
       });
 
-      canvasStream = captureCanvas.captureStream(fps);
-      videoTrack = canvasStream.getVideoTracks()[0];
+      videoTrack = canvasVideoTrack;
       try {
         videoTrack.contentHint = 'motion';
       } catch {
@@ -963,6 +999,7 @@ export function mountScreenRecorder(root: HTMLElement) {
       captureCanvas,
       captureContext,
       outputStream: new MediaStream(outputTracks),
+      fps: effectiveFps,
       outputSize,
       renderMode,
       sourceSize,
@@ -977,16 +1014,27 @@ export function mountScreenRecorder(root: HTMLElement) {
     captureContext,
     outputSize,
     fps,
+    webcamRenderMetrics,
+    requestCanvasFrame,
   }: {
     sourceVideo: HTMLVideoElement;
     webcamVideo: HTMLVideoElement | null;
     captureContext: CanvasRenderingContext2D;
     outputSize: Size;
     fps: number;
+    webcamRenderMetrics: WebcamRenderMetrics | null;
+    requestCanvasFrame: (() => void) | null;
   }) {
     stopCanvasRenderLoop();
     const token = ++state.renderToken;
     const frameDelayMs = Math.max(16, Math.round(1000 / Math.max(1, fps)));
+    let lastRenderAt = 0;
+
+    const renderFrame = (now: number) => {
+      lastRenderAt = now;
+      drawFrame(sourceVideo, webcamVideo, captureContext, outputSize, webcamRenderMetrics);
+      requestCanvasFrame?.();
+    };
 
     const queueNextFrame = () => {
       if (token !== state.renderToken) {
@@ -1009,26 +1057,44 @@ export function mountScreenRecorder(root: HTMLElement) {
         }
       };
 
-      const runFrame = () => {
+      const runFrame = (now: number) => {
         if (settled || token !== state.renderToken) {
           return;
         }
 
         settled = true;
         cancelScheduledFrame();
-        drawFrame(sourceVideo, webcamVideo, captureContext, outputSize);
+        renderFrame(now);
         queueNextFrame();
       };
 
-      if (typeof sourceVideo.requestVideoFrameCallback === 'function') {
-        callbackId = sourceVideo.requestVideoFrameCallback(() => {
-          runFrame();
-        });
-      }
+      const scheduleVideoFrame = () => {
+        if (typeof sourceVideo.requestVideoFrameCallback !== 'function') {
+          return;
+        }
 
+        callbackId = sourceVideo.requestVideoFrameCallback((now) => {
+          callbackId = null;
+
+          if (settled || token !== state.renderToken) {
+            return;
+          }
+
+          if (now - lastRenderAt >= frameDelayMs - 1) {
+            runFrame(now);
+            return;
+          }
+
+          scheduleVideoFrame();
+        });
+      };
+
+      scheduleVideoFrame();
+
+      const remainingDelay = Math.max(0, frameDelayMs - (performance.now() - lastRenderAt));
       timeoutId = window.setTimeout(() => {
-        runFrame();
-      }, frameDelayMs);
+        runFrame(performance.now());
+      }, remainingDelay);
 
       state.renderCancel = () => {
         settled = true;
@@ -1036,7 +1102,7 @@ export function mountScreenRecorder(root: HTMLElement) {
       };
     };
 
-    drawFrame(sourceVideo, webcamVideo, captureContext, outputSize);
+    renderFrame(performance.now());
     queueNextFrame();
   }
 
@@ -1053,6 +1119,7 @@ export function mountScreenRecorder(root: HTMLElement) {
     webcamVideo: HTMLVideoElement | null,
     captureContext: CanvasRenderingContext2D,
     outputSize: Size,
+    webcamRenderMetrics: WebcamRenderMetrics | null,
   ) {
     const sourceWidth = sourceVideo.videoWidth || outputSize.width;
     const sourceHeight = sourceVideo.videoHeight || outputSize.height;
@@ -1081,30 +1148,26 @@ export function mountScreenRecorder(root: HTMLElement) {
     if (
       webcamVideo?.readyState &&
       webcamVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+      webcamRenderMetrics &&
       shouldCompositeWebcamIntoRecording()
     ) {
-      const rect = getWebcamDrawRect(outputSize, webcamVideo);
+      const rect = getWebcamDrawRect(webcamRenderMetrics);
       drawWebcamOverlay(captureContext, webcamVideo, rect);
     }
   }
 
-  function getWebcamDrawRect(outputSize: Size, webcamVideo: HTMLVideoElement) {
+  function createWebcamRenderMetrics(outputSize: Size, webcamVideo: HTMLVideoElement): WebcamRenderMetrics {
     const margin = Math.max(18, Math.round(outputSize.width * 0.02));
     const isRound = state.currentWebcamRound;
     const aspectRatio = getVideoAspectRatio(webcamVideo);
-    const previewRect = elements.webcamPreview.getBoundingClientRect();
+    const previewWidthCss =
+      elements.webcamPreview.clientWidth ||
+      (isRound ? clamp(window.innerWidth * 0.16, 160, 240) : clamp(window.innerWidth * 0.18, 180, 280));
+    const previewHeightCss =
+      elements.webcamPreview.clientHeight || (isRound ? previewWidthCss : previewWidthCss / aspectRatio);
     const deviceScale = Math.max(1, window.devicePixelRatio || 1);
-    const previewWidth = Math.max(
-      1,
-      Math.round(
-        (previewRect.width || (isRound ? clamp(window.innerWidth * 0.16, 160, 240) : clamp(window.innerWidth * 0.18, 180, 280))) *
-          deviceScale,
-      ),
-    );
-    const previewHeight = Math.max(
-      1,
-      Math.round((previewRect.height || previewWidth / aspectRatio) * deviceScale),
-    );
+    const previewWidth = Math.max(1, Math.round(previewWidthCss * deviceScale));
+    const previewHeight = Math.max(1, Math.round(previewHeightCss * deviceScale));
     const maxWidth = isRound
       ? clamp(Math.round(outputSize.width * 0.18), 150, Math.round(outputSize.width * 0.24))
       : clamp(Math.round(outputSize.width * 0.2), 180, Math.round(outputSize.width * 0.28));
@@ -1112,14 +1175,22 @@ export function mountScreenRecorder(root: HTMLElement) {
     const scale = Math.min(maxWidth / previewWidth, maxHeight / previewHeight, 1);
     const width = Math.max(1, Math.round(previewWidth * scale));
     const height = isRound ? width : Math.max(1, Math.round(previewHeight * scale));
-    const usableWidth = Math.max(0, outputSize.width - width - margin * 2);
-    const usableHeight = Math.max(0, outputSize.height - height - margin * 2);
 
     return {
-      x: Math.round(margin + usableWidth * state.webcamOverlay.x),
-      y: Math.round(margin + usableHeight * state.webcamOverlay.y),
+      margin,
+      usableWidth: Math.max(0, outputSize.width - width - margin * 2),
+      usableHeight: Math.max(0, outputSize.height - height - margin * 2),
       width,
       height,
+    };
+  }
+
+  function getWebcamDrawRect(metrics: WebcamRenderMetrics) {
+    return {
+      x: Math.round(metrics.margin + metrics.usableWidth * state.webcamOverlay.x),
+      y: Math.round(metrics.margin + metrics.usableHeight * state.webcamOverlay.y),
+      width: metrics.width,
+      height: metrics.height,
     };
   }
 
@@ -1306,8 +1377,9 @@ export function mountScreenRecorder(root: HTMLElement) {
     const webcamStream = await navigator.mediaDevices.getUserMedia({
       video: {
         facingMode: 'user',
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
+        width: { ideal: 960, max: 1280 },
+        height: { ideal: 540, max: 720 },
+        frameRate: { ideal: 30, max: 30 },
       },
       audio: false,
     });
@@ -1805,6 +1877,10 @@ export function mountScreenRecorder(root: HTMLElement) {
     return AUDIO_OPTIONS.find((option) => option.id === state.currentAudioId) ?? AUDIO_OPTIONS[0];
   }
 
+  function getRequestedCaptureFps(fps: number, webcamEnabled: boolean) {
+    return webcamEnabled ? Math.min(fps, 30) : fps;
+  }
+
   function buildDisplayVideoConstraints(preset: ResolutionPreset, fps: number, cursorEnabled: boolean) {
     const constraints: Record<string, unknown> = {
       frameRate: {
@@ -1827,6 +1903,36 @@ export function mountScreenRecorder(root: HTMLElement) {
     }
 
     return constraints;
+  }
+
+  function resolveEffectiveOutputFps({
+    requestedFps,
+    displayTrack,
+    webcamStream,
+  }: {
+    requestedFps: number;
+    displayTrack: MediaStreamTrack;
+    webcamStream: MediaStream | null;
+  }) {
+    const candidates = [
+      normalizeTrackFrameRate(displayTrack.getSettings().frameRate),
+      normalizeTrackFrameRate(webcamStream?.getVideoTracks()[0]?.getSettings().frameRate),
+    ].filter((value): value is number => value !== null);
+
+    let resolvedFps = Math.max(1, Math.round(requestedFps));
+    for (const candidate of candidates) {
+      resolvedFps = Math.min(resolvedFps, candidate);
+    }
+
+    return Math.max(1, resolvedFps);
+  }
+
+  function normalizeTrackFrameRate(value: unknown) {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+      return null;
+    }
+
+    return Math.max(1, Math.round(value));
   }
 
   function buildActualAudioLabel({
