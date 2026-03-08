@@ -17,6 +17,7 @@ export default defineConfig({
         creativeResizer: resolve(__dirname, 'creative-resizer.html'),
         creativeEditor: resolve(__dirname, 'creative-editor.html'),
         utmGenerator: resolve(__dirname, 'utm-generator.html'),
+        screenRecorder: resolve(__dirname, 'screen-recorder.html'),
       },
     },
   },

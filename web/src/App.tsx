@@ -54,6 +54,9 @@ const ShareSplitter = lazy(() =>
 const UtmGenerator = lazy(() =>
   import('./UtmGenerator').then((module) => ({ default: module.UtmGenerator })),
 );
+const ScreenRecorder = lazy(() =>
+  import('./ScreenRecorder').then((module) => ({ default: module.ScreenRecorder })),
+);
 
 const numberFormatter = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
@@ -481,6 +484,7 @@ const getRouteTitle = (pathname: string) => {
   if (pathname.includes('creative-editor')) return 'Creative Editor - Number Cruncher 2026';
   if (pathname.includes('creative-resizer')) return 'Creative Resizer - Number Cruncher 2026';
   if (pathname.includes('creative-renamer')) return 'Asset Renamer - Number Cruncher 2026';
+  if (pathname.includes('screen-recorder')) return 'Screen Recorder - Number Cruncher 2026';
   if (pathname.includes('share-splitter')) return 'Share Splitter - Number Cruncher 2026';
   if (pathname.includes('utm-generator')) return 'UTM Generator - Number Cruncher 2026';
   if (pathname.includes('whats-new')) return "What's new - Number Cruncher 2026";
@@ -507,12 +511,20 @@ function App() {
   const [menuOverflow, setMenuOverflow] = useState(false);
   const [menuFadeLeft, setMenuFadeLeft] = useState(false);
   const [menuFadeRight, setMenuFadeRight] = useState(false);
+  const [menuIsDragging, setMenuIsDragging] = useState(false);
   const [routePath, setRoutePath] = useState(() =>
     typeof window !== 'undefined' ? window.location.pathname : '/index.html',
   );
   const [, startRouteTransition] = useTransition();
   const pasteAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const menuScrollRef = useRef<HTMLUListElement | null>(null);
+  const menuDragRef = useRef<{
+    startX: number;
+    startScrollLeft: number;
+    didDrag: boolean;
+  } | null>(null);
+  const menuSuppressClickRef = useRef(false);
+  const menuSuppressClickTimeoutRef = useRef<number | null>(null);
   const bulkWorkingControlRef = useRef<HTMLDivElement | null>(null);
   const bulkInputControlRef = useRef<HTMLDivElement | null>(null);
   const bulkResultControlRef = useRef<HTMLDivElement | null>(null);
@@ -527,8 +539,10 @@ function App() {
   const isCreativeResizer = routePath.includes('creative-resizer');
   const isCreativeEditor = routePath.includes('creative-editor');
   const isUtmGenerator = routePath.includes('utm-generator');
+  const isScreenRecorder = routePath.includes('screen-recorder');
   const isBulkPercent = routePath.includes('bulk-percent');
   const mainToolTitle = isBulkPercent ? 'Percent Cruncher' : 'Number Cruncher';
+  const mar8ReleaseDate = 'Mar 8, 2026';
   const feb28ReleaseDate = 'Feb 28, 2026';
   const latestReleaseDate = 'Feb 21, 2026';
   const feb17ReleaseDate = 'Feb 17, 2026';
@@ -1118,6 +1132,10 @@ function App() {
       void import('./UtmGenerator');
       return;
     }
+    if (pathname.includes('screen-recorder')) {
+      void import('./ScreenRecorder');
+      return;
+    }
     if (pathname.includes('share-splitter')) {
       void import('./ShareSplitter');
     }
@@ -1151,6 +1169,15 @@ function App() {
 
   const handleToolLinkClick = useCallback(
     (event: ReactMouseEvent<HTMLAnchorElement>) => {
+      if (menuSuppressClickRef.current) {
+        event.preventDefault();
+        if (typeof window !== 'undefined' && menuSuppressClickTimeoutRef.current !== null) {
+          window.clearTimeout(menuSuppressClickTimeoutRef.current);
+        }
+        menuSuppressClickTimeoutRef.current = null;
+        menuSuppressClickRef.current = false;
+        return;
+      }
       if (event.defaultPrevented) return;
       if (event.button !== 0) return;
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -1171,6 +1198,61 @@ function App() {
       preloadRouteModule(nextUrl.pathname);
     },
     [preloadRouteModule],
+  );
+
+  const clearMenuSuppressClick = useCallback(() => {
+    if (typeof window !== 'undefined' && menuSuppressClickTimeoutRef.current !== null) {
+      window.clearTimeout(menuSuppressClickTimeoutRef.current);
+    }
+    menuSuppressClickTimeoutRef.current = null;
+    menuSuppressClickRef.current = false;
+  }, []);
+
+  const armMenuSuppressClick = useCallback(() => {
+    if (typeof window === 'undefined') {
+      menuSuppressClickRef.current = false;
+      menuSuppressClickTimeoutRef.current = null;
+      return;
+    }
+    if (menuSuppressClickTimeoutRef.current !== null) {
+      window.clearTimeout(menuSuppressClickTimeoutRef.current);
+    }
+    menuSuppressClickRef.current = true;
+    menuSuppressClickTimeoutRef.current = window.setTimeout(() => {
+      menuSuppressClickRef.current = false;
+      menuSuppressClickTimeoutRef.current = null;
+    }, 0);
+  }, []);
+
+  const finishMenuDrag = useCallback(
+    (pointerId?: number) => {
+      const el = menuScrollRef.current;
+      if (el && typeof pointerId === 'number' && el.hasPointerCapture?.(pointerId)) {
+        el.releasePointerCapture(pointerId);
+      }
+      const didDrag = menuDragRef.current?.didDrag ?? false;
+      menuDragRef.current = null;
+      setMenuIsDragging(false);
+      if (didDrag) {
+        armMenuSuppressClick();
+      }
+    },
+    [armMenuSuppressClick],
+  );
+
+  const handleMenuMouseDown = useCallback(
+    (event: ReactMouseEvent<HTMLUListElement>) => {
+      if (event.button !== 0) return;
+      const el = menuScrollRef.current;
+      if (!el || el.scrollWidth <= el.clientWidth + 2) return;
+      clearMenuSuppressClick();
+      menuDragRef.current = {
+        startX: event.clientX,
+        startScrollLeft: el.scrollLeft,
+        didDrag: false,
+      };
+    },
+    [clearMenuSuppressClick],
   );
 
   useEffect(() => {
@@ -1251,6 +1333,51 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handleMouseMove = (event: MouseEvent) => {
+      const drag = menuDragRef.current;
+      const el = menuScrollRef.current;
+      if (!drag || !el) {
+        return;
+      }
+
+      const deltaX = event.clientX - drag.startX;
+      if (!drag.didDrag) {
+        if (Math.abs(deltaX) < 10) {
+          return;
+        }
+        drag.didDrag = true;
+        setMenuIsDragging(true);
+      }
+
+      el.scrollLeft = drag.startScrollLeft - deltaX;
+      event.preventDefault();
+    };
+
+    const handleMouseUp = () => {
+      if (!menuDragRef.current) {
+        return;
+      }
+      finishMenuDrag();
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [finishMenuDrag]);
+
+  useEffect(() => () => {
+    clearMenuSuppressClick();
+  }, [clearMenuSuppressClick]);
+
+  useEffect(() => {
     const consent = typeof window !== 'undefined' ? localStorage.getItem('nc-analytics-consent') : null;
     if (consent === 'granted') {
       loadAnalytics();
@@ -1303,8 +1430,9 @@ function App() {
           className={`menu-nav${menuOverflow ? ' is-scrollable' : ''}${menuFadeLeft ? ' has-left-fade' : ''}${menuFadeRight ? ' has-right-fade' : ''}`}
         >
           <ul
-            className={`tool-links${menuOverflow ? ' is-scrollable' : ''}`}
+            className={`tool-links${menuOverflow ? ' is-scrollable' : ''}${menuIsDragging ? ' is-dragging' : ''}`}
             ref={menuScrollRef}
+            onMouseDown={handleMenuMouseDown}
           >
             <li className="tool-links-section-title" aria-hidden="true">
               Numbers:
@@ -1351,6 +1479,11 @@ function App() {
               </a>
             </li>
             <li>
+              <a className="tool-link-button" href="/screen-recorder.html" onClick={handleToolLinkClick} onMouseEnter={handleToolLinkHover}>
+                Screen Recorder
+              </a>
+            </li>
+            <li>
               <a className="tool-link-button" href="/whats-new.html" onClick={handleToolLinkClick} onMouseEnter={handleToolLinkHover}>
                 What's new
               </a>
@@ -1376,6 +1509,13 @@ function App() {
                     <h2>Release notes</h2>
                   </div>
                 </header>
+                <div className="release-entry">
+                  <p className="release-date">{mar8ReleaseDate}</p>
+                  <ul className="whats-new-list">
+                    <li>Released Screen Recorder for capturing a screen, window, or browser tab with audio.</li>
+                    <li>Added cursor capture, optional webcam overlay, and save flow with WebM or MP4 output.</li>
+                  </ul>
+                </div>
                 <div className="release-entry">
                   <p className="release-date">{feb28ReleaseDate}</p>
                   <ul className="whats-new-list">
@@ -1447,7 +1587,7 @@ function App() {
               </section>
             </main>
           </>
-        ) : isCreativeRenamer || isCreativeResizer || isCreativeEditor || isUtmGenerator || isShareSplitter ? (
+        ) : isCreativeRenamer || isCreativeResizer || isCreativeEditor || isUtmGenerator || isShareSplitter || isScreenRecorder ? (
           <Suspense fallback={null}>
             {isCreativeRenamer ? (
               <CreativeRenamer />
@@ -1457,6 +1597,8 @@ function App() {
               <CreativeEditor />
             ) : isUtmGenerator ? (
               <UtmGenerator />
+            ) : isScreenRecorder ? (
+              <ScreenRecorder />
             ) : (
               <ShareSplitter />
             )}

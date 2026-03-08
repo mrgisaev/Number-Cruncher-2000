@@ -1,0 +1,683 @@
+.screen-recorder-page {
+  width: 100%;
+}
+
+.screen-recorder-card {
+  overflow: visible;
+}
+
+.screen-recorder-tool {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.screen-recorder-header {
+  margin-bottom: 0;
+}
+
+.screen-recorder-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.screen-recorder-field {
+  min-width: 0;
+}
+
+.screen-recorder-select-shell {
+  position: relative;
+  min-height: 52px;
+}
+
+.screen-recorder-native-select {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.screen-recorder-select-shell .screen-recorder-select-trigger {
+  position: relative;
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid rgba(212, 244, 247, 0.9);
+  border-radius: 18px;
+  padding: 0 42px 0 18px;
+  background: linear-gradient(135deg, rgba(244, 251, 253, 0.96), rgba(217, 234, 239, 0.96));
+  color: #000;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 10px 22px rgba(109, 180, 198, 0.18);
+  justify-content: center;
+}
+
+.screen-recorder-select-shell .screen-recorder-select-trigger:hover:not(:disabled) {
+  color: #000;
+  background: linear-gradient(135deg, rgba(246, 252, 254, 0.98), rgba(221, 238, 242, 0.98));
+}
+
+.screen-recorder-select-shell .screen-recorder-select-trigger.is-active {
+  color: #000;
+  text-shadow: none;
+}
+
+.screen-recorder-select-shell .screen-recorder-select-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.screen-recorder-select-shell .screen-recorder-select-value {
+  width: 100%;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1;
+  text-align: center;
+}
+
+.screen-recorder-select-shell .screen-recorder-select-trigger svg {
+  right: 14px;
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.2;
+}
+
+.screen-recorder-select-shell .screen-recorder-select-popover {
+  top: calc(100% + 8px);
+  left: 8px;
+  right: 8px;
+  transform: none;
+  min-width: 0;
+  padding: 8px;
+  border-radius: 18px;
+  border: 1px solid rgba(203, 235, 242, 0.95);
+  background: rgba(243, 251, 253, 0.98);
+  box-shadow: 0 14px 30px rgba(68, 118, 138, 0.2);
+}
+
+.screen-recorder-select-shell .screen-recorder-select-popover[hidden] {
+  display: none;
+}
+
+.screen-recorder-select-shell .screen-recorder-select-option {
+  min-height: 42px;
+  border-radius: 12px;
+  padding: 0 12px;
+  font-size: 0.98rem;
+  font-weight: 400;
+  color: #000;
+}
+
+.screen-recorder-select-shell .screen-recorder-select-option:hover {
+  background: rgba(191, 232, 237, 0.55);
+  color: #000;
+}
+
+.screen-recorder-select-shell .screen-recorder-select-option.is-active {
+  background: linear-gradient(135deg, rgba(186, 210, 212, 0.82), rgba(196, 223, 225, 0.88));
+  color: #000;
+}
+
+.screen-recorder-select-shell .screen-recorder-select-option span {
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.screen-recorder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.screen-recorder-webcam-group {
+  display: inline-flex;
+  align-items: stretch;
+  min-width: 0;
+  min-height: 52px;
+  border-radius: 14px;
+  border: 1px solid rgba(212, 255, 255, 0.75);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(232, 245, 255, 0.7));
+  box-shadow:
+    inset 0 1px 4px rgba(255, 255, 255, 0.55),
+    0 6px 18px rgba(191, 240, 255, 0.22);
+  overflow: hidden;
+}
+
+.screen-recorder-webcam-toggle {
+  position: relative;
+  z-index: 2;
+  min-height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.screen-recorder-webcam-shape-slot {
+  position: relative;
+  width: 0;
+  min-width: 0;
+  opacity: 0;
+  transform: translateX(-14px);
+  overflow: hidden;
+  pointer-events: none;
+  transition: width 0.24s ease, opacity 0.24s ease, transform 0.24s ease;
+}
+
+.screen-recorder-webcam-shape-slot.is-visible {
+  width: 168px;
+  opacity: 1;
+  transform: translateX(0);
+  overflow: visible;
+  pointer-events: auto;
+}
+
+.screen-recorder-webcam-shape-toggle {
+  min-height: 100%;
+  min-width: 168px;
+  padding-left: 18px;
+  white-space: nowrap;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.screen-recorder-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(212, 255, 255, 0.75);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(232, 245, 255, 0.7));
+  color: #4b4253;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 4px rgba(255, 255, 255, 0.55),
+    0 6px 18px rgba(191, 240, 255, 0.22);
+}
+
+.screen-recorder-toggle input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #2e91c4;
+}
+
+.screen-recorder-webcam-shape-toggle.screen-recorder-toggle {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.screen-recorder-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.screen-recorder-shortcut {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.58);
+  color: #4b4253;
+  font-size: 0.82rem;
+}
+
+.screen-recorder-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 24px;
+  padding: 12px;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(126, 184, 232, 0.2), transparent 30%),
+    linear-gradient(135deg, rgba(33, 46, 77, 0.98), rgba(27, 35, 59, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 18px 32px rgba(17, 35, 66, 0.28);
+}
+
+.screen-recorder-start,
+.screen-recorder-primary-button,
+.screen-recorder-ghost-button {
+  border: 0;
+  border-radius: 18px;
+  min-height: 52px;
+  padding: 0 20px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+
+.screen-recorder-start:hover,
+.screen-recorder-primary-button:hover,
+.screen-recorder-ghost-button:hover {
+  transform: translateY(-1px);
+}
+
+.screen-recorder-start:disabled,
+.screen-recorder-primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+}
+
+.screen-recorder-start {
+  grid-column: 1;
+  justify-self: start;
+  width: min(100%, 256px);
+  min-width: 206px;
+  min-height: 76px;
+  padding: 0 30px;
+  background: linear-gradient(180deg, #ea7a46, #d45d31);
+  color: #fff8f2;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 236, 0.42),
+    0 10px 24px rgba(103, 43, 20, 0.28);
+  font-size: clamp(1.18rem, 1.55vw, 1.56rem);
+  font-weight: 800;
+  line-height: 1.06;
+  letter-spacing: -0.01em;
+  text-align: center;
+}
+
+.screen-recorder-start.is-danger {
+  background: linear-gradient(180deg, #cf4d40, #a92c2d);
+  color: #fff5f2;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 233, 228, 0.35),
+    0 10px 24px rgba(83, 18, 20, 0.3);
+}
+
+.screen-recorder-readout {
+  grid-column: 2;
+  justify-self: center;
+  position: relative;
+  display: flex;
+  width: fit-content;
+  align-self: center;
+  align-items: center;
+  justify-content: center;
+  min-height: 76px;
+  padding: 0;
+}
+
+.screen-recorder-pulse {
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 50%;
+  width: 13px;
+  height: 13px;
+  border-radius: 999px;
+  background: rgba(236, 241, 248, 0.26);
+  box-shadow: 0 0 0 0 rgba(255, 116, 94, 0.36);
+  flex: 0 0 auto;
+  transform: translateY(-50%);
+}
+
+.screen-recorder-pulse.is-active {
+  background: #ff725c;
+  animation: screenRecorderPulse 1.4s infinite;
+}
+
+.screen-recorder-time {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  align-self: center;
+  padding: 0;
+  font-family: Bahnschrift, 'Roboto Condensed', 'Arial Narrow', 'Segoe UI', sans-serif;
+  font-size: clamp(3.35rem, 5vw, 4.7rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.045em;
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: 'lnum' 1, 'tnum' 1;
+  color: #f6f1ea;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  white-space: nowrap;
+  transform: translateY(5px);
+}
+
+.screen-recorder-webcam-overlay {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 24;
+  width: clamp(180px, 18vw, 280px);
+  overflow: visible;
+  background: transparent;
+  touch-action: none;
+  user-select: none;
+}
+
+.screen-recorder-webcam-overlay[hidden] {
+  display: none;
+}
+
+.screen-recorder-webcam-overlay.is-round {
+  width: clamp(160px, 16vw, 240px);
+}
+
+.screen-recorder-webcam-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  width: fit-content;
+  margin: 0 auto 8px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.9);
+  color: #5c6070;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: grab;
+}
+
+.screen-recorder-webcam-overlay.is-dragging .screen-recorder-webcam-handle {
+  cursor: grabbing;
+}
+
+#webcam-preview {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  height: auto;
+  object-fit: cover;
+  object-position: center;
+  transform: scaleX(-1);
+  background: #1f3659;
+  border-radius: 20px;
+  border: 1px solid rgba(212, 255, 255, 0.55);
+  box-shadow: 0 18px 36px rgba(17, 35, 66, 0.28);
+}
+
+.screen-recorder-webcam-overlay.is-round #webcam-preview {
+  aspect-ratio: 1 / 1;
+  border-radius: 999px;
+}
+
+.screen-recorder-toast-stack {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  z-index: 28;
+  display: grid;
+  gap: 10px;
+  width: min(360px, calc(100vw - 32px));
+}
+
+.screen-recorder-toast {
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(212, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.92);
+  color: #4b4253;
+  box-shadow: 0 14px 28px rgba(17, 35, 66, 0.18);
+  transform: translateY(12px);
+  opacity: 0;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+.screen-recorder-toast.is-visible {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.screen-recorder-toast.is-success {
+  background: linear-gradient(135deg, #effbff, #dff7ff);
+}
+
+.screen-recorder-toast.is-warn {
+  background: linear-gradient(135deg, #fff7e9, #ffeccc);
+}
+
+.screen-recorder-toast.is-error {
+  background: linear-gradient(135deg, #fff0f6, #ffddea);
+}
+
+.screen-recorder-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 32;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.screen-recorder-modal[hidden] {
+  display: none;
+}
+
+.screen-recorder-modal-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 17, 33, 0.52);
+  backdrop-filter: blur(10px);
+}
+
+.screen-recorder-modal-card {
+  position: relative;
+  z-index: 1;
+  width: min(980px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  display: grid;
+  gap: 20px;
+  overflow: auto;
+  padding: 24px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #bfedf5, #c7d7f0);
+  box-shadow: 0 28px 50px rgba(17, 35, 66, 0.3);
+}
+
+.screen-recorder-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.screen-recorder-modal-eyebrow {
+  margin: 0 0 8px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #61757f;
+}
+
+.screen-recorder-modal-header h2 {
+  margin: 0;
+  color: #4b4253;
+}
+
+.screen-recorder-icon-button {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #4b4253;
+  font-size: 1.4rem;
+  cursor: pointer;
+}
+
+#close-modal-button,
+#download-link {
+  display: none;
+}
+
+.screen-recorder-modal-body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+#recording-preview {
+  width: 100%;
+  border-radius: 20px;
+  background: #182949;
+  aspect-ratio: 16 / 9;
+}
+
+.screen-recorder-summary-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 20px;
+  padding: 18px 20px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.screen-recorder-summary-row {
+  display: block;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(104, 119, 127, 0.14);
+}
+
+.screen-recorder-summary-row:nth-last-child(-n + 2) {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.screen-recorder-summary-label {
+  margin-right: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: #68777f;
+}
+
+.screen-recorder-summary-value {
+  color: #4b4253;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.screen-recorder-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.screen-recorder-primary-button {
+  background: linear-gradient(135deg, #eefafd, #d1f1f6);
+  color: rgba(52, 80, 82, 0.92);
+  box-shadow:
+    inset 0 1px 5px rgba(255, 255, 255, 0.65),
+    0 8px 18px rgba(196, 246, 248, 0.26);
+}
+
+.screen-recorder-ghost-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.74);
+  color: #4b4253;
+  box-shadow:
+    inset 0 1px 5px rgba(255, 255, 255, 0.5),
+    0 4px 10px rgba(191, 240, 255, 0.2);
+}
+
+@keyframes screenRecorderPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 145, 183, 0.45);
+  }
+  70% {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 16px rgba(255, 145, 183, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 145, 183, 0);
+  }
+}
+
+@media (max-width: 1024px) {
+  .screen-recorder-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .screen-recorder-shortcuts {
+    margin-left: 0;
+  }
+
+  .screen-recorder-modal-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 860px) {
+  .screen-recorder-stage {
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+  }
+
+  .screen-recorder-start {
+    grid-column: auto;
+    justify-self: stretch;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .screen-recorder-readout {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .screen-recorder-fields,
+  .screen-recorder-summary-row {
+    padding: 8px 0;
+  }
+
+  .screen-recorder-summary-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .screen-recorder-summary-row:nth-last-child(-n + 2) {
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(104, 119, 127, 0.14);
+  }
+
+  .screen-recorder-summary-row:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .screen-recorder-toast-stack {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+  }
+
+  .screen-recorder-modal-card {
+    padding: 18px;
+  }
+}
