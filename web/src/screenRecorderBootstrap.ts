@@ -181,8 +181,8 @@ export function mountScreenRecorder(root: HTMLElement) {
   } = {
     destroyed: false,
     status: 'idle',
-    currentPresetId: 'source',
-    currentFps: 30,
+    currentPresetId: '1080p',
+    currentFps: 60,
     currentAudioId: 'system-mic',
     currentOutputFormat: 'webm',
     currentCursorEnabled: true,
