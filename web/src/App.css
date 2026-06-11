@@ -3450,6 +3450,8 @@ body::after {
 }
 
 .resizer-toolbar-button-primary {
+  position: relative;
+  overflow: visible;
   background: linear-gradient(135deg, #34d399, #059669);
   border-color: rgba(52, 211, 153, 0.6);
   box-shadow:
@@ -3464,6 +3466,109 @@ body::after {
     0 4px 8px rgba(5, 150, 105, 0.35),
     inset 0 3px 6px rgba(0, 0, 0, 0.15);
   color: #e7fff2;
+}
+
+.action-burst {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
+.action-burst::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  border: 1px solid rgba(236, 253, 245, 0.86);
+  border-radius: 999px;
+  transform: translate(-50%, -50%) scale(0.7);
+  animation: action-burst-ring 560ms ease-out forwards;
+}
+
+.action-burst-dot {
+  --burst-x: 0px;
+  --burst-y: -22px;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(236, 253, 245, 0.95);
+  box-shadow: 0 0 8px rgba(167, 243, 208, 0.62);
+  transform: translate(-50%, -50%);
+  animation: action-burst-dot 620ms ease-out forwards;
+}
+
+.action-burst-dot:nth-child(1) {
+  --burst-x: -2px;
+  --burst-y: -26px;
+}
+
+.action-burst-dot:nth-child(2) {
+  --burst-x: 22px;
+  --burst-y: -14px;
+}
+
+.action-burst-dot:nth-child(3) {
+  --burst-x: 22px;
+  --burst-y: 13px;
+}
+
+.action-burst-dot:nth-child(4) {
+  --burst-x: -2px;
+  --burst-y: 25px;
+}
+
+.action-burst-dot:nth-child(5) {
+  --burst-x: -23px;
+  --burst-y: 12px;
+}
+
+.action-burst-dot:nth-child(6) {
+  --burst-x: -22px;
+  --burst-y: -14px;
+}
+
+@keyframes action-burst-ring {
+  0% {
+    opacity: 0.75;
+    transform: translate(-50%, -50%) scale(0.65);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.25);
+  }
+}
+
+@keyframes action-burst-dot {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--burst-x)), calc(-50% + var(--burst-y))) scale(0.9);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .action-burst {
+    display: none;
+  }
 }
 
 .results-card .card-header .card-header-top > .clear-action-button,

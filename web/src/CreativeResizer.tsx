@@ -575,6 +575,7 @@ export const CreativeResizer = () => {
   const [targetWeightKilobytes, setTargetWeightKilobytes] = useState<number | null>(null);
   const [targetWeightInput, setTargetWeightInput] = useState('');
   const [isTargetWeightPinned, setIsTargetWeightPinned] = useState(false);
+  const [resizeBurstKey, setResizeBurstKey] = useState(0);
   const [qualityPreviewUrl, setQualityPreviewUrl] = useState<string | null>(null);
   const [qualityEstimatedSize, setQualityEstimatedSize] = useState('вЂ”');
   const [isDeckDropActive, setIsDeckDropActive] = useState(false);
@@ -1260,6 +1261,7 @@ export const CreativeResizer = () => {
             : asset,
         ),
       );
+      setResizeBurstKey((prev) => prev + 1);
     } catch {
       // keep state unchanged on crop failure
     } finally {
@@ -1841,6 +1843,16 @@ export const CreativeResizer = () => {
               disabled={!currentAsset || isWorking}
             >
               Resize image
+              {resizeBurstKey > 0 ? (
+                <span className="action-burst" key={resizeBurstKey} aria-hidden="true">
+                  <span className="action-burst-dot" />
+                  <span className="action-burst-dot" />
+                  <span className="action-burst-dot" />
+                  <span className="action-burst-dot" />
+                  <span className="action-burst-dot" />
+                  <span className="action-burst-dot" />
+                </span>
+              ) : null}
             </button>
             <button
               type="button"

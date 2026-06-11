@@ -453,6 +453,7 @@ export const CreativeEditor = () => {
   const [readyItems, setReadyItems] = useState<ReadyItem[]>([]);
   const [isWorking, setIsWorking] = useState(false);
   const [copiedReadyItemId, setCopiedReadyItemId] = useState<string | null>(null);
+  const [renderBurstKey, setRenderBurstKey] = useState(0);
 
   const [textSize, setTextSize] = useState(56);
   const [textSizeInput, setTextSizeInput] = useState('56');
@@ -1953,6 +1954,7 @@ export const CreativeEditor = () => {
         width: out.width,
         height: out.height,
       }]);
+      setRenderBurstKey((prev) => prev + 1);
     } finally {
       setIsWorking(false);
     }
@@ -2627,6 +2629,16 @@ export const CreativeEditor = () => {
               disabled={!currentAsset || isWorking}
             >
               Render
+              {renderBurstKey > 0 ? (
+                <span className="action-burst" key={renderBurstKey} aria-hidden="true">
+                  <span className="action-burst-dot" />
+                  <span className="action-burst-dot" />
+                  <span className="action-burst-dot" />
+                  <span className="action-burst-dot" />
+                  <span className="action-burst-dot" />
+                  <span className="action-burst-dot" />
+                </span>
+              ) : null}
             </button>
           </div>
         </div>
