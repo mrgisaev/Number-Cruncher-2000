@@ -62,6 +62,7 @@ const numberFormatter = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
+const DISPLAY_ZERO_THRESHOLD = 0.005;
 
 interface ParsedRow {
   raw: string;
@@ -1035,7 +1036,7 @@ function App() {
     const deltaTotal = sumValues(finiteDeltaValues);
     const computedFinalTotal = sumValues(finiteFinalValues);
     const finalTotal = computedFinalTotal || initialTotal + deltaTotal;
-    if (!Number.isFinite(finalTotal) || finalTotal <= 0) {
+    if (!Number.isFinite(finalTotal) || finalTotal < DISPLAY_ZERO_THRESHOLD) {
       return null;
     }
 
@@ -1067,7 +1068,7 @@ function App() {
       finalLabel: numberFormatter.format(finalTotal),
       finalValue: finalTotal,
       segments: candidates
-        .filter((item) => Number.isFinite(item.value) && item.value > 0)
+        .filter((item) => Number.isFinite(item.value) && item.value >= DISPLAY_ZERO_THRESHOLD)
         .map((item) => ({
           ...item,
           formatted: numberFormatter.format(item.value),
