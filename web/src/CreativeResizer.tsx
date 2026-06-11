@@ -121,6 +121,8 @@ const createId = () => Math.random().toString(36).slice(2, 10);
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
+const createFullImageRect = (): CropRect => ({ x: 0, y: 0, width: 1, height: 1 });
+
 const getExtension = (name: string) => {
   const match = name.match(/\.([^.]+)$/);
   return match ? match[1].toLowerCase() : '';
@@ -551,7 +553,7 @@ export const CreativeResizer = () => {
   const [customAspectW, setCustomAspectW] = useState('9');
   const [customAspectH, setCustomAspectH] = useState('16');
   const [useCustomOutputSize, setUseCustomOutputSize] = useState(false);
-  const [cropRect, setCropRect] = useState<CropRect>({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 });
+  const [cropRect, setCropRect] = useState<CropRect>(createFullImageRect);
   const [isWorking, setIsWorking] = useState(false);
   const [isSendingToEditor, setIsSendingToEditor] = useState(false);
   const [isSendingToRenamer, setIsSendingToRenamer] = useState(false);
@@ -580,6 +582,7 @@ export const CreativeResizer = () => {
   const qualityPreviewUrlRef = useRef<string | null>(null);
   const deckDragDepthRef = useRef(0);
   const globalFileDragDepthRef = useRef(0);
+  const lastCustomAspectAssetIdRef = useRef<string | null>(null);
 
   const currentAsset = assets[currentIndex] ?? null;
   const deckStep = 52;
@@ -654,7 +657,7 @@ export const CreativeResizer = () => {
       return;
     }
     setIsCropInteracting(false);
-    setCropRect(buildDefaultRect(normalizedAspectRatio));
+    setCropRect(createFullImageRect());
   }, [currentAsset?.id]);
 
   useEffect(() => {
@@ -1299,7 +1302,7 @@ export const CreativeResizer = () => {
     });
     setAssets([]);
     setCurrentIndex(0);
-    setCropRect({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 });
+    setCropRect(createFullImageRect());
     setZoomPercent(100);
     setPanOffset({ x: 0, y: 0 });
     setIsCropInteracting(false);
@@ -1531,6 +1534,11 @@ export const CreativeResizer = () => {
     if (aspectPreset !== 'custom') {
       return;
     }
+    const currentAssetId = currentAsset?.id ?? null;
+    if (lastCustomAspectAssetIdRef.current !== currentAssetId) {
+      lastCustomAspectAssetIdRef.current = currentAssetId;
+      return;
+    }
     const nextTargetAspectRatio = getAspectRatioFromPreset(
       'custom',
       null,
@@ -1542,7 +1550,7 @@ export const CreativeResizer = () => {
       imageAspectRatio,
     );
     setCropRect((prev) => fitRectToAspectAtPosition(prev, nextNormalizedAspectRatio));
-  }, [aspectPreset, customAspectW, customAspectH, imageAspectRatio]);
+  }, [aspectPreset, currentAsset?.id, customAspectW, customAspectH, imageAspectRatio]);
 
   return (
     <section className="creative-resizer">
