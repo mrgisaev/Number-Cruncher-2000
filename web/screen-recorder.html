@@ -43,6 +43,51 @@
       name="twitter:description"
       content="Record your screen, tab, audio, and webcam in the browser, then save WebM or convert recordings to MP4 locally."
     />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://number-cruncher.org/screen-recorder.html#app",
+            "name": "Screen Recorder",
+            "applicationCategory": "MultimediaApplication",
+            "operatingSystem": "Any modern web browser",
+            "isAccessibleForFree": true,
+            "url": "https://number-cruncher.org/screen-recorder.html",
+            "description": "Record your screen, tab, audio, and webcam in the browser, then save WebM or convert recordings to MP4 locally.",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "author": {
+              "@type": "Person",
+              "name": "Grigorii Isaev",
+              "url": "https://www.linkedin.com/in/mrgisaev/"
+            }
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://number-cruncher.org/screen-recorder.html#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Number Cruncher 2026",
+                "item": "https://number-cruncher.org/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Screen Recorder",
+                "item": "https://number-cruncher.org/screen-recorder.html"
+              }
+            ]
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
