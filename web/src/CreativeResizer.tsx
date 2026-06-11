@@ -1574,7 +1574,11 @@ export const CreativeResizer = () => {
       imageAspectRatio,
     );
     setAspectPreset(nextPreset);
-    setCropRect((prev) => fitRectToAspectAtPosition(prev, nextNormalizedAspectRatio));
+    setCropRect((prev) =>
+      nextPreset === 'original'
+        ? createFullImageRect()
+        : fitRectToAspectAtPosition(prev, nextNormalizedAspectRatio),
+    );
   };
 
   const applyAspectPairIfPresent = (raw: string) => {
