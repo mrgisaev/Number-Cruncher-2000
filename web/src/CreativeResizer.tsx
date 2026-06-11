@@ -329,8 +329,9 @@ const cropImageBlob = async (
     && sourceH >= asset.height;
   const keepsOriginalDimensions = outputW === asset.width && outputH === asset.height;
   const keepsOriginalQuality = quality >= 0.999;
+  const targetAllowsOriginalSize = !targetBytes || targetBytes >= asset.file.size;
 
-  if (isFullImageCrop && keepsOriginalDimensions && keepsOriginalQuality) {
+  if (isFullImageCrop && keepsOriginalDimensions && keepsOriginalQuality && targetAllowsOriginalSize) {
     return {
       blob: asset.file,
       width: asset.width,
@@ -545,6 +546,17 @@ const formatSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 };
 
+const bytesToKilobytes = (bytes: number) => Math.max(1, Math.ceil(bytes / 1024));
+
+const sanitizeKilobyteInput = (value: string) => value.replace(/[^\d]/g, '');
+
+const getWeightPercentForTarget = (targetKilobytes: number, maxBytes: number) => {
+  if (!Number.isFinite(targetKilobytes) || targetKilobytes <= 0 || maxBytes <= 0) {
+    return 100;
+  }
+  return clamp(Math.round(((targetKilobytes * 1024) / maxBytes) * 100), 1, 100);
+};
+
 export const CreativeResizer = () => {
   const [assets, setAssets] = useState<ResizerAsset[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -560,6 +572,9 @@ export const CreativeResizer = () => {
   const [sendError, setSendError] = useState('');
   const [zoomPercent, setZoomPercent] = useState(100);
   const [qualityPercent, setQualityPercent] = useState(100);
+  const [targetWeightKilobytes, setTargetWeightKilobytes] = useState<number | null>(null);
+  const [targetWeightInput, setTargetWeightInput] = useState('');
+  const [isTargetWeightPinned, setIsTargetWeightPinned] = useState(false);
   const [qualityPreviewUrl, setQualityPreviewUrl] = useState<string | null>(null);
   const [qualityEstimatedSize, setQualityEstimatedSize] = useState('вЂ”');
   const [isDeckDropActive, setIsDeckDropActive] = useState(false);
@@ -590,7 +605,7 @@ export const CreativeResizer = () => {
     ? (((assets.length - 1) / 2) - currentIndex) * deckStep
     : 0;
   const zoomScale = zoomPercent / 100;
-  const qualityValue = clamp(qualityPercent / 100, 0.1, 1);
+  const qualityValue = clamp(qualityPercent / 100, 0.02, 1);
   const hasGifAsset = useMemo(
     () => assets.some((asset) => asset.extension === 'gif' || asset.file.type === 'image/gif'),
     [assets],
@@ -631,11 +646,15 @@ export const CreativeResizer = () => {
     return Math.max(1, Math.floor(currentAsset.file.size * areaRatio));
   }, [currentAsset, cropRect.width, cropRect.height]);
   const targetOutputBytes = useMemo<number | null>(() => {
+    if (targetWeightKilobytes) {
+      return Math.max(1, Math.round(targetWeightKilobytes * 1024));
+    }
     if (!maxOutputBytes) {
       return null;
     }
     return Math.max(1, Math.floor(maxOutputBytes * (qualityPercent / 100)));
-  }, [maxOutputBytes, qualityPercent]);
+  }, [maxOutputBytes, qualityPercent, targetWeightKilobytes]);
+  const outputQualityValue = targetWeightKilobytes ? 1 : qualityValue;
 
   const clampPanOffset = (x: number, y: number, scale = zoomScale) => {
     const wrap = imageWrapRef.current;
@@ -695,11 +714,25 @@ export const CreativeResizer = () => {
   }, [zoomScale, currentAsset?.id]);
 
   useEffect(() => {
-    if (!currentAsset) {
+    if (!maxOutputBytes) {
+      if (!isTargetWeightPinned) {
+        setTargetWeightKilobytes(null);
+        setTargetWeightInput('');
+        setQualityPercent(100);
+      }
       return;
     }
-    setQualityPercent(100);
-  }, [currentAsset?.id]);
+    if (!isTargetWeightPinned) {
+      const nextKilobytes = bytesToKilobytes(maxOutputBytes);
+      setTargetWeightKilobytes(nextKilobytes);
+      setTargetWeightInput(String(nextKilobytes));
+      setQualityPercent(100);
+      return;
+    }
+    if (targetWeightKilobytes) {
+      setQualityPercent(getWeightPercentForTarget(targetWeightKilobytes, maxOutputBytes));
+    }
+  }, [maxOutputBytes, isTargetWeightPinned, targetWeightKilobytes]);
 
   useEffect(() => {
     qualityPreviewTaskRef.current += 1;
@@ -713,7 +746,7 @@ export const CreativeResizer = () => {
       });
       return undefined;
     }
-    if (qualityPercent >= 100) {
+    if (!maxOutputBytes || !targetOutputBytes || targetOutputBytes >= maxOutputBytes) {
       setQualityPreviewUrl((prev) => {
         if (prev) {
           URL.revokeObjectURL(prev);
@@ -760,7 +793,7 @@ export const CreativeResizer = () => {
     return () => {
       window.clearTimeout(timer);
     };
-  }, [currentAsset, qualityValue, qualityPercent, targetOutputBytes]);
+  }, [currentAsset, qualityValue, maxOutputBytes, targetOutputBytes]);
 
   useEffect(() => {
     qualityEstimateTaskRef.current += 1;
@@ -780,7 +813,7 @@ export const CreativeResizer = () => {
             currentAsset,
             cropRect,
             customOutputSize,
-            qualityValue,
+            outputQualityValue,
             maxOutputBytes,
             targetOutputBytes,
           );
@@ -807,7 +840,7 @@ export const CreativeResizer = () => {
     cropRect.width,
     cropRect.height,
     customOutputSize,
-    qualityValue,
+    outputQualityValue,
     maxOutputBytes,
     targetOutputBytes,
     isCropInteracting,
@@ -1201,7 +1234,7 @@ export const CreativeResizer = () => {
         currentAsset,
         cropRect,
         customOutputSize,
-        qualityValue,
+        outputQualityValue,
         maxOutputBytes,
         targetOutputBytes,
       );
@@ -1484,6 +1517,47 @@ export const CreativeResizer = () => {
   const handleZoomReset = () => {
     setZoomPercent(100);
     setPanOffset({ x: 0, y: 0 });
+  };
+
+  const handleWeightSliderChange = (value: string) => {
+    const nextPercent = clamp(Number(value), 1, 100);
+    setQualityPercent(nextPercent);
+    if (!maxOutputBytes) {
+      return;
+    }
+    const nextKilobytes = bytesToKilobytes(maxOutputBytes * (nextPercent / 100));
+    setTargetWeightKilobytes(nextKilobytes);
+    setTargetWeightInput(String(nextKilobytes));
+    setIsTargetWeightPinned(true);
+  };
+
+  const handleTargetWeightInputChange = (value: string) => {
+    const nextInput = sanitizeKilobyteInput(value);
+    setTargetWeightInput(nextInput);
+    setIsTargetWeightPinned(true);
+    const nextKilobytes = parsePositiveInt(nextInput);
+    if (!nextKilobytes) {
+      return;
+    }
+    setTargetWeightKilobytes(nextKilobytes);
+    if (maxOutputBytes) {
+      setQualityPercent(getWeightPercentForTarget(nextKilobytes, maxOutputBytes));
+    }
+  };
+
+  const handleTargetWeightInputBlur = () => {
+    if (targetWeightKilobytes) {
+      setTargetWeightInput(String(targetWeightKilobytes));
+      return;
+    }
+    if (!maxOutputBytes) {
+      setTargetWeightInput('');
+      return;
+    }
+    const fallbackKilobytes = bytesToKilobytes(maxOutputBytes);
+    setTargetWeightKilobytes(fallbackKilobytes);
+    setTargetWeightInput(String(fallbackKilobytes));
+    setQualityPercent(100);
   };
 
   const handleAspectPresetChange = (nextPreset: AspectPreset) => {
@@ -1816,15 +1890,28 @@ export const CreativeResizer = () => {
             <input
               type="range"
               className="resizer-quality-slider"
-              min={10}
+              min={1}
               max={100}
               step={1}
               value={qualityPercent}
-              onChange={(event) => setQualityPercent(clamp(Number(event.target.value), 10, 100))}
+              onChange={(event) => handleWeightSliderChange(event.target.value)}
               disabled={!currentAsset || isWorking}
-              aria-label="Compression quality"
+              aria-label="Target image weight"
             />
-            <span className="resizer-stage-size">{qualityEstimatedSize}</span>
+            <label className="resizer-stage-size" title={`Estimated output: ${qualityEstimatedSize}`}>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                className="resizer-stage-size-input"
+                value={targetWeightInput}
+                onChange={(event) => handleTargetWeightInputChange(event.target.value)}
+                onBlur={handleTargetWeightInputBlur}
+                disabled={!currentAsset || isWorking}
+                aria-label="Target image weight in KB"
+              />
+              <span className="resizer-stage-size-unit">KB</span>
+            </label>
           </div>
         </div>
 

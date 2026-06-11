@@ -3664,12 +3664,48 @@ body::after {
 }
 
 .resizer-stage-size {
-  min-width: 64px;
-  text-align: right;
+  min-width: 86px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
   color: rgba(52, 80, 82, 0.8);
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.01em;
+}
+
+.resizer-stage-size-input {
+  width: 58px;
+  height: 28px;
+  box-sizing: border-box;
+  border: 1px solid rgba(142, 190, 200, 0.42);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.68);
+  color: rgba(45, 68, 74, 0.88);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-align: right;
+  padding: 0 6px;
+  outline: none;
+}
+
+.resizer-stage-size-input:focus {
+  border-color: rgba(73, 141, 162, 0.62);
+  box-shadow: 0 0 0 3px rgba(134, 211, 224, 0.2);
+}
+
+.resizer-stage-size-input:disabled {
+  opacity: 0.55;
+}
+
+.resizer-stage-size-unit {
+  color: rgba(52, 80, 82, 0.64);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 
 .resizer-zoom-slider:disabled {
@@ -5032,12 +5068,14 @@ body::after {
     align-items: stretch;
   }
 
-  .resizer-stage-zoom {
+  .resizer-stage-zoom,
+  .resizer-stage-quality {
     width: 100%;
     justify-content: space-between;
   }
 
-  .resizer-zoom-slider {
+  .resizer-zoom-slider,
+  .resizer-quality-slider {
     flex: 1 1 auto;
     width: auto;
   }
