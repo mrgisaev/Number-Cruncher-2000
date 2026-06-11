@@ -425,6 +425,174 @@ body::after {
   max-width: 136px;
 }
 
+.bulk-visualizer-card {
+  min-height: 0;
+  padding: 18px 24px;
+  gap: 12px;
+}
+
+.bulk-visualizer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bulk-visualizer-header h2 {
+  margin: 0;
+  color: #4b4253;
+  font-size: 1.18rem;
+  line-height: 1.2;
+}
+
+.bulk-zone-line {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 54px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.52);
+  box-shadow:
+    inset 0 1px 5px rgba(70, 108, 120, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.54);
+  overflow: hidden;
+}
+
+.bulk-zone-segment {
+  flex: 0 0 var(--zone-width);
+  min-width: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  background: linear-gradient(135deg, #0284c7, #22d3ee);
+  color: #f8ffff;
+  box-shadow:
+    inset -2px 0 0 rgba(255, 255, 255, 0.34),
+    0 0 12px rgba(14, 165, 233, 0.18);
+  transition: flex-basis 180ms ease;
+}
+
+.bulk-zone-segment.is-delta {
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  box-shadow:
+    inset -2px 0 0 rgba(255, 255, 255, 0.34),
+    0 0 12px rgba(249, 115, 22, 0.18);
+}
+
+.bulk-zone-final-marker {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-end;
+  padding: 7px 10px;
+  border-radius: 12px;
+  background: rgba(248, 255, 255, 0.86);
+  color: rgba(54, 63, 78, 0.94);
+  box-shadow:
+    0 8px 18px rgba(34, 92, 116, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.bulk-zone-segment + .bulk-zone-segment::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  width: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.38);
+}
+
+.bulk-zone-segment span,
+.bulk-zone-segment strong,
+.bulk-zone-final-marker span,
+.bulk-zone-final-marker strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.1;
+  text-shadow: 0 1px 8px rgba(15, 52, 62, 0.18);
+}
+
+.bulk-zone-segment span {
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.bulk-zone-segment strong,
+.bulk-zone-final-marker strong {
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.bulk-zone-final-marker span {
+  color: rgba(80, 96, 106, 0.68);
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.bulk-zone-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+}
+
+.bulk-zone-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(80, 96, 106, 0.72);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.bulk-zone-legend-item i {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #0284c7, #22d3ee);
+}
+
+.bulk-zone-legend-item.is-delta i {
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+}
+
+.bulk-zone-legend-item.is-final i {
+  background: rgba(54, 63, 78, 0.72);
+}
+
+.bulk-zone-empty {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.48);
+  color: rgba(80, 96, 106, 0.64);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
 .share-splitter .split-control {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -5288,6 +5456,22 @@ body::after {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .bulk-visualizer-card {
+    padding: 18px;
+  }
+
+  .bulk-zone-line {
+    min-height: 64px;
+  }
+
+  .bulk-zone-segment {
+    padding: 10px 8px;
+  }
+
+  .bulk-zone-legend {
+    gap: 8px;
   }
 
   .utm-tree-cell {

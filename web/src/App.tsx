@@ -356,6 +356,21 @@ interface BulkDerivedRow {
   margin: number | null;
 }
 
+interface BulkMapSegment {
+  id: 'initial' | 'delta';
+  label: string;
+  meta: string;
+  value: number;
+  formatted: string;
+  width: number;
+}
+
+interface BulkMapData {
+  segments: BulkMapSegment[];
+  finalLabel: string;
+  finalValue: number;
+}
+
 const BULK_TYPE_LABELS: Record<BulkInputType | BulkWorkingType, string> = {
   initial: 'Initial sum',
   final: 'Final sum',
@@ -1001,6 +1016,71 @@ function App() {
   const adjustedSumLabel = isPercentResultOutput
     ? `${numberFormatter.format(adjustedSum)}%`
     : numberFormatter.format(adjustedSum);
+  const bulkMapData = useMemo<BulkMapData | null>(() => {
+    if (!isBulkPercent) {
+      return null;
+    }
+
+    const finiteInitialValues = bulkDerivedRows
+      .map((row) => row.initial)
+      .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+    const finiteDeltaValues = bulkDerivedRows
+      .map((row) => row.markup)
+      .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+    const finiteFinalValues = bulkDerivedRows
+      .map((row) => row.final)
+      .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+
+    const initialTotal = sumValues(finiteInitialValues);
+    const deltaTotal = sumValues(finiteDeltaValues);
+    const computedFinalTotal = sumValues(finiteFinalValues);
+    const finalTotal = computedFinalTotal || initialTotal + deltaTotal;
+    if (!Number.isFinite(finalTotal) || finalTotal <= 0) {
+      return null;
+    }
+
+    const deltaLabel =
+      bulkWorkingType === 'margin' ||
+      bulkInputType === 'margin' ||
+      bulkInputType === 'margin_percent' ||
+      bulkEffectiveResultType === 'margin_value' ||
+      bulkEffectiveResultType === 'margin_percent'
+        ? 'Margin'
+        : 'Markup';
+
+    const candidates: Array<Omit<BulkMapSegment, 'formatted' | 'width'>> = [
+      {
+        id: 'initial',
+        label: 'Initial sum',
+        meta: 'Base',
+        value: initialTotal,
+      },
+      {
+        id: 'delta',
+        label: deltaLabel,
+        meta: 'Added value',
+        value: deltaTotal,
+      },
+    ];
+
+    return {
+      finalLabel: numberFormatter.format(finalTotal),
+      finalValue: finalTotal,
+      segments: candidates
+        .filter((item) => Number.isFinite(item.value) && item.value > 0)
+        .map((item) => ({
+          ...item,
+          formatted: numberFormatter.format(item.value),
+          width: Math.min(100, (item.value / finalTotal) * 100),
+        })),
+    };
+  }, [
+    bulkDerivedRows,
+    bulkEffectiveResultType,
+    bulkInputType,
+    bulkWorkingType,
+    isBulkPercent,
+  ]);
   const formattedValues = (() => {
     let pointer = 0;
     return parsedRows.map((row) => {
@@ -1791,6 +1871,48 @@ function App() {
                   </div>
                 </div>
               </section>
+              {isBulkPercent ? (
+                <section className="card bulk-visualizer-card" aria-label="Percent data visualizer">
+                  <header className="bulk-visualizer-header">
+                    <h2>Data map</h2>
+                  </header>
+                  {bulkMapData?.segments.length ? (
+                    <>
+                      <div className="bulk-zone-line">
+                        {bulkMapData.segments.map((item) => (
+                          <div
+                            className={`bulk-zone-segment is-${item.id}`}
+                            key={item.id}
+                            style={{ '--zone-width': `${item.width}%` } as CSSProperties}
+                            title={`${item.label}: ${item.formatted}`}
+                          >
+                            <span>{item.label}</span>
+                            <strong>{item.formatted}</strong>
+                          </div>
+                        ))}
+                        <div className="bulk-zone-final-marker">
+                          <span>Final sum</span>
+                          <strong>{bulkMapData.finalLabel}</strong>
+                        </div>
+                      </div>
+                      <div className="bulk-zone-legend" aria-label="Displayed data points">
+                        {bulkMapData.segments.map((item) => (
+                          <span className={`bulk-zone-legend-item is-${item.id}`} key={item.id}>
+                            <i aria-hidden="true" />
+                            {item.meta}
+                          </span>
+                        ))}
+                        <span className="bulk-zone-legend-item is-final">
+                          <i aria-hidden="true" />
+                          Final sum
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="bulk-zone-empty">Non-zero values will appear here.</div>
+                  )}
+                </section>
+              ) : null}
             <main className="grid">
               <section className="card">
                   <header className="card-header">
