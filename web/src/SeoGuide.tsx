@@ -26,6 +26,12 @@ type SeoInstruction = {
   text: ReactNode;
 };
 
+type SeoRelatedLink = {
+  href: string;
+  label: string;
+  description: string;
+};
+
 type SeoGuideContent = {
   kicker: string;
   title: string;
@@ -33,6 +39,7 @@ type SeoGuideContent = {
   details: SeoDetail[];
   instructions: SeoInstruction[];
   faqs: SeoQuestion[];
+  related?: SeoRelatedLink[];
 };
 
 const seoGuides: Record<SeoGuidePage, SeoGuideContent> = {
@@ -89,6 +96,18 @@ const seoGuides: Record<SeoGuidePage, SeoGuideContent> = {
         question: 'When is target sum useful?',
         answer:
           'A target sum is useful when a plan, budget, or report needs the same row proportions but a new final total.',
+      },
+    ],
+    related: [
+      {
+        href: '/bulk-percent.html',
+        label: 'Percent Cruncher',
+        description: 'Calculate markup, margin, initial sum, and final sum.',
+      },
+      {
+        href: '/share-splitter.html',
+        label: 'Share Splitter',
+        description: 'Split one total into named rows and nested groups.',
       },
     ],
   },
@@ -148,6 +167,18 @@ const seoGuides: Record<SeoGuidePage, SeoGuideContent> = {
           'The map uses one horizontal scale from zero to final sum, then splits that line into initial value and markup.',
       },
     ],
+    related: [
+      {
+        href: '/',
+        label: 'Number Cruncher',
+        description: 'Fit a pasted number list to a target total.',
+      },
+      {
+        href: '/share-splitter.html',
+        label: 'Share Splitter',
+        description: 'Turn totals into shares, amounts, and grouped rows.',
+      },
+    ],
   },
   share: {
     kicker: 'Share split calculator',
@@ -204,6 +235,18 @@ const seoGuides: Record<SeoGuidePage, SeoGuideContent> = {
         question: 'What happens to unassigned value?',
         answer:
           'The remaining value can be tracked as a backup or not-set row, keeping the split transparent.',
+      },
+    ],
+    related: [
+      {
+        href: '/',
+        label: 'Number Cruncher',
+        description: 'Recalculate pasted rows so the result reaches a target total.',
+      },
+      {
+        href: '/utm-generator.html',
+        label: 'UTM Generator',
+        description: 'Create campaign URL lists from landing pages and parameters.',
       },
     ],
   },
@@ -265,6 +308,18 @@ const seoGuides: Record<SeoGuidePage, SeoGuideContent> = {
           'The resize workflow runs in the browser, so the selected files stay on the local device during processing.',
       },
     ],
+    related: [
+      {
+        href: '/creative-editor.html',
+        label: 'Creative Editor',
+        description: 'Add text, stickers, and backgrounds after resizing.',
+      },
+      {
+        href: '/creative-renamer.html',
+        label: 'Asset Renamer',
+        description: 'Rename the ready image batch with groups and identifiers.',
+      },
+    ],
   },
   editor: {
     kicker: 'Creative image editor',
@@ -320,6 +375,18 @@ const seoGuides: Record<SeoGuidePage, SeoGuideContent> = {
         question: 'How is this different from resizing?',
         answer:
           'Resizing focuses on crop, dimensions, and file weight. Editing adds visual layers and composition controls.',
+      },
+    ],
+    related: [
+      {
+        href: '/creative-resizer.html',
+        label: 'Creative Resizer',
+        description: 'Crop, resize, and compress image batches before editing.',
+      },
+      {
+        href: '/creative-renamer.html',
+        label: 'Asset Renamer',
+        description: 'Rename exported creatives and download the ZIP.',
       },
     ],
   },
@@ -381,6 +448,18 @@ const seoGuides: Record<SeoGuidePage, SeoGuideContent> = {
           'Image, video, and general file batches can be organized together when they share a naming structure.',
       },
     ],
+    related: [
+      {
+        href: '/creative-resizer.html',
+        label: 'Creative Resizer',
+        description: 'Prepare image dimensions and file weight before naming.',
+      },
+      {
+        href: '/creative-editor.html',
+        label: 'Creative Editor',
+        description: 'Edit creative images before final file naming.',
+      },
+    ],
   },
   utm: {
     kicker: 'UTM campaign URL builder',
@@ -435,6 +514,18 @@ const seoGuides: Record<SeoGuidePage, SeoGuideContent> = {
         question: 'Why generate UTM links in bulk?',
         answer:
           'Bulk generation keeps naming consistent when one campaign has many links, placements, or creative variants.',
+      },
+    ],
+    related: [
+      {
+        href: '/share-splitter.html',
+        label: 'Share Splitter',
+        description: 'Split campaign totals into shares and grouped values.',
+      },
+      {
+        href: '/',
+        label: 'Number Cruncher',
+        description: 'Adjust pasted number lists before building URL outputs.',
       },
     ],
   },
@@ -496,6 +587,18 @@ const seoGuides: Record<SeoGuidePage, SeoGuideContent> = {
           'The capture and save workflow runs locally in the browser; the selected recording is not uploaded by the tool.',
       },
     ],
+    related: [
+      {
+        href: '/whats-new.html',
+        label: "What's new",
+        description: 'Review recent updates for Screen Recorder and other tools.',
+      },
+      {
+        href: '/creative-editor.html',
+        label: 'Creative Editor',
+        description: 'Prepare visual assets after recording or screen capture.',
+      },
+    ],
   },
   'whats-new': {
     kicker: 'Release notes',
@@ -552,6 +655,23 @@ const seoGuides: Record<SeoGuidePage, SeoGuideContent> = {
           'The page is updated when a meaningful feature, fix, or production workflow improvement ships.',
       },
     ],
+    related: [
+      {
+        href: '/screen-recorder.html',
+        label: 'Screen Recorder',
+        description: 'Record a screen, tab, window, audio, and webcam.',
+      },
+      {
+        href: '/creative-resizer.html',
+        label: 'Creative Resizer',
+        description: 'Resize and compress creative image batches.',
+      },
+      {
+        href: '/bulk-percent.html',
+        label: 'Percent Cruncher',
+        description: 'Calculate markup, margin, initial sum, and final sum.',
+      },
+    ],
   },
 };
 
@@ -562,7 +682,7 @@ function SeoWorkflow({ guide, className = '' }: { guide: SeoGuideContent; classN
         <article key={item.step}>
           <span>{String(index + 1).padStart(2, '0')}</span>
           <div>
-            <h3>{item.step}</h3>
+            <p className="tool-seo-workflow-title">{item.step}</p>
             <p>{item.text}</p>
           </div>
         </article>
@@ -627,6 +747,19 @@ export function SeoGuide({ page }: { page: SeoGuidePage }) {
           </article>
         ))}
       </div>
+      {guide.related?.length ? (
+        <nav className="tool-seo-related" aria-label={`${guide.kicker} related tools`}>
+          <span>Related tools</span>
+          <div>
+            {guide.related.map((item) => (
+              <a href={item.href} key={item.href}>
+                <strong>{item.label}</strong>
+                <small>{item.description}</small>
+              </a>
+            ))}
+          </div>
+        </nav>
+      ) : null}
     </section>
   );
 }

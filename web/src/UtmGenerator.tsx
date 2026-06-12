@@ -564,6 +564,7 @@ export const UtmGenerator = () => {
                           value={row.node.name}
                           readOnly
                           aria-readonly="true"
+                          aria-label={`${row.node.name} parameter`}
                           tabIndex={-1}
                         />
                       </div>
@@ -572,6 +573,7 @@ export const UtmGenerator = () => {
                         value={row.node.valueInput}
                         onChange={(event) => handleUpdateValue(row.id, event.target.value)}
                         onKeyDown={(event) => handleVerticalFieldNavigation(event, '.utm-value-input')}
+                        aria-label={`${row.node.name} value`}
                         onPaste={(event) => {
                           const text = event.clipboardData.getData('text');
                           const values = parsePastedCells(text);

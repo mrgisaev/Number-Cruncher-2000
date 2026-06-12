@@ -1753,7 +1753,7 @@ export const CreativeResizer = () => {
             >
               &lsaquo;
             </button>
-            <div className="resizer-deck" role="listbox" aria-label="Loaded images">
+            <div className="resizer-deck" role={assets.length ? 'listbox' : undefined} aria-label="Loaded images">
               {assets.length ? (
                 <div
                   className="resizer-deck-track"
@@ -1897,7 +1897,7 @@ export const CreativeResizer = () => {
               className="resizer-zoom-reset"
               onClick={handleZoomReset}
               disabled={!currentAsset || isWorking}
-              aria-label="Reset zoom"
+              aria-label="100% reset zoom"
             >
               100%
             </button>

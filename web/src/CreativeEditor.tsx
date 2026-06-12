@@ -2700,7 +2700,7 @@ export const CreativeEditor = () => {
                     }}
                     aria-haspopup="listbox"
                     aria-expanded={isBgModeOpen}
-                    aria-label="Background mode"
+                    aria-label={`${textBgModeOptions.find((option) => option.value === textBgMode)?.label ?? 'None'} background mode`}
                   >
                     <span className="editor-select-value">
                       {textBgModeOptions.find((option) => option.value === textBgMode)?.label ?? 'None'}
@@ -3045,7 +3045,7 @@ export const CreativeEditor = () => {
                   }}
                   aria-haspopup="listbox"
                   aria-expanded={isFontOpen}
-                  aria-label="Font family"
+                  aria-label={`${textFont} font family`}
                 >
                   <span className="editor-select-value">{textFont}</span>
                   <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -3085,6 +3085,7 @@ export const CreativeEditor = () => {
                   min={1}
                   max={300}
                   value={textSizeInput}
+                  aria-label="Text size"
                   onChange={(event) => handleTextSizeInputChange(event.target.value)}
                   onBlur={commitTextSizeInput}
                   onKeyDown={(event) => {

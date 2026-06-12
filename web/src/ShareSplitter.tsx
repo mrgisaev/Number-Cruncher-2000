@@ -738,6 +738,7 @@ export const ShareSplitter = () => {
             className="split-name-input"
             value={row.name}
             disabled={false}
+            aria-label={`Row ${rowIndex + 1} name`}
             onFocus={() => row.isNotSet && handleConvertNotSet(row)}
             onClick={() => row.isNotSet && handleConvertNotSet(row)}
             onChange={(event) => handleUpdateName(row.id, event.target.value)}
@@ -784,6 +785,7 @@ export const ShareSplitter = () => {
           className="split-value-input"
           value={row.valueInput}
           disabled={row.isNotSet}
+          aria-label={`Row ${rowIndex + 1} value`}
           onChange={(event) => handleUpdateValue(row.id, event.target.value)}
           onKeyDown={(event) => {
             if (event.key === 'Enter') {
@@ -866,6 +868,7 @@ export const ShareSplitter = () => {
                       inputMode="decimal"
                       value={totalInput}
                       onChange={(event) => setTotalInput(event.target.value)}
+                      aria-label="Total sum"
                     />
                   </div>
                 </div>
@@ -901,6 +904,7 @@ export const ShareSplitter = () => {
                       inputMode="numeric"
                       value={roundingInput}
                       onChange={(event) => setRoundingInput(event.target.value)}
+                      aria-label="Rounding"
                     />
                   </div>
                 </div>
@@ -936,6 +940,7 @@ export const ShareSplitter = () => {
                       inputMode="numeric"
                       value={randomPercentInput}
                       onChange={(event) => setRandomPercentInput(event.target.value)}
+                      aria-label="Randomizer (%)"
                     />
                   </div>
                 </div>
