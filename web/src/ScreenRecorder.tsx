@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import './ScreenRecorder.css';
 import { mountScreenRecorder } from './screenRecorderBootstrap';
+import { HowToUse, SeoGuide } from './SeoGuide';
 
 export function ScreenRecorder() {
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -19,10 +20,10 @@ export function ScreenRecorder() {
         <div className="controls">
           <div className="controls-heading">
             <h1 className="controls-heading-title">Screen Recorder</h1>
-            <p className="controls-subtitle">
+            <HowToUse page="screen">
               Capture a screen, window, or tab with audio, cursor, and an optional webcam
               overlay.
-            </p>
+            </HowToUse>
           </div>
         </div>
       </section>
@@ -188,6 +189,7 @@ export function ScreenRecorder() {
           </div>
         </section>
       </main>
+      <SeoGuide page="screen" />
     </>
   );
 }

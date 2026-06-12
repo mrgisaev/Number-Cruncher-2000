@@ -1,7 +1,7 @@
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: 'Roboto', 'Segoe UI', Tahoma, sans-serif;
+  font-family: var(--ui-font);
   background: radial-gradient(circle at 12% 12%, #0c99bd, #13768f 42%, #01070a 100%);
   color: #45334c;
   position: relative;
@@ -140,6 +140,85 @@ body::after {
 .controls-subtitle {
   font-size: 0.85rem;
   color: #5e5169;
+}
+
+.how-to-use {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+}
+
+.how-to-use .controls-subtitle {
+  display: block;
+}
+
+.how-to-use-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: 600;
+  background: transparent;
+  color: #263941;
+  cursor: pointer;
+  vertical-align: baseline;
+  transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+.how-to-use-toggle:hover {
+  color: #000;
+}
+
+.how-to-use-toggle:focus-visible {
+  outline: 1px solid rgba(38, 57, 65, 0.45);
+  outline-offset: 3px;
+}
+
+.how-to-use-toggle svg {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  margin-top: 1px;
+  transition: transform 0.22s ease;
+}
+
+.how-to-use.is-open .how-to-use-toggle svg {
+  transform: rotate(180deg);
+}
+
+.how-to-use-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    grid-template-rows 0.26s ease,
+    opacity 0.18s ease,
+    transform 0.26s ease;
+}
+
+.how-to-use.is-open .how-to-use-panel {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.how-to-use-panel > .tool-seo-workflow {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.how-to-use-workflow {
+  padding-top: 16px;
 }
 
 .number-field {
@@ -593,6 +672,143 @@ body::after {
   font-weight: 700;
 }
 
+.tool-seo-guide {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+  border-radius: 24px;
+  border: none;
+  background: linear-gradient(135deg, #bfedf5, #c7d7f0);
+  box-shadow: 0 18px 40px rgba(191, 240, 255, 0.35);
+  color: #45334c;
+}
+
+.tool-seo-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 700px;
+}
+
+.tool-seo-kicker {
+  margin: 0;
+  color: #6b6373;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.35;
+  text-transform: none;
+}
+
+.tool-seo-guide h2,
+.tool-seo-guide h3,
+.tool-seo-guide p {
+  margin: 0;
+}
+
+.tool-seo-guide h2 {
+  color: #4b4253;
+  font-size: 1.32rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.tool-seo-guide p {
+  color: #6b6373;
+  font-size: 0.93rem;
+  line-height: 1.55;
+}
+
+.tool-seo-detail-grid,
+.tool-seo-faq-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.tool-seo-faq-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding-top: 2px;
+}
+
+.tool-seo-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  padding: 12px 0 10px;
+  border-top: 1px solid rgba(77, 65, 97, 0.15);
+}
+
+.tool-seo-detail span {
+  color: #6b6373;
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.35;
+  text-transform: none;
+}
+
+.tool-seo-detail code {
+  color: #45334c;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.tool-seo-workflow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 2px 0;
+}
+
+.tool-seo-workflow article {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  padding: 13px 0 0;
+  border-top: 1px solid rgba(77, 65, 97, 0.15);
+}
+
+.tool-seo-workflow article > span {
+  color: #6b6373;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.tool-seo-workflow h3 {
+  color: #4b4253;
+  font-size: 0.96rem;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 5px;
+}
+
+.tool-seo-workflow strong {
+  color: #45334c;
+  font-weight: inherit;
+}
+
+.tool-seo-faq-grid article {
+  min-width: 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(77, 65, 97, 0.15);
+}
+
+.tool-seo-faq-grid h3 {
+  color: #4b4253;
+  font-size: 0.96rem;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 6px;
+}
+
 .share-splitter .split-control {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -648,7 +864,7 @@ body::after {
   margin: 0;
   font-size: 2.2rem;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: #4b4253;
 }
 
@@ -5472,6 +5688,16 @@ body::after {
 
   .bulk-zone-legend {
     gap: 8px;
+  }
+
+  .tool-seo-guide {
+    padding: 18px;
+  }
+
+  .tool-seo-detail-grid,
+  .tool-seo-workflow,
+  .tool-seo-faq-grid {
+    grid-template-columns: 1fr;
   }
 
   .utm-tree-cell {

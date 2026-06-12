@@ -1,5 +1,6 @@
 :root {
-  font-family: 'Roboto', 'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --ui-font: 'Roboto', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--ui-font);
   line-height: 1.6;
   font-weight: 400;
   color: #433d4a;
@@ -34,6 +35,8 @@ a {
 }
 
 button,
-input {
+input,
+textarea,
+select {
   font-family: inherit;
 }

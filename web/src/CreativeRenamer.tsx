@@ -11,6 +11,7 @@
 } from 'react';
 import JSZip from 'jszip';
 import { deleteResizerTransfer, getResizerTransfer } from './lib/resizerTransfer';
+import { HowToUse, SeoGuide } from './SeoGuide';
 
 type CreativeNode = {
   id: string;
@@ -1410,9 +1411,9 @@ export const CreativeRenamer = () => {
         <div className="controls">
           <div className="controls-heading">
             <h1 className="controls-heading-title">Asset Renamer</h1>
-            <p className="controls-subtitle">
+            <HowToUse page="renamer">
               Upload archives, group your assets, and generate consistent names with sizes and identifiers.
-            </p>
+            </HowToUse>
           </div>
           <div className="split-control">
             <div className="stacked-field-column">
@@ -1598,6 +1599,7 @@ export const CreativeRenamer = () => {
           })()}
         </div>
       ) : null}
+      <SeoGuide page="renamer" />
     </section>
   );
 };

@@ -10,6 +10,7 @@
 } from 'react';
 import JSZip from 'jszip';
 import { storeResizerTransfer } from './lib/resizerTransfer';
+import { HowToUse, SeoGuide } from './SeoGuide';
 
 type AspectPreset = 'free' | 'original' | '1:1' | '4:5' | '5:4' | '16:9' | '9:16' | '4:3' | '3:4' | 'custom';
 
@@ -1638,9 +1639,9 @@ export const CreativeResizer = () => {
         <div className="controls">
           <div className="controls-heading">
             <h1 className="controls-heading-title">Creative Resizer</h1>
-            <p className="controls-subtitle">
+            <HowToUse page="resizer">
               Upload many images, crop them one by one, and export a ZIP of ready creatives. Use Upload ZIPs or files or drag and drop files into the deck. Pick ratio, adjust crop frame, then resize current image.
-            </p>
+            </HowToUse>
           </div>
           <div className="resizer-primary-actions">
             <button type="button" onClick={handleUploadClick}>
@@ -2088,6 +2089,7 @@ export const CreativeResizer = () => {
           <img src={hoverPreview.url} alt="Preview" />
         </div>
       ) : null}
+      <SeoGuide page="resizer" />
     </section>
   );
 };

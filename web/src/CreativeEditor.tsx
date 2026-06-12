@@ -10,6 +10,7 @@ import {
 } from 'react';
 import JSZip from 'jszip';
 import { deleteResizerTransfer, getResizerTransfer } from './lib/resizerTransfer';
+import { HowToUse, SeoGuide } from './SeoGuide';
 
 type EditorAsset = {
   id: string;
@@ -2506,7 +2507,9 @@ export const CreativeEditor = () => {
         <div className="controls">
           <div className="controls-heading">
             <h1 className="controls-heading-title">Creative Editor</h1>
-            <p className="controls-subtitle">Upload images, add text layers, then export edited creatives as a ZIP.</p>
+            <HowToUse page="editor">
+              Upload images, add text layers, then export edited creatives as a ZIP.
+            </HowToUse>
           </div>
           <div className="resizer-primary-actions creative-editor-primary-actions">
             <button type="button" onClick={handleUploadClick} disabled={isWorking}>
@@ -3538,6 +3541,7 @@ export const CreativeEditor = () => {
           <img src={hoverPreview.url} alt="Preview" />
         </div>
       ) : null}
+      <SeoGuide page="editor" />
     </section>
   );
 };

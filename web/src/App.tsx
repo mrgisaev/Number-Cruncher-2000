@@ -13,6 +13,7 @@ import {
   useTransition,
 } from 'react';
 import './App.css';
+import { HowToUse, SeoGuide } from './SeoGuide';
 
 const sampleColumn = '';
 const GA_ID = 'G-4FPWFTG76J';
@@ -1578,9 +1579,9 @@ function App() {
             <section className="controls-wrapper">
               <div className="controls-heading">
                 <h1 className="controls-heading-title">What&apos;s new</h1>
-                <p className="controls-subtitle">
+                <HowToUse page="whats-new">
                   A quick log of updates and fixes for Number Cruncher 2026.
-                </p>
+                </HowToUse>
               </div>
             </section>
             <main className="grid single-grid">
@@ -1667,6 +1668,7 @@ function App() {
                 </div>
               </section>
             </main>
+            <SeoGuide page="whats-new" />
           </>
         ) : isCreativeRenamer || isCreativeResizer || isCreativeEditor || isUtmGenerator || isShareSplitter || isScreenRecorder ? (
           <Suspense fallback={null}>
@@ -1690,9 +1692,9 @@ function App() {
                   <div className="controls">
                   <div className="controls-heading">
                     <h1 className="controls-heading-title">{mainToolTitle}</h1>
-                    <p className="controls-subtitle">
+                    <HowToUse page={isBulkPercent ? 'percent' : 'number'}>
                       One column for your data, the other for a polished result. Pick the distribution mode and settings before copying the result.
-                    </p>
+                    </HowToUse>
                   </div>
                   <div className="split-control">
                     <div className="stacked-field-column">
@@ -2058,6 +2060,7 @@ function App() {
                   </div>
                 </section>
             </main>
+            <SeoGuide page={isBulkPercent ? 'percent' : 'number'} />
           </>
         )}
         <footer className="site-footer">

@@ -1,6 +1,7 @@
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 
 import { addGrouping, parseColumn } from './shareSplitterUtils';
+import { HowToUse, SeoGuide } from './SeoGuide';
 
 type SplitNode = {
   id: string;
@@ -850,9 +851,9 @@ export const ShareSplitter = () => {
         <div className="controls">
           <div className="controls-heading">
             <h1 className="controls-heading-title">Share Splitter</h1>
-            <p className="controls-subtitle">
+            <HowToUse page="share">
               Split a total across groups and nested subgroups with automatic balancing.
-            </p>
+            </HowToUse>
           </div>
           <div className="split-control">
             <div className="stacked-field-column">
@@ -1053,6 +1054,7 @@ export const ShareSplitter = () => {
           ))}
         </div>
       </section>
+      <SeoGuide page="share" />
     </section>
   );
 };

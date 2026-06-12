@@ -1,4 +1,5 @@
 import { type CSSProperties, type KeyboardEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { HowToUse, SeoGuide } from './SeoGuide';
 
 type UtmLevel = 'source' | 'medium' | 'campaign' | 'term' | 'content' | 'id';
 
@@ -500,9 +501,9 @@ export const UtmGenerator = () => {
         <div className="controls">
           <div className="controls-heading">
             <h1 className="controls-heading-title">UTM Generator</h1>
-            <p className="controls-subtitle">
+            <HowToUse page="utm">
               Build UTM links in bulk from LP list and nested parameter groups.
-            </p>
+            </HowToUse>
           </div>
           <div className="split-control utm-lp-control">
             <div className="stacked-field-column">
@@ -645,6 +646,7 @@ export const UtmGenerator = () => {
           )}
         </div>
       </section>
+      <SeoGuide page="utm" />
     </section>
   );
 };
