@@ -212,12 +212,22 @@ const enforceRounding = (values: number[], desiredSum: number, decimals: number)
 
   const unit = 10 ** decimals;
   const desiredUnits = Math.round(desiredSum * unit);
-  const roundedUnits = values.map((value) => Math.round(value * unit));
-  const currentUnits = roundedUnits.reduce((acc, value) => acc + value, 0);
-  const diffUnits = desiredUnits - currentUnits;
+  const scaledValues = values.map((value) => value * unit);
+  const roundedUnits = scaledValues.map((value) => Math.floor(value));
+  let diffUnits = desiredUnits - roundedUnits.reduce((acc, value) => acc + value, 0);
 
-  if (diffUnits !== 0) {
-    roundedUnits[roundedUnits.length - 1] += diffUnits;
+  if (diffUnits > 0) {
+    const indexesByRemainder = scaledValues
+      .map((value, index) => ({
+        index,
+        remainder: value - Math.floor(value),
+      }))
+      .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
+
+    for (let index = 0; index < indexesByRemainder.length && diffUnits > 0; index += 1) {
+      roundedUnits[indexesByRemainder[index].index] += 1;
+      diffUnits -= 1;
+    }
   }
 
   return roundedUnits.map((value) => value / unit);
