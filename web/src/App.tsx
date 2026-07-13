@@ -64,6 +64,7 @@ const numberFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
 });
 const DISPLAY_ZERO_THRESHOLD = 0.005;
+const MAX_NATIVE_DECIMALS = 100;
 
 interface ParsedRow {
   raw: string;
@@ -210,7 +211,7 @@ const enforceRounding = (values: number[], desiredSum: number, decimals: number)
     return [];
   }
 
-  const unit = 10 ** decimals;
+  const unit = 10 ** Math.min(Math.max(0, decimals), MAX_NATIVE_DECIMALS);
   const desiredUnits = Math.round(desiredSum * unit);
   const scaledValues = values.map((value) => value * unit);
   const roundedUnits = scaledValues.map((value) => Math.floor(value));
@@ -235,11 +236,14 @@ const enforceRounding = (values: number[], desiredSum: number, decimals: number)
 
 const formatRowValue = (value: number, decimals: number) => {
   const digits = Math.max(0, decimals);
+  const nativeDigits = Math.min(digits, MAX_NATIVE_DECIMALS);
   const sign = value < 0 ? '-' : '';
-  const fixed = Math.abs(value).toFixed(digits);
+  const fixed = Math.abs(value).toFixed(nativeDigits);
   const [integerPartRaw, fractionPart] = fixed.split('.');
   const integerPart = addGrouping(integerPartRaw);
-  const fraction = fractionPart ? `.${fractionPart}` : '';
+  const paddedFraction =
+    digits > nativeDigits ? `${fractionPart ?? ''}${'0'.repeat(digits - nativeDigits)}` : fractionPart;
+  const fraction = paddedFraction ? `.${paddedFraction}` : '';
   return `${sign}${integerPart}${fraction}`;
 };
 
@@ -591,7 +595,7 @@ function App() {
 
   const parsedFractionDigits = Number.parseInt(fractionDigitsInput, 10);
   const fractionDigitsValue = Number.isFinite(parsedFractionDigits)
-    ? Math.min(Math.max(parsedFractionDigits, 0), 6)
+    ? Math.max(parsedFractionDigits, 0)
     : 0;
   const parsedRandomPercent = Number.parseFloat(randomPercentInput.replace(',', '.'));
   const randomPercentValue = Number.isFinite(parsedRandomPercent)
@@ -1142,7 +1146,7 @@ function App() {
     setFractionDigitsInput((prev) => {
       const parsed = Number.parseInt(prev, 10);
       const current = Number.isFinite(parsed) ? parsed : 0;
-      const next = Math.max(0, Math.min(6, current + delta));
+      const next = Math.max(0, current + delta);
       return String(next);
     });
   };
@@ -1826,7 +1830,6 @@ function App() {
                             type="button"
                             className="mode-toggle-button"
                             onClick={() => changeFractionDigits(1)}
-                            disabled={fractionDigitsValue >= 6}
                             title="Increase decimal places"
                           >
                             +0.00

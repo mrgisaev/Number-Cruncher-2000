@@ -33,6 +33,8 @@ type CachedMode = {
 };
 
 const createId = () => Math.random().toString(36).slice(2, 10);
+const DEFAULT_DECIMALS = 2;
+const MAX_NATIVE_DECIMALS = 100;
 
 const getNextIndex = (nodes: SplitNode[], base: string) => {
   const regex = new RegExp(`^${base}\\s*(\\d+)?$`, 'i');
@@ -107,10 +109,12 @@ const sumAbsoluteLevel = (nodes: SplitNode[]) => {
 };
 
 const formatAmount = (value: number, decimals: number) => {
-  const fixed = value.toFixed(decimals);
+  const nativeDecimals = Math.min(decimals, MAX_NATIVE_DECIMALS);
+  const fixed = value.toFixed(nativeDecimals);
   const [integerPart, fraction] = fixed.split('.');
   const grouped = addGrouping(integerPart);
-  return fraction ? `${grouped}.${fraction}` : grouped;
+  const paddedFraction = decimals > nativeDecimals ? `${fraction ?? ''}${'0'.repeat(decimals - nativeDecimals)}` : fraction;
+  return paddedFraction ? `${grouped}.${paddedFraction}` : grouped;
 };
 
 const toPercentString = (value: number) => {
@@ -123,7 +127,7 @@ const roundGroup = (rows: ComputedNode[], parentTotal: number, decimals: number)
   if (!rows.length) {
     return rows;
   }
-  const unit = 10 ** decimals;
+  const unit = 10 ** Math.min(decimals, MAX_NATIVE_DECIMALS);
   const rounded = rows.map((row) => Math.round(row.amount * unit));
   const target = Math.round(parentTotal * unit);
   const diff = target - rounded.reduce((acc, val) => acc + val, 0);
@@ -482,8 +486,8 @@ export const ShareSplitter = () => {
     return sumAbsoluteLevel(rows);
   }, [rows, totalInput, totalParsed]);
   const decimals = Number.isFinite(Number.parseInt(roundingInput, 10))
-    ? Math.min(Math.max(Number.parseInt(roundingInput, 10), 0), 6)
-    : 2;
+    ? Math.max(Number.parseInt(roundingInput, 10), 0)
+    : DEFAULT_DECIMALS;
   const parsedRandomPercent = Number.parseFloat(randomPercentInput.replace(',', '.'));
   const randomPercentValue = Number.isFinite(parsedRandomPercent)
     ? Math.min(Math.max(parsedRandomPercent, 0), 100)
@@ -577,7 +581,7 @@ export const ShareSplitter = () => {
     setRoundingInput((prev) => {
       const parsed = Number.parseInt(prev, 10);
       const current = Number.isFinite(parsed) ? parsed : 0;
-      const next = Math.max(0, Math.min(6, current + delta));
+      const next = Math.max(0, current + delta);
       return String(next);
     });
   };
@@ -893,7 +897,6 @@ export const ShareSplitter = () => {
                         type="button"
                         className="mode-toggle-button"
                         onClick={() => changeRounding(1)}
-                        disabled={decimals >= 6}
                         title="Increase decimal places"
                       >
                         +0.00
