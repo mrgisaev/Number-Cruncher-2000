@@ -600,8 +600,13 @@ export const CreativeResizer = () => {
   const deckDragDepthRef = useRef(0);
   const globalFileDragDepthRef = useRef(0);
   const lastCustomAspectAssetIdRef = useRef<string | null>(null);
+  const selectedCropAspectRef = useRef<{ preset: AspectPreset; normalizedRatio: number | null }>({
+    preset: 'free',
+    normalizedRatio: null,
+  });
 
   const currentAsset = assets[currentIndex] ?? null;
+  const currentAssetId = currentAsset?.id ?? null;
   const deckStep = 52;
   const deckOffset = assets.length > 0
     ? (((assets.length - 1) / 2) - currentIndex) * deckStep
@@ -674,12 +679,21 @@ export const CreativeResizer = () => {
   };
 
   useEffect(() => {
-    if (!currentAsset) {
+    selectedCropAspectRef.current = { preset: aspectPreset, normalizedRatio: normalizedAspectRatio };
+  }, [aspectPreset, normalizedAspectRatio]);
+
+  useEffect(() => {
+    if (!currentAssetId) {
       return;
     }
+    const { preset, normalizedRatio } = selectedCropAspectRef.current;
     setIsCropInteracting(false);
-    setCropRect(createFullImageRect());
-  }, [currentAsset?.id]);
+    setCropRect(
+      preset === 'original'
+        ? createFullImageRect()
+        : fitRectToAspectAtPosition(createFullImageRect(), normalizedRatio),
+    );
+  }, [currentAssetId]);
 
   useEffect(() => {
     assetsRef.current = assets;
